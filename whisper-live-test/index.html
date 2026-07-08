@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Whisper Sinhala Test</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; background: #111; color: #eee; }
+  .text, #live .text { font-family: "Sinhala Sangam MN", "Sinhala MN", "Iskoola Pota", "Noto Sans Sinhala", system-ui, sans-serif; }
+  h1 { font-size: 1.3rem; }
+  .controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 20px 0; }
+  select, button { font-size: 1rem; padding: 10px 16px; border-radius: 8px; border: 1px solid #444; background: #222; color: #eee; }
+  #recBtn { min-width: 180px; cursor: pointer; background: #2563eb; border-color: #2563eb; font-weight: 600; }
+  #recBtn.recording { background: #dc2626; border-color: #dc2626; animation: pulse 1.2s infinite; }
+  @keyframes pulse { 50% { opacity: .6; } }
+  #status { color: #999; min-height: 1.4em; margin: 8px 0; }
+  .result { background: #1c1c1c; border: 1px solid #333; border-radius: 10px; padding: 16px; margin-top: 12px; }
+  .result .text { font-size: 1.35rem; line-height: 1.7; }
+  .result .meta { color: #888; font-size: .85rem; margin-top: 10px; }
+  .segments { color: #aaa; font-size: .9rem; margin-top: 10px; }
+  .segments span.t { color: #666; }
+  #live { background: #16211c; border: 1px solid #2f4f3f; border-radius: 10px; padding: 16px; margin-top: 12px; display: none; }
+  #live .text { font-size: 1.35rem; line-height: 1.7; min-height: 1.7em; }
+  #live .label { color: #6dbb8f; font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<h1>🎙️ Whisper live transcription test (Sinhala)</h1>
+
+<div class="controls">
+  <button id="recBtn">Start recording</button>
+  <label>Model
+    <select id="model">
+      <option value="tiny">tiny</option>
+      <option value="base">base</option>
+      <option value="small" selected>small</option>
+      <option value="medium">medium</option>
+      <option value="large-v3">large-v3</option>
+      <option value="speak-asr-si">SPEAK-ASR (Sinhala fine-tuned)</option>
+    </select>
+  </label>
+  <label>Language
+    <select id="language">
+      <option value="si" selected>Sinhala (si)</option>
+      <option value="auto">Auto-detect</option>
+      <option value="en">English (en)</option>
+    </select>
+  </label>
+</div>
+
+<div id="status">Click "Start recording", speak, then click "Stop".</div>
+<div id="live"><div class="label">Live (updates every few seconds)</div><div class="text"></div></div>
+<div id="results"></div>
+
+<script>
+const recBtn = document.getElementById('recBtn');
+const statusEl = document.getElementById('status');
+const resultsEl = document.getElementById('results');
+const liveEl = document.getElementById('live');
+const liveTextEl = liveEl.querySelector('.text');
+let mediaRecorder = null;
+let chunks = [];
+let recStart = 0;
+let liveBusy = false;
+
+recBtn.onclick = async () => {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    chunks = [];
+    liveBusy = false;
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => {
+      chunks.push(e.data);
+      if (mediaRecorder.state === 'recording') liveUpdate();
+    };
+    mediaRecorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      recBtn.textContent = 'Start recording';
+      recBtn.classList.remove('recording');
+      liveEl.style.display = 'none';
+      sendClip(new Blob(chunks, { type: mediaRecorder.mimeType }));
+    };
+    mediaRecorder.start(3000); // emit a chunk every 3s so we can transcribe while speaking
+    recStart = Date.now();
+    recBtn.textContent = 'Stop';
+    recBtn.classList.add('recording');
+    liveTextEl.innerHTML = '<i style="color:#666">listening…</i>';
+    liveEl.style.display = 'block';
+    statusEl.textContent = 'Recording... speak in Sinhala, then click Stop for the final pass.';
+  } catch (err) {
+    statusEl.textContent = 'Mic error: ' + err.message;
+  }
+};
+
+// Whisper can't stream, so we re-transcribe the audio-so-far each time a
+// chunk arrives. Skips a round if the previous request is still running.
+function clipName() {
+  return (mediaRecorder.mimeType || '').includes('mp4') ? 'clip.mp4' : 'clip.webm';
+}
+
+// Parse the response as JSON, but surface the real server error if it isn't.
+async function readJson(res) {
+  const raw = await res.text();
+  let data;
+  try { data = JSON.parse(raw); }
+  catch { throw new Error(`server ${res.status}: ${raw.replace(/<[^>]*>/g, ' ').trim().slice(0, 200)}`); }
+  if (!res.ok) throw new Error(data.error || `server ${res.status}`);
+  return data;
+}
+
+async function liveUpdate() {
+  if (liveBusy || chunks.length === 0) return;
+  liveBusy = true;
+  const form = new FormData();
+  form.append('audio', new Blob(chunks, { type: mediaRecorder.mimeType }), clipName());
+  form.append('model', document.getElementById('model').value);
+  form.append('language', document.getElementById('language').value);
+  try {
+    const res = await fetch('/transcribe', { method: 'POST', body: form });
+    const data = await readJson(res);
+    if (mediaRecorder && mediaRecorder.state === 'recording' && data.text) {
+      liveTextEl.textContent = data.text;
+    }
+  } catch (e) { /* interim pass failed; next chunk will retry */ }
+  liveBusy = false;
+}
+
+async function sendClip(blob) {
+  const clipSecs = ((Date.now() - recStart) / 1000).toFixed(1);
+  const model = document.getElementById('model').value;
+  statusEl.textContent = `Transcribing ${clipSecs}s clip with "${model}"... (first use of a model downloads it — can take a while)`;
+  const form = new FormData();
+  form.append('audio', blob, clipName());
+  form.append('model', model);
+  form.append('language', document.getElementById('language').value);
+  try {
+    const res = await fetch('/transcribe', { method: 'POST', body: form });
+    const data = await readJson(res);
+    statusEl.textContent = 'Done. Record again to compare models.';
+    const div = document.createElement('div');
+    div.className = 'result';
+    const segs = (data.segments || [])
+      .map(s => `<div><span class="t">[${s.start}–${s.end}s]</span> ${escapeHtml(s.text)}</div>`).join('');
+    div.innerHTML = `
+      <div class="text">${escapeHtml(data.text) || '<i>(empty transcription)</i>'}</div>
+      <div class="meta">model: ${data.model} · language: ${data.language} · clip: ${clipSecs}s · transcribed in ${data.seconds}s</div>
+      ${segs ? `<div class="segments">${segs}</div>` : ''}`;
+    resultsEl.prepend(div);
+  } catch (err) {
+    statusEl.textContent = 'Error: ' + err.message;
+  }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+</script>
+</body>
+</html>

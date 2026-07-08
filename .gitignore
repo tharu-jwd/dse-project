@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Model/dataset caches (downloaded separately, not part of the repo)
+*.pt
+*.safetensors
+*.ckpt
+
+# Runtime artifacts
+*.log
+*.wav
+*.webm
+*.mp4
+
+# Claude Code local settings (machine-specific)
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+
+# OS
+.DS_Store
