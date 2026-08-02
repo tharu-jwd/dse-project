@@ -22,6 +22,8 @@ This adapter is wired into the demo app as a working baseline to build on.
 - `whisper-live-test/` — Flask + browser demo: record or upload speech, get a transcription.
   Supports plain Whisper (`tiny`...`large-v3`) and the SPEAK-ASR Sinhala adapter.
 - `scripts/evaluate_asr.py` — runs a model against SPEAK-ASR's Sinhala test set and reports WER.
+- `frontend/` — Phase 2 React application for accessible lectures, spoken quizzes, study notes,
+  transcript review and teacher workflows. See [`frontend/README.md`](frontend/README.md).
 
 ## Running the demo
 
