@@ -4,12 +4,17 @@ const AccessibilityContext = createContext(null)
 const defaults = { fontSize: 'normal', highContrast: false, confidenceThreshold: 0.8 }
 
 function readPreferences() {
-  try { return { ...defaults, ...JSON.parse(localStorage.getItem('sinhaspeech_accessibility')) } } catch { return defaults }
+  try {
+    return { ...defaults, ...JSON.parse(localStorage.getItem('sinhaspeech_accessibility')) }
+  } catch {
+    return defaults
+  }
 }
 
 export function AccessibilityProvider({ children }) {
   const [preferences, setPreferences] = useState(readPreferences)
-  const updatePreference = (key, value) => setPreferences((current) => ({ ...current, [key]: value }))
+  const updatePreference = (key, value) =>
+    setPreferences((current) => ({ ...current, [key]: value }))
 
   useEffect(() => {
     localStorage.setItem('sinhaspeech_accessibility', JSON.stringify(preferences))
@@ -21,4 +26,6 @@ export function AccessibilityProvider({ children }) {
   return <AccessibilityContext.Provider value={value}>{children}</AccessibilityContext.Provider>
 }
 
-export function useAccessibility() { return useContext(AccessibilityContext) }
+export function useAccessibility() {
+  return useContext(AccessibilityContext)
+}
