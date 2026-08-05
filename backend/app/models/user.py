@@ -21,7 +21,7 @@ class User(Base):
     __table_args__=(
         UniqueConstraint("email", name="uq_users_email"),
         CheckConstraint(
-            "role IN ('STUDENT', TEACHER')",
+            "role IN ('STUDENT', 'TEACHER')",
             name="ck_users_role",
         ),
     )
