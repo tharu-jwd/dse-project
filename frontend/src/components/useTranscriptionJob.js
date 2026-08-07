@@ -5,13 +5,14 @@ export default function useTranscriptionJob() {
   const [job, setJob] = useState(null)
   const timer = useRef(null)
   const active = useRef(true)
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    active.current = true
+
+    return () => {
       active.current = false
       window.clearTimeout(timer.current)
-    },
-    [],
-  )
+    }
+  }, [])
 
   const poll = useCallback(async (jobId) => {
     try {

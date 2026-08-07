@@ -50,7 +50,7 @@ export default function TranscriptEditor({
   const { confidenceThreshold, updatePreference } = useAccessibility()
   const { showToast } = useToast()
   const player = useRef(null)
-  const [playbackURL, setPlaybackURL] = useState('')
+  const [playbackUrl, setPlaybackURL] = useState('')
   const [mediaError, setMediaError] = useState('')
   useEffect(() => setTranscript(initialTranscript), [initialTranscript])
   useEffect(() => {
