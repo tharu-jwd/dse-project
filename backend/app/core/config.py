@@ -18,6 +18,11 @@ class Settings(BaseSettings):
 
     cors_origin: str = "http://localhost:5173"
 
+    media_storage_dir: str = "storage/uploads"
+    max_upload_size_bytes: int = 100 * 1024 * 1024
+
+    transcriber_backend: str = "fake"
+
     @property
     def cors_origins_list(self) -> list[str]:
         return[
@@ -25,6 +30,15 @@ class Settings(BaseSettings):
             for origin in self.cors_origin.split(",")
             if origin.strip()
         ]
+
+    @property
+    def media_storage_path(self) -> Path:
+        path = Path(self.media_storage_dir)
+
+        if not path.is_absolute():
+            path = PROJECT_ROOT / path
+
+        return path.resolve()
 
     model_config = SettingsConfigDict(
         env_file = PROJECT_ROOT / ".env",

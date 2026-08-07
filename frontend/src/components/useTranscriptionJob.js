@@ -19,7 +19,7 @@ export default function useTranscriptionJob() {
       if (!active.current) return
       setJob(next)
       if (next.status === 'UPLOADING' || next.status === 'PROCESSING')
-        timer.current = window.setTimeout(() => poll(jobId), 800)
+        timer.current = window.setTimeout(() => poll(jobId), 2000)
     } catch (error) {
       if (active.current) setJob({ jobId, status: 'FAILED', message: error.message })
     }
@@ -33,7 +33,7 @@ export default function useTranscriptionJob() {
         const created = await api.createTranscription(formData)
         if (active.current) {
           setJob(created)
-          timer.current = window.setTimeout(() => poll(created.jobId), 500)
+          timer.current = window.setTimeout(() => poll(created.jobId), 1000)
         }
       } catch (error) {
         if (active.current) setJob({ status: 'FAILED', message: error.message })

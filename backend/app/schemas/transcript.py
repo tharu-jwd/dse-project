@@ -7,6 +7,7 @@ from pydantic import (
     ConfigDict,
     Field,
     model_validator,
+    field_validator,
 )
 
 
@@ -115,11 +116,32 @@ class TranscriptUpdate(BaseModel):
         extra="ignore",
     )
 
+    @field_validator("title")
+    @classmethod
+    def normalize_title(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+
+        normalized_title = value.strip()
+
+        if not normalized_title:
+            raise ValueError("Transcript title cannot be empty.")
+
+        return normalized_title
+
     @model_validator(mode="after")
-    def require_at_least_one_update(self) -> "TranscriptUpdate":
+    def validate_update(self) -> "TranscriptUpdate":
         if self.title is None and self.segments is None:
-            raise ValueError(
-                "At least one transcript field must be provided."
-            )
+            raise ValueError("At least one transcript field must be provided")
+
+        if self.segments is not None:
+            segment_ids = [
+                segment.id
+                for segment in self.segments
+            ]
+
+            if len(segment_ids) != len(set(segment_ids)):
+                raise ValueError("A transcript segment cannot apper more than once")
 
         return self
+

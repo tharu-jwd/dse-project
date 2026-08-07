@@ -114,6 +114,10 @@ class TranscriptionJob(Base):
             name="ck_transcription_jobs_status",
         ),
         CheckConstraint(
+            "transcript_type IN ('LECTURE', 'NOTE', 'QUIZ_ANSWER')",
+            name="ck_transcription_jobs_type",
+        ),
+        CheckConstraint(
             "progress_percent >= 0 AND progress_percent <= 100",
             name="ck_transcription_jobs_progress",
         ),
@@ -141,6 +145,14 @@ class TranscriptionJob(Base):
         ForeignKey("transcripts.transcript_id", ondelete="SET NULL"),
         nullable=True,
     )
+    title: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+    transcript_type: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+    )
     status: Mapped[str] = mapped_column(
         String(20),
         default="QUEUED",
@@ -154,7 +166,10 @@ class TranscriptionJob(Base):
         server_default=text("0"),
         nullable=False,
     )
-    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
