@@ -1,8 +1,8 @@
 """Evaluate ASR models on SPEAK-ASR's Sinhala test set and report WER.
 
 Usage:
-  python3 scripts/evaluate_asr.py --model speak-asr --num-samples 20
-  python3 scripts/evaluate_asr.py --model plain-whisper --whisper-size medium --num-samples 20
+  python3 research/scripts/evaluate_asr.py --model speak-asr --num-samples 20
+  python3 research/scripts/evaluate_asr.py --model plain-whisper --whisper-size medium --num-samples 20
 
 `speak-asr` loads openai/whisper-medium + the SPEAK-ASR LoRA adapter
 (SPEAK-ASR/whisper-si-exp-10-medium-all, documented eval WER 10.85%).
