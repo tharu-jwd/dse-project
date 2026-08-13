@@ -96,8 +96,6 @@ flowchart TB
 
 </details>
 
-<sub>Regenerate: `bash ~/.claude/skills/mermaid-to-image/render-mermaid.sh diagrams/code-structure.mmd diagrams/code-structure.png`</sub>
-
 ## Setup
 
 Requires Python 3.11+, `ffmpeg` on PATH, and:
