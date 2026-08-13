@@ -1,140 +1,169 @@
 # Review: fine-tuning/evaluation work against the SRS and Software Architecture Document
 
-I read the project's `project-docs/SRS.pdf` and `project-docs/Software Architecture.pdf` in full (not just
-skimmed) and checked what's in `model-development/` against them. This is scoped strictly to
-fine-tuning and evaluation, the two workflows this folder owns. It does not cover preprocessing,
-the backend, or the frontend.
+I read `project-docs/SRS.pdf` and `project-docs/Software Architecture.pdf` cover to cover and
+checked `model-development/` against them. Scope here is strictly fine-tuning and evaluation,
+the two workflows this folder owns. Preprocessing, the backend, and the frontend aren't covered.
 
-This is an independent read. Where the SRS/SAD state something specific and the code doesn't
-match it, that's flagged as a gap. Where I think a documented choice is questionable on its own
-technical merits, that's flagged separately as a judgment call, not a defect.
+This is an independent read, not a rubber stamp. Where the SRS/SAD say something specific and
+the code doesn't do it, that's a gap. Where I think a documented choice is questionable on its
+own merits, that's a judgment call instead, and I say so. Each item below ends with what I'd
+actually do about it, not just the finding.
 
-## Critical gaps: explicit requirements the code doesn't meet
+## Critical gaps
 
-**1. Wrong base model default.** SRS §3.1.2 and the SAD (§3.2, §6, §10) specify Whisper-Small as
-the primary architecture for fine-tuning, with Whisper-Base as a fallback if GPU memory is
-insufficient, tied directly to the stated hardware constraint (Google Colab Pro, free-tier
-fallbacks). `train_asr.py --base-model` currently defaults to `openai/whisper-medium`, and every
-mention of the base model in `model-development/README.md` and `asr_common/models.py` assumes
-medium. Medium is roughly 3x the parameter count of Small and was exactly the size the SRS says
-the hardware constraint rules out as a default. `--base-model` is already a CLI flag, so this is
-a one-line default change, not a redesign, but it's a real mismatch as it stands.
+**1. Wrong base model default.**
+SRS §3.1.2 and SAD §3.2/§6/§10 say Whisper-Small, fallback to Whisper-Base, tied directly to the
+Colab Pro GPU memory limit. `train_asr.py --base-model` defaults to `openai/whisper-medium`,
+about 3x the size the SRS says the hardware rules out.
 
-**2. No CER anywhere.** WER and CER are required together throughout both documents (SRS §1.3
-definitions, §3.1.2, §3.1.3, §3.3 accuracy criterion, §3.9.3, §3.11; SAD §6 process view, UC-10).
-`asr_common/metrics.py` only implements `compute_wer`. There's no `compute_cer`, and neither
-`train_asr.py`'s `compute_metrics` nor `evaluate_asr.py`'s scoring loop reports it.
+*My call: fix it.* Change the default to `openai/whisper-small` and update the README and
+`asr_common/models.py` docstrings that assume medium. `--base-model` already exists as a flag,
+so this is a one-line change plus a docs pass, nothing structural. No reason to sit on this one.
 
-**3. No Weights & Biases integration.** W&B logging of training loss, validation loss, learning
-rate, WER, and CER is called out repeatedly and specifically: it's a defined term (SRS §1.3), an
-explicit step in the SAD's fine-tuning activity diagram (Figure 5: "Log metrics to Weights &
-Biases"), part of UC-9's description, a listed software interface (SRS §3.9.3, with protocol,
-auth, and payload format specified), a purchased component (SRS §3.8), and a project dependency
-assumption (SRS §2). `train_asr.py --report-to` defaults to `"none"`, `wandb` isn't in
-`requirements.txt`, and there's no W&B code anywhere in this folder.
+**2. No CER anywhere.**
+WER and CER are required together throughout both docs. `asr_common/metrics.py` only has
+`compute_wer`. `jiwer.cer` exists and takes the same arguments as `jiwer.wer`, so there's no
+library gap here, just a missing function.
 
-**4. No SpecAugment.** SRS §3.1.2: "SpecAugment is applied during training to reduce
-overfitting." `SpecAugment` is a defined term in both documents' glossaries. `train_asr.py` has
-no augmentation step; `build_preprocess_fn` goes straight from raw audio to log-Mel features with
-nothing masked.
+*My call: fix it.* Add `compute_cer` next to `compute_wer`, wire it into `train_asr.py`'s
+`compute_metrics` and `evaluate_asr.py`'s scoring, and add a `cer` field to the persisted
+`eval_results/results.jsonl` rows. Maybe twenty minutes of work. No excuse to skip it.
 
-**5. No best-checkpoint selection by validation metric.** SRS §3.1.2: "the checkpoint with the
-best validation WER/CER is selected rather than simply using the last epoch." `train_asr.py`'s
-`Seq2SeqTrainingArguments` sets `save_strategy`/`save_total_limit` (a rolling window of recent
-checkpoints) but never sets `load_best_model_at_end=True` or `metric_for_best_model`, so nothing
-about the current setup actually picks the best-scoring checkpoint over the last one.
+**3. No Weights & Biases integration.**
+Called out as a defined term, an explicit pipeline step (SAD Figure 5), a required software
+interface with protocol and auth spelled out, and a project dependency. `train_asr.py
+--report-to` defaults to `"none"`, `wandb` isn't a dependency, nothing logs to it.
 
-## Notable gaps: real, but lower severity or shared ownership
+*My call: fix it, and it's cheaper than it looks.* `Seq2SeqTrainer` already reports loss,
+learning rate, and `compute_metrics` output to W&B automatically once `report_to="wandb"` is
+set, no custom instrumentation needed. Add `wandb` to `requirements.txt`, change the default (or
+at least document `--report-to wandb` clearly as the real-run setting), done. The smoke test can
+keep `--report-to none` since there's no reason to log throwaway 5-step runs.
 
-**6. Only one external baseline is wired in.** SRS §3.1.3 and §4.1 name two existing published
-Sinhala Whisper fine-tunes to benchmark against: SPEAK-ASR (already used, `--model speak-asr`)
-and `Lingalingeswaran/whisper-small-sinhala` (SRS ref [9], not referenced anywhere in this
-folder). Worth noting: that name also showed up on the `Yohan_Observation` branch as a dataset
-notebook (`lingaData.ipynb`, the "lingalingeswaran-asr-sinhala-dataset"), so there may be a
-naming overlap between a dataset and a model worth double-checking with whoever owns that branch
-before assuming they're the same source.
+**4. No SpecAugment.**
+SRS §3.1.2 requires it by name during training. `train_asr.py` goes straight from audio to
+features with no masking step.
 
-**7. `evaluate_asr.py --model custom` assumes a PEFT adapter.** It routes every checkpoint
-through `load_lora_adapter`, which calls `PeftModel.from_pretrained(base_model, adapter_id)`.
-If `Lingalingeswaran/whisper-small-sinhala` (or any other benchmark target) turns out to be a
-fully merged model rather than a raw adapter, this path won't load it. Not fixable without
-knowing that model's actual format.
+*My call: fix it, and it's not a custom implementation.* `WhisperConfig` already has
+`apply_spec_augment` (off by default) plus `mask_time_prob`/`mask_feature_prob` knobs built into
+the encoder's forward pass. Setting `base_model.config.apply_spec_augment = True` before wrapping
+with LoRA gets this for free. Worth a quick check that PEFT-wrapping doesn't disable it, but I'd
+be surprised if it does.
 
-**8. No separate "generalization" evaluation split.** SRS §3.1.3 wants two evaluation numbers:
-WER/CER on a held-out test split drawn from the pooled training sources, and separately on the
-fully-withheld Mozilla Common Voice Sinhala set, specifically to measure generalization to an
-unseen source. `evaluate_asr.py` only knows about one dataset/split at a time
-(`SPEAK-ASR/openslr-sinhala-asr`, hardcoded). This is expected for now since it's explicitly a
-placeholder (see "Placeholder dataset" in the README), but the eventual real setup will need two
-distinct eval datasets, not one, and the current single-`--split` design doesn't yet anticipate
-that.
+**5. No best-checkpoint selection by validation metric.**
+SRS §3.1.2: pick the checkpoint with the best validation WER/CER, not the last one.
+`Seq2SeqTrainingArguments` never sets `load_best_model_at_end`.
 
-**9. No confusion-pattern / error-analysis output.** SRS §3.1.3: "a confusion-pattern breakdown
-is produced to identify frequently mistranscribed phonemes or words." The SAD's use-case table
-attributes this to "Analyse recognition errors" (UC-11, "Development Team"), separate from
-"Evaluate and benchmark model" (UC-10, "Developer"), so it's ambiguous whether this belongs to
-the evaluation script specifically or is a broader, shared analysis task. Either way,
-`evaluate_asr.py` doesn't produce anything beyond aggregate WER and per-sample REF/HYP text.
+*My call: fix it.* Add `load_best_model_at_end=True`, `metric_for_best_model="wer"` (or `"cer"`
+once #2 is in), `greater_is_better=False`. Three lines. Do this at the same time as #2 since
+they touch the same training arguments.
 
-**10. No aggregate output report.** SRS §3.1.3: "A final output report summarising all
-evaluation results is produced regardless of whether the model clears the accuracy threshold."
-`eval_results/results.jsonl` accumulates one row per run, which covers the "regardless of
-outcome" part, but there's no generated report artifact (markdown, HTML, whatever) summarizing
-results across runs.
+## Notable gaps
 
-## Judgment calls: places I'd push back on, or flag as open questions
+**6. Only one external baseline is wired in.**
+SRS §4.1 names two published Sinhala fine-tunes to benchmark against: SPEAK-ASR (already used)
+and `Lingalingeswaran/whisper-small-sinhala`, never referenced here. Same name shows up on
+`Yohan_Observation` as a dataset notebook (`lingaData.ipynb`), so it's worth confirming with
+whoever owns that branch whether the dataset and the model are actually related or just share a
+name.
 
-**11. LoRA vs. full fine-tuning.** I chose LoRA, following the SPEAK-ASR baseline's own approach.
-Neither document mentions LoRA, PEFT, or adapters anywhere, including in the glossary, where
-`SpecAugment`, `FP16`, and `Checkpoint` all get defined. The SRS's fine-tuning reference (§1.4
-ref [5], "Fine-Tune Whisper for Multilingual ASR with Transformers") is the well-known Hugging
-Face blog post that does full fine-tuning, not LoRA. Read together, that suggests the original
-intent was probably full fine-tuning of Whisper-Small.
+*My call: check the model card first, then decide.* If it's a LoRA adapter, `--model custom
+--checkpoint Lingalingeswaran/whisper-small-sinhala` probably already works with what's built.
+If it's a merged model, see #7. Either way this is a five-minute lookup before deciding whether
+any code needs to change.
 
-My own judgment: LoRA is very likely still the better call here regardless of what was
-originally intended, given the explicitly documented hardware constraint (Colab Pro / free-tier
-GPU memory and session limits) and because it keeps the comparison against SPEAK-ASR
-methodologically consistent (adapter vs. adapter, not adapter vs. full fine-tune). I'd raise this
-with the team and mentor as a deliberate deviation to confirm rather than silently "fix" it
-either direction. If the team wants literal compliance with the referenced blog post, that means
-full fine-tuning of Whisper-Small, a materially different and more expensive training setup than
-what `train_asr.py` currently does.
+**7. `--model custom` assumes a PEFT adapter.**
+It always calls `PeftModel.from_pretrained`. A fully merged model would fail to load through it.
 
-**12. The placeholder dataset doesn't match the SRS's real training-data shape, on purpose.**
-SRS §3.1.1/§3.1.2 describes pooling OpenSLR52 + YouTube-Sinhala-ASR + Biz-Brains-Academy-Sinhala
-for train/validation, with Mozilla Common Voice Sinhala withheld entirely for evaluation.
-`asr_common/dev_dataset.py` uses only `SPEAK-ASR/openslr-sinhala-asr` (OpenSLR data alone,
-already split by SPEAK-ASR, not the four-dataset pool). This is intentional and already
-documented as temporary: this folder doesn't own dataset pooling, cleaning, or the held-out-set
-strategy, that's the preprocessing pipeline's job per the scope agreement already in place. Not
-a defect in this folder's work. Flagging only so whoever picks this up next knows the real target
-shape once preprocessing is ready: two distinct sources (pooled 3-way train/val, and a
-completely separate held-out Mozilla Common Voice set), not the single dataset currently
-standing in for it.
+*My call: don't build this until #6 tells us we need it.* Speculatively adding a code path for a
+model format we haven't confirmed exists yet is wasted work. If Lingalingeswaran's model turns
+out to be merged, add a `--model-format {adapter,full}` flag or similar then, not now.
+
+**8. No separate generalization-eval split.**
+The SRS wants two numbers: WER/CER on a held-out split from the pooled training sources, and
+separately on the fully-withheld Mozilla Common Voice set. Right now there's one hardcoded
+dataset.
+
+*My call: leave it.* This is downstream of preprocessing delivering the real pooled dataset,
+which doesn't exist yet. Building support for a split that doesn't exist against data we don't
+have is premature. Once preprocessing lands both sources, running `evaluate_asr.py` twice with
+two different `--dataset`/`--split` values covers this without any code change, it's a usage
+pattern, not a missing feature.
+
+**9. No confusion-pattern / error-analysis output.**
+SRS §3.1.3 wants a breakdown of frequently mistranscribed words or phonemes. The SAD splits this
+into a separate use case (UC-11, "Development Team") from evaluation and benchmarking (UC-10,
+"Developer"), so ownership is genuinely unclear.
+
+*My call: defer.* This is much more useful run against a real trained checkpoint than the smoke
+test, and it's arguably not solely mine to build given the SAD's own use-case split. I'd revisit
+after the first real fine-tuning run produces something worth analyzing, not before.
+
+**10. No aggregate output report.**
+SRS §3.1.3 wants a summary report regardless of outcome. We have `eval_results/results.jsonl`,
+raw rows, no rendered summary.
+
+*My call: low priority, do it once there's real data.* A script that reads the JSONL and spits
+out a markdown table is maybe half an hour of work, but there's nothing meaningful to summarize
+until actual runs exist beyond the smoke test. Not worth building against fake data.
+
+## Judgment calls
+
+**11. LoRA vs. full fine-tuning.**
+I used LoRA, matching SPEAK-ASR's own approach. Neither document mentions LoRA, PEFT, or
+adapters anywhere, not even in the glossary, where `SpecAugment`, `FP16`, and `Checkpoint` all
+get entries. The SRS's cited fine-tuning reference is the well-known Hugging Face blog post on
+full fine-tuning, not LoRA. Put together, the original intent probably was full fine-tuning of
+Whisper-Small.
+
+*My call: keep LoRA, but this needs a real conversation, not a silent decision either way.* LoRA
+is almost certainly the better engineering choice given the same GPU constraints the docs
+themselves cite, and it keeps the SPEAK-ASR comparison apples to apples, adapter versus adapter.
+But it's a real deviation from what's referenced, and if the team or mentor wants literal
+compliance, that means full fine-tuning of Whisper-Small instead, a noticeably more expensive
+setup than what's here now. I'm not switching this without someone else weighing in.
+
+**12. The placeholder dataset doesn't match the SRS's real training-data shape.**
+SRS §3.1.1/§3.1.2 wants OpenSLR52, YouTube-Sinhala-ASR, and Biz-Brains-Academy-Sinhala pooled for
+train/validation, with Mozilla Common Voice held out entirely for eval. `dev_dataset.py` uses
+only `SPEAK-ASR/openslr-sinhala-asr`, OpenSLR alone, not the four-way split.
+
+*My call: no action, this is working as intended.* This folder doesn't own dataset pooling or
+the held-out-set strategy, preprocessing does, and the placeholder is already documented as
+temporary. Flagging it here purely so whoever builds preprocessing knows the real target shape:
+two distinct sources, a pooled three-way train/val set and a fully separate held-out Mozilla
+Common Voice set, not the one dataset standing in for both right now.
 
 ## What's actually correct
 
-- WER as a metric, the prediction-collection approach, and scoring the SPEAK-ASR baseline as an
-  external comparison point (not something being rebuilt) are all aligned with the SRS/SAD.
-  CER is missing, but what's there is correctly implemented.
-- The CLI-driven, fully-parameterized hyperparameters in `train_asr.py` support running "at
-  least three distinct configurations" (SRS §3.1.2) without any code changes, just different
-  flags per run.
-- Treating preprocessing as out of scope and isolating every placeholder-dataset assumption in
-  one file matches the SRS's own separation between §3.1.1 (preprocessing) and §3.1.2/§3.1.3
-  (fine-tuning/evaluation), and matches what's actually being built on the `Yohan_Observation`
-  branch (dataset notebooks for the same three sources named in the SRS).
-- The `Checkpoint` output format (a PEFT adapter directory) satisfies the SRS/SAD's generic
-  "saved snapshot of a model's trained parameters" definition; nothing in either document
-  requires a specific serialization format.
-- `eval_results/results.jsonl` uses `ensure_ascii=False`, so it won't mangle Sinhala text if any
-  ever ends up in a logged field.
+- WER as a metric, the prediction-collection approach, and treating SPEAK-ASR as an external
+  comparison point rather than something being rebuilt all match the SRS/SAD. CER is missing,
+  but what's there is implemented correctly.
+- The CLI-driven, fully-parameterized hyperparameters already support running "at least three
+  distinct configurations" (SRS §3.1.2) with no code changes, just different flags per run.
+- Keeping preprocessing out of scope and isolating every placeholder-dataset assumption in one
+  file matches the SRS's own split between §3.1.1 and §3.1.2/§3.1.3, and matches what's actually
+  being built on `Yohan_Observation` (dataset notebooks for the same three sources the SRS
+  names).
+- A PEFT adapter directory satisfies the SRS/SAD's generic checkpoint definition. Neither
+  document mandates a specific serialization format.
+- `eval_results/results.jsonl` writes with `ensure_ascii=False`, so it won't mangle Sinhala text
+  if any ends up in a logged field later.
 
-## Not reviewed here (out of this folder's scope)
+## Not reviewed here
 
-VAD precision/recall against a manually labelled subset (SRS §3.1.3) is a preprocessing-pipeline
-evaluation task (VAD is part of §3.1.1), not this folder's job. The backend `Transcriber`
-integration is covered in [`INTEGRATION_POINTS.md`](INTEGRATION_POINTS.md), not here. I also
-checked the ERD directly and didn't find anything relevant to fine-tuning or evaluation in it,
-it's entirely the Phase 2 application's schema (users, media, transcripts, quizzes), with
-nothing for checkpoints or experiment tracking.
+VAD precision/recall against a manually labelled subset (SRS §3.1.3) is a preprocessing task,
+not this folder's. Backend `Transcriber` integration is covered in
+[`INTEGRATION_POINTS.md`](INTEGRATION_POINTS.md), not here. I also checked the ERD directly:
+nothing in it relates to fine-tuning or evaluation, it's entirely the Phase 2 application's
+schema (users, media, transcripts, quizzes), no checkpoint or experiment-tracking tables.
+
+## If I were prioritizing the fix list
+
+Do #2, #4, #5 together first, they're all small `Seq2SeqTrainingArguments`/`metrics.py` changes
+and touch the same code path. #1 is a one-line default plus a docs pass, do it whenever, doesn't
+block anything else. #3 needs the `wandb` dependency added and a decision on the default
+`--report-to` value, otherwise it's also small. #6 is a five-minute lookup before deciding
+anything. #11 needs a mentor/team conversation before either LoRA or full fine-tuning gets locked
+in for a real run. Everything else waits for either the real preprocessing pipeline or an actual
+trained checkpoint to exist.
