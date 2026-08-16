@@ -1,4 +1,4 @@
-"""Compare `final_collection_final.parquet` and `final_dataset_openslr_cleaned.parquet`
+"""Compare `final_collection_qa.parquet` and `final_dataset_openslr_qa.parquet`
 by KL divergence (plus Jensen-Shannon divergence) along two empirical distributions:
 
   1. Character frequency -- the distribution of individual Unicode characters across
@@ -15,10 +15,10 @@ nonzero, so both directions -- KL(P||Q) and KL(Q||P) -- are reported, using addi
 support mismatches. Jensen-Shannon divergence (symmetric, bounded in [0, ln 2]) is
 reported alongside as a more numerically robust companion metric.
 
-Memory handling: `final_dataset_openslr_cleaned.parquet` embeds ~15GB of audio, so
+Memory handling: `final_dataset_openslr_qa.parquet` embeds ~15GB of audio, so
 duration is read via `soundfile.info()` on each row's bytes (WAV header only, not a
 full decode) while streaming row-groups -- audio bytes are never held beyond the
-batch they arrive in. `final_collection_final.parquet` (4.9k rows) is small enough
+batch they arrive in. `final_collection_qa.parquet` (4.9k rows) is small enough
 to load whole.
 
 Usage (from repo root):
@@ -35,8 +35,8 @@ import pandas as pd
 import pyarrow.parquet as pq
 import soundfile as sf
 
-DEFAULT_COLLECTION = "dse-project/model-development/data/final_dataset/final_collection_final.parquet"
-DEFAULT_OPENSLR = "dse-project/model-development/data/final_dataset/final_dataset_openslr_cleaned.parquet"
+DEFAULT_COLLECTION = "dse-project/model-development/data/final_dataset/final_collection_qa.parquet"
+DEFAULT_OPENSLR = "dse-project/model-development/data/final_dataset/final_dataset_openslr_qa.parquet"
 LABEL_A, LABEL_B = "collection", "openslr"
 
 DURATION_BIN_WIDTH = 0.5  # seconds

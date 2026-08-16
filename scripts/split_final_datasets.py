@@ -1,5 +1,5 @@
-"""Split the two final datasets (`final_collection_final.parquet` = youtube +
-bizbrains + linga, `final_dataset_openslr_cleaned.parquet` = openslr) into two
+"""Split the two final datasets (`final_collection_qa.parquet` = youtube +
+bizbrains + linga, `final_dataset_openslr_qa.parquet` = openslr) into two
 independent split *configurations*, written to two subfolders:
 
   stratified/   train.parquet, validation.parquet, test.parquet
@@ -45,8 +45,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from sklearn.model_selection import train_test_split
 
-DEFAULT_COLLECTION = "dse-project/model-development/data/final_dataset/final_collection_final.parquet"
-DEFAULT_OPENSLR = "dse-project/model-development/data/final_dataset/final_dataset_openslr_cleaned.parquet"
+DEFAULT_COLLECTION = "dse-project/model-development/data/final_dataset/final_collection_qa.parquet"
+DEFAULT_OPENSLR = "dse-project/model-development/data/final_dataset/final_dataset_openslr_qa.parquet"
 DEFAULT_OUTPUT_DIR = "dse-project/model-development/data/final_split_dataset"
 
 SCHEMA = pa.schema([
