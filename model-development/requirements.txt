@@ -1,0 +1,10 @@
+transformers
+torch
+datasets
+soundfile
+peft
+jiwer
+numpy
+accelerate
+
+openai-whisper

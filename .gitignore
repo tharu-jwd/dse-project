@@ -24,5 +24,17 @@ venv/
 
 .env
 
+#data
+
+bizbrainsData/
+lingaData/
+youtubeData/
+
+*.parquet
+
 #upload media
 /storage/
+
+# Local LoRA checkpoints (large binary artifacts, not part of the repo)
+model-development/checkpoints/*
+!model-development/checkpoints/.gitkeep

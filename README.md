@@ -1,69 +1,38 @@
-# Sinhala ASR — Domain-Specific Speech Transcription
+# SinhaSpeech
 
-Development of a Sinhala Automatic Speech Recognition (ASR) system: collecting/curating
-speech data, preprocessing audio, fine-tuning a model (Whisper), evaluating transcription
-accuracy with WER, and building a simple record/transcribe interface.
-
-## Status
-
-Evaluated existing prior work from the [SPEAK-ASR](https://huggingface.co/SPEAK-ASR)
-HuggingFace org before starting our own fine-tuning:
-
-- `SPEAK-ASR/whisper-medium-si-merged` — undocumented merged checkpoint, produces garbage
-  output on most inputs. Not usable.
-- `SPEAK-ASR/whisper-si-exp-10-medium-all` — a LoRA adapter on `openai/whisper-medium`,
-  documented eval WER 10.85% / eval loss 0.199. Verified independently: produces accurate
-  transcriptions and matches the claimed WER on spot checks.
-
-This adapter is wired into the demo app as a working baseline to build on.
+An accessible platform for Sinhala-speaking students and teachers: record or upload lectures
+and spoken answers, get them transcribed, review/edit the transcript, and run speech-based
+quizzes.
 
 ## Layout
 
-- `whisper-live-test/` — Flask + browser demo: record or upload speech, get a transcription.
-  Supports plain Whisper (`tiny`...`large-v3`) and the SPEAK-ASR Sinhala adapter.
-- `scripts/evaluate_asr.py` — runs a model against SPEAK-ASR's Sinhala test set and reports WER.
-- `frontend/` — Phase 2 React application for accessible lectures, spoken quizzes, study notes,
-  transcript review and teacher workflows. See [`frontend/README.md`](frontend/README.md).
+- `backend/`: FastAPI + PostgreSQL API for auth, media upload, transcription job queue/worker,
+  and transcript CRUD. See [`backend`](backend) (no dedicated README yet, see `app/main.py` and
+  `alembic/` for the schema).
+- `frontend/`: React app for lectures, spoken quizzes, study notes, transcript review, and
+  teacher workflows. See [`frontend/README.md`](frontend/README.md).
+- `model-development/`: Sinhala ASR, LoRA fine-tuning on Whisper, evaluation by WER, and the
+  SPEAK-ASR baseline this project builds on. See
+  [`model-development/README.md`](model-development/README.md), and
+  [`model-development/INTEGRATION_POINTS.md`](model-development/INTEGRATION_POINTS.md) for how
+  it connects to the backend and to preprocessing.
+- `project-docs/`: the project's formal deliverables, SRS, Software Architecture Document, ERD, Gantt
+  chart, and project proposal.
+- `docker-compose.yml`: local PostgreSQL service for the backend.
 
-## Running the demo
+## Status
 
-```
-cd whisper-live-test
-python3 server.py
-```
+The backend currently ships a fake transcriber (canned output) rather than a real ASR model.
+See [`model-development/README.md`](model-development/README.md) for the evaluated Sinhala
+baseline (`SPEAK-ASR/whisper-si-exp-10-medium-all`, 10.85% WER) and the in-progress fine-tuning
+work intended to replace it, and
+[`model-development/INTEGRATION_POINTS.md`](model-development/INTEGRATION_POINTS.md) for exactly
+where that swap-in point is.
 
-Open http://localhost:5005, pick a model (use "SPEAK-ASR (Sinhala fine-tuned)" for Sinhala),
-and record or upload audio.
+## Getting started
 
-## Running an evaluation
-
-```
-python3 scripts/evaluate_asr.py --model speak-asr --num-samples 20
-python3 scripts/evaluate_asr.py --model plain-whisper --whisper-size medium --num-samples 20
-```
-
-## Setup
-
-Requires Python 3.11+, `ffmpeg` on PATH, and:
-
-```
-pip3 install flask openai-whisper transformers torch datasets soundfile peft jiwer
-```
-
-## Models & data (not stored in this repo)
-
-Model weights and datasets are downloaded automatically the first time you run the demo
-or a script — there is nothing to manually download or place inside the repo. They're
-fetched by the `transformers`/`huggingface_hub`/`whisper` libraries and cached outside
-the project folder:
-
-| What | Source | Cached at |
-|---|---|---|
-| Base Whisper (`medium`, etc., used by the demo's plain-Whisper models) | [openai/whisper](https://github.com/openai/whisper) | `~/.cache/whisper/` |
-| `openai/whisper-medium` (HF copy, base for the adapter) | [huggingface.co/openai/whisper-medium](https://huggingface.co/openai/whisper-medium) | `~/.cache/huggingface/hub/` |
-| SPEAK-ASR Sinhala LoRA adapter | [huggingface.co/SPEAK-ASR/whisper-si-exp-10-medium-all](https://huggingface.co/SPEAK-ASR/whisper-si-exp-10-medium-all) | `~/.cache/huggingface/hub/` |
-| Sinhala test set (for `evaluate_asr.py`) | [huggingface.co/datasets/SPEAK-ASR/openslr-sinhala-asr](https://huggingface.co/datasets/SPEAK-ASR/openslr-sinhala-asr) | `~/.cache/huggingface/hub/` |
-
-`.gitignore` excludes `*.pt`/`*.safetensors`/`*.ckpt` so these never accidentally get
-committed. If you need to free disk space, it's safe to delete either cache folder —
-everything re-downloads on next run.
+- Backend: `cd backend`, see `requirements.txt`, `alembic.ini`, and `docker-compose.yml` for
+  the Postgres service.
+- Frontend: `cd frontend`, see [`frontend/README.md`](frontend/README.md) for setup, demo
+  accounts, and the mock-vs-real API toggle.
+- ASR fine-tuning/evaluation: see [`model-development/README.md`](model-development/README.md).
