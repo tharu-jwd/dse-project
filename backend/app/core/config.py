@@ -16,18 +16,27 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
 
-    cors_origin: str = "http://localhost:5173"
+    cors_origins: str = "http://localhost:5173"
 
     media_storage_dir: str = "storage/uploads"
     max_upload_size_bytes: int = 100 * 1024 * 1024
 
     transcriber_backend: str = "fake"
 
+    # used if .env is configured to whisper small
+    whisper_model: str = "small"
+    whisper_language: str = "si"
+
+    # used if .env is configured to whiper medium + sinhala lora
+    whisper_base_model: str = "openai/whisper-medium"
+    whisper_adapter_model: str = "SPEAK-ASR/whisper-si-exp-10-medium-all"
+
+
     @property
     def cors_origins_list(self) -> list[str]:
         return[
             origin.strip()
-            for origin in self.cors_origin.split(",")
+            for origin in self.cors_origins.split(",")
             if origin.strip()
         ]
 

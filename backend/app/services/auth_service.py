@@ -27,7 +27,7 @@ def authenticate_user(
     if not verify_password(password, user.password_hash):
         return None
 
-    user.last_login_at - datetime.now(timezone)
+    user.last_login_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(user)
 

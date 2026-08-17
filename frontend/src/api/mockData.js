@@ -1,8 +1,8 @@
 export const DEMO_USERS = {
   student: {
     id: 'user-student',
-    name: 'Nethmi Perera',
-    nameSi: 'නෙත්මි පෙරේරා',
+    name: 'Nethum Perera',
+    nameSi: 'නෙතුම් පෙරේරා',
     email: 'student@sinhaspeech.lk',
     password: 'demo123',
     role: 'STUDENT',
