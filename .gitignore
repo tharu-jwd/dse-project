@@ -24,6 +24,14 @@ venv/
 
 .env
 
+#data
+
+bizbrainsData/
+lingaData/
+youtubeData/
+
+*.parquet
+
 #upload media
 /storage/
 
