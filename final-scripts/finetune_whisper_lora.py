@@ -29,7 +29,7 @@ file's own directory:
         stratified/
           train.parquet
           validation.parquet
-          test.parquet             <- used by evaluate_baselines.py
+          test.parquet             <- used by evaluate_finetuned.py
 
 See README.md for how to get the data into that layout (GCS download or
 local copy) before running this script.
@@ -50,8 +50,8 @@ pipeline without a real training run):
 
 Scoring the resulting adapter (repeat for the full fine-tune's output dir
 too, to compare):
-    python3 evaluate_baselines.py \\
-        --custom-lora /workspace/whisper-small-sinhala-lora/run1-lr1e-4-bs32:openai/whisper-small
+    python3 evaluate_finetuned.py \\
+        --lora /workspace/whisper-small-sinhala-lora/run1-lr1e-4-bs32:openai/whisper-small
 """
 
 import argparse
@@ -258,7 +258,7 @@ def main():
     # Saving a PeftModel writes only the adapter (config + weights), not the
     # multi-gigabyte base model -- load it back with
     # `PeftModel.from_pretrained(base_model, output_dir)`, same shape
-    # evaluate_baselines.py's --custom-lora expects.
+    # evaluate_finetuned.py's --lora expects.
     print(f"\nSaving best adapter to {args.output_dir}")
     trainer.save_model(args.output_dir)
     processor.save_pretrained(args.output_dir)

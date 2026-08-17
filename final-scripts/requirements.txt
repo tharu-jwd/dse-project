@@ -1,4 +1,4 @@
-# Pinned for finetune_whisper.py, finetune_whisper_lora.py, evaluate_baselines.py
+# Pinned for finetune_whisper.py, finetune_whisper_lora.py, evaluate_finetuned.py
 # and prepare_whisper_dataset.py -- versions are chosen to be mutually
 # compatible (numpy<2.0.0 in particular, since pyarrow/soundfile/librosa wheels
 # built against numpy 1.x can segfault or ABI-mismatch against numpy 2.x arrays).

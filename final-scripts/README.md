@@ -8,7 +8,7 @@ on the same data and the same held-out test set:
 |---|---|---|
 | `finetune_whisper.py` | **Full fine-tune** — every model weight is trained | A full Whisper checkpoint (~1GB+) |
 | `finetune_whisper_lora.py` | **LoRA fine-tune** — base model frozen, a small low-rank adapter is trained | A PEFT adapter directory (a few MB) |
-| `evaluate_baselines.py` | Scores any model (published baseline, your full fine-tune, or your LoRA adapter) on the test set: WER/CER | Console summary + `baseline_predictions.csv` |
+| `evaluate_finetuned.py` | Scores your fine-tuned checkpoints/adapters against the test set — pass as many `--model`/`--lora` runs as you want compared, ranked by WER, to find the best one | Ranked console summary + one `<model>_predictions.csv` per model |
 | `prepare_whisper_dataset.py` | Shared library both fine-tune scripts import (audio decode + feature extraction + collation). | — |
 
 Both fine-tune scripts share the same CLI shape, the same data pipeline, and
@@ -19,7 +19,7 @@ side for comparison.
 
 This whole folder is meant to be uploaded to the GPU pod (RunPod or
 otherwise) as a unit, **with the data included** — so `finetune_whisper.py`,
-`finetune_whisper_lora.py`, and `evaluate_baselines.py` all read the dataset
+`finetune_whisper_lora.py`, and `evaluate_finetuned.py` all read the dataset
 from a fixed location next to the scripts, instead of taking a path on the
 command line:
 
@@ -27,14 +27,14 @@ command line:
 final-scripts/
   finetune_whisper.py
   finetune_whisper_lora.py
-  evaluate_baselines.py
+  evaluate_finetuned.py
   prepare_whisper_dataset.py
   requirements.txt
   data/
     stratified/
       train.parquet         <- used by both fine-tune scripts
       validation.parquet    <- used by both fine-tune scripts
-      test.parquet          <- used by evaluate_baselines.py
+      test.parquet          <- used by evaluate_finetuned.py
 ```
 
 Nothing else needs to change between runs — just make sure `data/stratified/`
@@ -76,9 +76,9 @@ Do this once, right after the pod comes up and before starting training.
    ```bash
    mkdir -p final-scripts/data/stratified
    gsutil -m cp \
-       gs://<your-bucket>/final_split_dataset/stratified/train.parquet \
-       gs://<your-bucket>/final_split_dataset/stratified/validation.parquet \
-       gs://<your-bucket>/final_split_dataset/stratified/test.parquet \
+       gs://singen/whisper/finalData/stratified/train.parquet \
+       gs://singen/whisper/finalData/stratified/validation.parquet \
+       gs://singen/whisper/finalData/stratified/test.parquet \
        final-scripts/data/stratified/
    ```
 
@@ -180,36 +180,37 @@ python3 finetune_whisper.py --smoke-test
 python3 finetune_whisper_lora.py --smoke-test
 ```
 
-## 4. Evaluating on the test set
+## 4. Evaluating on the test set — finding your best model
 
-`evaluate_baselines.py` reads `data/stratified/test.parquet` and scores any
-mix of: published baseline models, your own full fine-tune
-(`--custom-model`), and your own LoRA adapter (`--custom-lora`) — all with
-the same WER/CER normalization, so results are directly comparable.
+`evaluate_finetuned.py` reads `data/stratified/test.parquet` and scores
+whichever of your own fine-tuned runs you point it at: a full checkpoint via
+`--model` (repeatable) and/or a LoRA adapter via `--lora <adapter-dir>:<base-model>`
+(repeatable). Pass every run you want to compare in one invocation — it
+prints a summary **ranked by WER, best first**, and tells you the winner.
 
 ```bash
-# published baselines only
-python3 evaluate_baselines.py
+# compare a full fine-tune against a LoRA run
+python3 evaluate_finetuned.py \
+    --model /workspace/whisper-small-sinhala/run1-lr3e-5-bs32 \
+    --lora  /workspace/whisper-small-sinhala-lora/run1-lr1e-4-bs32:openai/whisper-small
 
-# add your full fine-tune
-python3 evaluate_baselines.py \
-    --models openai/whisper-small \
-    --custom-model /workspace/whisper-small-sinhala/run1-lr3e-5-bs32
+# compare several checkpoints from a hyperparameter sweep to pick the best
+python3 evaluate_finetuned.py \
+    --model /workspace/whisper-small-sinhala/run1-lr1e-5-bs16 \
+    --model /workspace/whisper-small-sinhala/run2-lr3e-5-bs16 \
+    --model /workspace/whisper-small-sinhala/run3-lr3e-5-bs32
 
-# add your LoRA adapter (format: <adapter-dir>:<base-model>)
-python3 evaluate_baselines.py \
-    --models openai/whisper-small \
-    --custom-lora /workspace/whisper-small-sinhala-lora/run1-lr1e-4-bs32:openai/whisper-small
-
-# both, plus log the summary table to the same W&B project as training
-python3 evaluate_baselines.py \
-    --models openai/whisper-small \
-    --custom-model /workspace/whisper-small-sinhala/run1-lr3e-5-bs32 \
-    --custom-lora /workspace/whisper-small-sinhala-lora/run1-lr1e-4-bs32:openai/whisper-small \
-    --wandb-project whisper --run-name run1-eval
-
-python3 evaluate_baselines.py --list-models   # see all known baseline repo IDs (no data/ needed)
+# plus log the ranked summary to the same W&B project as training
+python3 evaluate_finetuned.py \
+    --model /workspace/whisper-small-sinhala/run1-lr3e-5-bs32 \
+    --lora  /workspace/whisper-small-sinhala-lora/run1-lr1e-4-bs32:openai/whisper-small \
+    --wandb-project whisper --run-name model-selection
 ```
+
+Output: a console table sorted by WER (top row = best model), a `Best
+model: ...` line, and one `<model-name>_predictions.csv` per model
+(reference vs. prediction, for error inspection) under `--output-dir`
+(defaults to the current directory).
 
 Add `--max-samples 200` for a quick sanity pass before committing to a full
 test-set run; omit it for the real number to report.
@@ -239,8 +240,8 @@ test-set run; omit it for the real number to report.
 5. `wandb login` if you want experiment tracking.
 6. Run `finetune_whisper.py` and/or `finetune_whisper_lora.py` as shown in
    §3. Checkpoints/adapters land under `--output-dir`.
-7. Run `evaluate_baselines.py` (§4) to get the final WER/CER for whichever
-   run(s) you want to report.
+7. Run `evaluate_finetuned.py` (§4) against every run you want to compare —
+   it ranks them by WER so you can pick the best one to report/ship.
 8. Copy the result off the pod before terminating it — pod-local disk is
    ephemeral. `runpodctl send` works in reverse too, from the pod back to
    your local machine:

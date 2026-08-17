@@ -27,12 +27,10 @@ datasets are staged in a GCS bucket for cloud GPU runs. Requires
 `GOOGLE_APPLICATION_CREDENTIALS` (or ADC/workload identity on the pod) to be
 set; no bucket auth handling lives in this module.
 
-Usage as a smoke test (from repo root):
+Usage as a smoke test (from inside final-scripts/):
 
-    python3 dse-project/scripts/prepare_whisper_dataset.py \\
-        dse-project/model-development/data/final_split_dataset/stratified/test.parquet
-    python3 dse-project/scripts/prepare_whisper_dataset.py \\
-        gs://sinhaspeech-data/final_split_dataset/stratified/test.parquet
+    python3 prepare_whisper_dataset.py data/stratified/test.parquet
+    python3 prepare_whisper_dataset.py gs://singen/whisper/finalData/stratified/test.parquet
 """
 
 import io

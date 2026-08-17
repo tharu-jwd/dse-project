@@ -35,7 +35,7 @@ file's own directory:
         stratified/
           train.parquet
           validation.parquet
-          test.parquet             <- used by evaluate_baselines.py
+          test.parquet             <- used by evaluate_finetuned.py
 
 See README.md for how to get the data into that layout (GCS download or
 local copy) before running this script.
