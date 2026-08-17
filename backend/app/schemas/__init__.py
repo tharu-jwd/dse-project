@@ -10,6 +10,12 @@ from app.schemas.transcript import (
     TranscriptUpdate,
     WordMetadataResponse,
 )
+from app.schemas.transcription import (
+    PublicJobStatus,
+    TranscriptionJobCreatedResponse,
+    TranscriptionJobStatusResponse,
+)
+
 
 __all__ = [
     "LoginRequest",
@@ -25,4 +31,7 @@ __all__ = [
     "TranscriptUpdate",
     "TranscriptType",
     "TranscriptStatus",
+    "PublicJobStatus",
+    "TranscriptionJobCreatedResponse",
+    "TranscriptionJobStatusResponse",
 ]

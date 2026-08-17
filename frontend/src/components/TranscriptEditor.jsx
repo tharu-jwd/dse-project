@@ -50,7 +50,56 @@ export default function TranscriptEditor({
   const { confidenceThreshold, updatePreference } = useAccessibility()
   const { showToast } = useToast()
   const player = useRef(null)
+  const [playbackUrl, setPlaybackURL] = useState('')
+  const [mediaError, setMediaError] = useState('')
   useEffect(() => setTranscript(initialTranscript), [initialTranscript])
+  useEffect(() => {
+    let active = true
+    let objectUrl = ''
+
+    setPlaybackURL('')
+    setMediaError('')
+
+    if (!transcript.mediaUrl) {
+      return () => {
+        active = false
+      }
+    }
+
+    if (
+      transcript.mediaUrl.startsWith('blob:') ||
+      transcript.mediaUrl.startsWith('data:')
+    ) {
+      setPlaybackURL(transcript.mediaUrl)
+
+      return () => {
+        active = false
+      }
+    }
+
+    api
+      .getMedia(transcript.mediaUrl)
+      .then((blob) => {
+        if (!active) return
+
+        objectUrl = URL.createObjectURL(blob)
+        setPlaybackURL(objectUrl)
+      })
+      .catch((cause) => {
+        if (active) {
+          setMediaError(
+            cause.message || 'The recording could not be loaded.'
+          )
+        }
+      })
+
+      return () => {
+        active = false
+        if (objectUrl) {
+          URL.revokeObjectURL(objectUrl)
+        }
+      }
+  }, [transcript.mediaUrl])
 
   const editSegment = (id, text) => {
     setTranscript((current) => ({
@@ -114,7 +163,7 @@ export default function TranscriptEditor({
     }
   }
   const seek = (seconds) => {
-    if (player.current && transcript.mediaUrl) {
+    if (player.current && playbackUrl) {
       player.current.currentTime = seconds
       player.current.play().catch(() => {})
     }
@@ -179,11 +228,11 @@ export default function TranscriptEditor({
       <div className="editor-layout">
         <aside className="media-panel">
           <div className="media-preview">
-            {transcript.mediaUrl ? (
+            {playbackUrl ? (
               transcript.mediaType?.startsWith('video/') ? (
-                <video ref={player} controls src={transcript.mediaUrl} />
+                <video ref={player} controls src={playbackUrl} />
               ) : (
-                <audio ref={player} controls src={transcript.mediaUrl} />
+                <audio ref={player} controls src={playbackUrl} />
               )
             ) : (
               <div className="media-placeholder">
@@ -192,8 +241,14 @@ export default function TranscriptEditor({
                     <i key={item} />
                   ))}
                 </span>
-                <Icon name="play" size={22} />
-                <small>Media preview unavailable in sample data</small>
+                    <Icon name={mediaError ? 'alert' : 'play'} size={22} />
+
+                    <small>
+                      {mediaError ||
+                        (transcript.mediaUrl
+                          ? 'Loading recording…'
+                          : 'No recording is attached')}
+                    </small>
               </div>
             )}
           </div>

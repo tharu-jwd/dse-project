@@ -56,6 +56,7 @@ async function request(path, options = {}) {
   return contentType.includes('application/json') ? response.json() : response.blob()
 }
 
+
 function makeTranscript({ title, type, file }) {
   const id = `transcript-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
   return {
@@ -70,6 +71,7 @@ function makeTranscript({ title, type, file }) {
     segments: sampleSegments(),
   }
 }
+
 
 export const api = {
   async login(email, password) {
@@ -131,6 +133,14 @@ export const api = {
           ? 'The audio could not be transcribed. Please check the file and retry.'
           : undefined,
     }
+  },
+  async getMedia(mediaPath) {
+    if (USE_MOCK_API) return null
+
+    if (!String(mediaPath).startsWith('/media/'))
+      throw new Error('The media URL is invalid')
+
+    return request(mediaPath)
   },
   async getTranscripts() {
     if (!USE_MOCK_API) return request('/transcripts')
