@@ -5,6 +5,7 @@ __pycache__/
 venv/
 
 # Model/dataset caches (downloaded separately, not part of the repo)
+/models/
 *.pt
 *.safetensors
 *.ckpt

@@ -13,7 +13,7 @@ def create_transcriber() -> Transcriber:
 
     if backend == "whisper":
         return WhisperTranscriber(
-            model_name=settings.whisper_model,
+            model_name=settings.whisper_model_source,
             language=settings.whisper_language,
         )
 

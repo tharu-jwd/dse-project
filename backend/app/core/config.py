@@ -23,8 +23,8 @@ class Settings(BaseSettings):
 
     transcriber_backend: str = "fake"
 
-    # used if .env is configured to whisper small
-    whisper_model: str = "small"
+    # Complete Hugging Face Whisper checkpoint, local path or Hub model ID.
+    whisper_model: str = "models/whisper-sinhala"
     whisper_language: str = "si"
 
     # used if .env is configured to whiper small + sinhala lora
@@ -48,6 +48,19 @@ class Settings(BaseSettings):
             path = PROJECT_ROOT / path
 
         return path.resolve()
+
+    @property
+    def whisper_model_source(self) -> str:
+        """Resolve local model paths from the repository root."""
+        path = Path(self.whisper_model)
+
+        if not path.is_absolute():
+            path = PROJECT_ROOT / path
+
+        if path.exists():
+            return str(path.resolve())
+
+        return self.whisper_model
 
     model_config = SettingsConfigDict(
         env_file = PROJECT_ROOT / ".env",

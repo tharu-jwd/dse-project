@@ -1,126 +1,114 @@
-import math
 import threading
 from pathlib import Path
 from typing import Any
 
-import whisper
+import torch
+from transformers import (
+    AutoProcessor,
+    WhisperForConditionalGeneration,
+    pipeline,
+)
 
 from app.transcribers.base import (
     TranscriptionResult,
     TranscriptionSegmentResult,
-    TranscriptionWord,
 )
 
 
 class WhisperTranscriber:
-    '''
-    Local transcription using baseline OpenAI Whisper small (without hf lora adapter).
-    '''
+    """Local transcription using a complete Hugging Face Whisper checkpoint."""
 
-    def __init__(
-        self,
-        model_name: str = "small",
-        language: str = "si",
-    ) -> None:
+    def __init__(self, model_name: str, language: str = "si") -> None:
         self.model_name = model_name
         self.language = language
-        self._model: Any | None = None
+        self._pipeline: Any | None = None
         self._lock = threading.Lock()
 
-    def _load_model(self) -> Any:
-        if self._model is None:
-            self._model = whisper.load_model(
-                self.model_name,
-            )
+    def _load_pipeline(self) -> Any:
+        if self._pipeline is not None:
+            return self._pipeline
 
-        return self._model
-
-    def transcribe(
-        self,
-        media_path: Path,
-    ) -> TranscriptionResult:
-        if not media_path.is_file():
+        model_path = Path(self.model_name)
+        if model_path.is_absolute() and not model_path.is_dir():
             raise FileNotFoundError(
-                "The uploaded media file does not exist."
+                f"The configured Whisper model directory does not exist: {model_path}"
             )
 
-        model = self._load_model()
+        processor = AutoProcessor.from_pretrained(self.model_name)
+        model = WhisperForConditionalGeneration.from_pretrained(self.model_name)
+
+        # Checkpoints saved by Transformers 4.x may store a single EOS token
+        # as a one-item list. Transformers 5.x beam search requires an integer.
+        eos_token_id = model.generation_config.eos_token_id
+        if isinstance(eos_token_id, list):
+            if len(eos_token_id) != 1:
+                raise ValueError(
+                    "The Whisper checkpoint defines multiple EOS token IDs, "
+                    "which this transcription pipeline does not support."
+                )
+            model.generation_config.eos_token_id = eos_token_id[0]
+
+        model.eval()
+
+        use_cuda = torch.cuda.is_available()
+        if use_cuda:
+            model.to("cuda")
+
+        self._pipeline = pipeline(
+            task="automatic-speech-recognition",
+            model=model,
+            tokenizer=processor.tokenizer,
+            feature_extractor=processor.feature_extractor,
+            device=0 if use_cuda else -1,
+        )
+        return self._pipeline
+
+    def transcribe(self, media_path: Path) -> TranscriptionResult:
+        if not media_path.is_file():
+            raise FileNotFoundError("The uploaded media file does not exist.")
+
+        asr_pipeline = self._load_pipeline()
+        generate_kwargs = {"task": "transcribe"}
+        if self.language:
+            generate_kwargs["language"] = self.language
 
         with self._lock:
-            output = model.transcribe(
+            output = asr_pipeline(
                 str(media_path),
-                language=self.language,
-                # language = None,
-                task="transcribe",
-                fp16=False,
-                word_timestamps=True,
-                verbose=False,
-                no_speech_threshold=None
+                return_timestamps=True,
+                generate_kwargs=generate_kwargs,
             )
 
-        segments = [
-            self._convert_segment(segment)
-            for segment in output.get("segments", [])
-            if segment.get("text", "").strip()
-        ]
+        text = output.get("text", "").strip()
+        segments = self._convert_segments(output)
+        if not text or not segments:
+            raise ValueError("Whisper did not detect any speech.")
 
-        if not segments:
-            raise ValueError(
-                "Whisper did not detect any speech."
-            )
-
-        return TranscriptionResult(
-            text=output.get("text", "").strip(),
-            segments=segments,
-        )
-
-    def _convert_segment(
-        self,
-        segment: dict[str, Any],
-    ) -> TranscriptionSegmentResult:
-        segment_confidence = self._confidence_from_log_probability(
-            segment.get("avg_logprob"),
-        )
-
-        words = [
-            TranscriptionWord(
-                text=word.get("word", "").strip(),
-                confidence=self._word_confidence(word),
-            )
-            for word in segment.get("words", [])
-            if word.get("word", "").strip()
-        ]
-
-        return TranscriptionSegmentResult(
-            start=float(segment["start"]),
-            end=float(segment["end"]),
-            text=segment["text"].strip(),
-            confidence=segment_confidence,
-            words=words,
-        )
+        return TranscriptionResult(text=text, segments=segments)
 
     @staticmethod
-    def _confidence_from_log_probability(
-        average_log_probability: float | None,
-    ) -> float:
-        if average_log_probability is None:
-            return 0.0
+    def _convert_segments(
+        output: dict[str, Any],
+    ) -> list[TranscriptionSegmentResult]:
+        segments: list[TranscriptionSegmentResult] = []
 
-        return max(
-            0.0,
-            min(1.0, math.exp(average_log_probability)),
-        )
+        for chunk in output.get("chunks", []):
+            timestamp = chunk.get("timestamp")
+            chunk_text = chunk.get("text", "").strip()
+            if not timestamp or timestamp[0] is None or not chunk_text:
+                continue
 
-    @staticmethod
-    def _word_confidence(
-        word: dict[str, Any],
-    ) -> float:
-        probability = word.get("probability")
+            start = float(timestamp[0])
+            end = float(timestamp[1] if timestamp[1] is not None else start)
+            segments.append(
+                TranscriptionSegmentResult(
+                    start=start,
+                    end=max(start, end),
+                    text=chunk_text,
+                    # This pipeline output does not include calibrated confidence.
+                    confidence=0.0,
+                    words=[],
+                )
+            )
 
-        if probability is None:
-            return 0.0
-
-        return max(
-            0.0,
-            min(1.0, float(probability)),
-        )
+        return segments
