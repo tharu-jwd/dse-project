@@ -1,4 +1,4 @@
-# Pinned for finetune_whisper.py, finetune_whisper_lora.py, evaluate_finetuned.py
+# Pinned for finetune_whisper.py, finetune_whisper_lora.py, evaluate_baselines.py
 # and prepare_whisper_dataset.py -- versions are chosen to be mutually
 # compatible (numpy<2.0.0 in particular, since pyarrow/soundfile/librosa wheels
 # built against numpy 1.x can segfault or ABI-mismatch against numpy 2.x arrays).
@@ -21,9 +21,6 @@ librosa>=0.10.2,<1.0.0
 
 # --- experiment tracking ---
 wandb>=0.17.0
-
-# --- progress reporting ---
-tqdm>=4.66.0,<5.0.0
 
 # --- pinned to match the shared decoder fine-tuning environment ---
 numpy>=1.24.0,<2.0.0

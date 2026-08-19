@@ -52,6 +52,7 @@ import jiwer
 import pyarrow.parquet as pq
 import soundfile as sf
 import torch
+from tqdm import tqdm
 from transformers import WhisperForConditionalGeneration, WhisperProcessor
 
 TARGET_SR = 16000
@@ -124,7 +125,7 @@ def evaluate_model(spec, dataset, device, batch_size):
     predictions, references = [], []
     t0 = time.time()
     with torch.no_grad():
-        for audios, texts in loader:
+        for audios, texts in tqdm(loader, total=len(loader), desc=spec["path"], unit="batch"):
             inputs = processor.feature_extractor(audios, sampling_rate=TARGET_SR, return_tensors="pt")
             input_features = inputs.input_features.to(device)
             generated_ids = model.generate(input_features, max_new_tokens=225)
