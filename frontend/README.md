@@ -6,6 +6,9 @@ Accessible React frontend for the Phase 2 SinhaSpeech web application. It suppor
 
 Requirements: Node.js 20.19+ (or 22.12+) and npm.
 
+The frontend has its own environment file. The repository-root `.env` configures
+Docker Compose and the backend; Vite reads `frontend/.env`.
+
 ```bash
 cd frontend
 cp .env.example .env
@@ -14,6 +17,9 @@ npm run dev
 ```
 
 The development server prints its local URL, normally `http://localhost:5173`.
+The default mock mode works without the backend. To use the real API, complete
+the setup in [`backend/README.md`](../backend/README.md), run its worker, and set
+`VITE_USE_MOCK_API=false`.
 
 ## Demo accounts
 

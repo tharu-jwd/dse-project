@@ -10,18 +10,20 @@ from transformers import (
     pipeline,
 )
 
+from app.core.config import settings
+
 from app.transcribers.base import (
     TranscriptionResult,
     TranscriptionSegmentResult,
 )
 
 
-DEFAULT_BASE_MODEL = "openai/whisper-medium"
-DEFAULT_ADAPTER_MODEL = "SPEAK-ASR/whisper-si-exp-10-medium-all"
+DEFAULT_BASE_MODEL = settings.whisper_base_model
+DEFAULT_ADAPTER_MODEL = settings.whisper_adapter_model
 
 class SpeakAsrTranscriber:
     '''
-    Sinhala transcription using Whisper Medium and SPEAK-ASR LoRA.
+    Sinhala transcription using Whisper base model and SPEAK-ASR LoRA.
     '''
 
     def __init__(
@@ -62,7 +64,7 @@ class SpeakAsrTranscriber:
 
         return self._pipeline
 
-    def transcrib(self, media_path: Path) -> TranscriptionResult:
+    def transcribe(self, media_path: Path) -> TranscriptionResult:
         if not media_path.is_file():
             raise FileNotFoundError("The uploaded media file does not exist")
 

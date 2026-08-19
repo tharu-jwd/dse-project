@@ -27,9 +27,9 @@ class Settings(BaseSettings):
     whisper_model: str = "small"
     whisper_language: str = "si"
 
-    # used if .env is configured to whiper medium + sinhala lora
-    whisper_base_model: str = "openai/whisper-medium"
-    whisper_adapter_model: str = "SPEAK-ASR/whisper-si-exp-10-medium-all"
+    # used if .env is configured to whiper small + sinhala lora
+    whisper_base_model: str = "openai/whisper-small"
+    whisper_adapter_model: str = "SPEAK-ASR/whisper-si-exp-10"
 
 
     @property

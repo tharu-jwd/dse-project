@@ -7,8 +7,7 @@ quizzes.
 ## Layout
 
 - `backend/`: FastAPI + PostgreSQL API for auth, media upload, transcription job queue/worker,
-  and transcript CRUD. See [`backend`](backend) (no dedicated README yet, see `app/main.py` and
-  `alembic/` for the schema).
+  and transcript CRUD. See [`backend/README.md`](backend/README.md).
 - `frontend/`: React app for lectures, spoken quizzes, study notes, transcript review, and
   teacher workflows. See [`frontend/README.md`](frontend/README.md).
 - `model-development/`: Sinhala ASR, LoRA fine-tuning on Whisper, evaluation by WER, and the
@@ -31,8 +30,8 @@ where that swap-in point is.
 
 ## Getting started
 
-- Backend: `cd backend`, see `requirements.txt`, `alembic.ini`, and `docker-compose.yml` for
-  the Postgres service.
+- Backend: follow [`backend/README.md`](backend/README.md) to configure PostgreSQL, migrate the
+  database, run the API, and start the transcription worker.
 - Frontend: `cd frontend`, see [`frontend/README.md`](frontend/README.md) for setup, demo
   accounts, and the mock-vs-real API toggle.
 - ASR fine-tuning/evaluation: see [`model-development/README.md`](model-development/README.md).

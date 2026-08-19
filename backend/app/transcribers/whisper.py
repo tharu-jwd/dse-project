@@ -14,7 +14,7 @@ from app.transcribers.base import (
 
 class WhisperTranscriber:
     '''
-    Local transcription using OpenAI Whisper small.
+    Local transcription using baseline OpenAI Whisper small (without hf lora adapter).
     '''
 
     def __init__(
