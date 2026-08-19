@@ -1,0 +1,31 @@
+# Pinned for finetune_whisper.py, finetune_whisper_lora.py, evaluate_finetuned.py
+# and prepare_whisper_dataset.py -- versions are chosen to be mutually
+# compatible (numpy<2.0.0 in particular, since pyarrow/soundfile/librosa wheels
+# built against numpy 1.x can segfault or ABI-mismatch against numpy 2.x arrays).
+# Install on the GPU pod with: pip install -r dse-project/scripts/requirements.txt
+
+# --- core training stack ---
+torch>=2.2.0,<3.0.0
+transformers>=4.41.0,<5.0.0
+accelerate>=0.30.0,<1.0.0
+peft>=0.11.0,<1.0.0
+
+# --- metrics ---
+evaluate>=0.4.2,<1.0.0
+jiwer>=3.0.0,<4.0.0
+
+# --- data I/O: local + gs://bucket parquet (audio-as-bytes, decoded on the fly) ---
+pyarrow>=15.0.0,<16.0.0
+soundfile>=0.12.1,<1.0.0
+librosa>=0.10.2,<1.0.0
+
+# --- experiment tracking ---
+wandb>=0.17.0
+
+# --- progress reporting ---
+tqdm>=4.66.0,<5.0.0
+
+# --- pinned to match the shared decoder fine-tuning environment ---
+numpy>=1.24.0,<2.0.0
+sentencepiece>=0.2.0
+protobuf>=3.20.0,<5.0.0
