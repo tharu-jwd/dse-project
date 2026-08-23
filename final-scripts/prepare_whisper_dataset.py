@@ -76,12 +76,42 @@ class WhisperASRDataset(torch.utils.data.Dataset):
     rather than downloading the whole file up front).
     """
 
-    def __init__(self, parquet_path: str, processor: WhisperProcessor):
+    def __init__(
+        self,
+        parquet_path: str,
+        processor: WhisperProcessor,
+        noise_prob: float = 0.0,
+        noise_snr_db: tuple[float, float] = (20.0, 30.0),
+        seed: int | None = None,
+    ):
+        """`noise_prob`/`noise_snr_db` add light Gaussian noise augmentation:
+        with probability `noise_prob`, mix white noise into the waveform at a
+        random SNR sampled uniformly from `noise_snr_db` (higher dB = quieter,
+        less noise -- 20-30dB is barely audible, meant as light regularization
+        rather than a robustness-to-real-noise measure). Off by default so
+        existing callers (evaluate_finetuned.py, smoke tests) are unaffected.
+        """
         self.table = _read_parquet_table(parquet_path, columns=["audio", "text"])
         self.processor = processor
+        self.noise_prob = noise_prob
+        self.noise_snr_db = noise_snr_db
+        self._rng = np.random.default_rng(seed)
 
     def __len__(self):
         return self.table.num_rows
+
+    def _maybe_add_noise(self, audio: np.ndarray) -> np.ndarray:
+        if self.noise_prob <= 0.0 or self._rng.random() >= self.noise_prob:
+            return audio
+
+        signal_power = np.mean(audio**2)
+        if signal_power <= 0.0:
+            return audio
+
+        snr_db = self._rng.uniform(*self.noise_snr_db)
+        noise_power = signal_power / (10 ** (snr_db / 10))
+        noise = self._rng.normal(0.0, np.sqrt(noise_power), size=audio.shape).astype(np.float32)
+        return audio + noise
 
     def __getitem__(self, idx):
         audio_bytes = self.table.column("audio")[idx].as_py()
@@ -91,6 +121,8 @@ class WhisperASRDataset(torch.utils.data.Dataset):
         if sr != TARGET_SR:
             import librosa
             audio = librosa.resample(audio, orig_sr=sr, target_sr=TARGET_SR)
+
+        audio = self._maybe_add_noise(audio)
 
         input_features = self.processor.feature_extractor(
             audio, sampling_rate=TARGET_SR

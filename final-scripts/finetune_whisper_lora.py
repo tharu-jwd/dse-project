@@ -137,6 +137,10 @@ def main():
     parser.add_argument("--warmup-steps", type=int, default=500)
     parser.add_argument("--dataloader-num-workers", type=int, default=8)
     parser.add_argument("--no-spec-augment", action="store_true")
+    parser.add_argument("--noise-prob", type=float, default=0.2,
+                         help="probability per training sample of mixing in light Gaussian noise (0 to disable)")
+    parser.add_argument("--noise-snr-db-min", type=float, default=20.0)
+    parser.add_argument("--noise-snr-db-max", type=float, default=30.0)
     parser.add_argument("--lora-r", type=int, default=32)
     parser.add_argument("--lora-alpha", type=int, default=64)
     parser.add_argument("--lora-dropout", type=float, default=0.05)
@@ -171,9 +175,17 @@ def main():
     model.print_trainable_parameters()
 
     print(f"Loading train split: {TRAIN_PARQUET}")
-    train_dataset = WhisperASRDataset(TRAIN_PARQUET, processor)
+    train_dataset = WhisperASRDataset(
+        TRAIN_PARQUET,
+        processor,
+        noise_prob=args.noise_prob,
+        noise_snr_db=(args.noise_snr_db_min, args.noise_snr_db_max),
+    )
+    if args.noise_prob > 0:
+        print(f"Noise augmentation enabled: prob={args.noise_prob}, "
+              f"snr_db=({args.noise_snr_db_min}, {args.noise_snr_db_max})")
     print(f"Loading eval split: {EVAL_PARQUET}")
-    eval_dataset = WhisperASRDataset(EVAL_PARQUET, processor)
+    eval_dataset = WhisperASRDataset(EVAL_PARQUET, processor)  # no noise -- eval must stay on clean audio
     print(f"train rows: {len(train_dataset)}  eval rows: {len(eval_dataset)}")
 
     collator = DataCollatorSpeechSeq2SeqWithPadding(processor=processor)
