@@ -82,19 +82,35 @@ class WhisperASRDataset(torch.utils.data.Dataset):
         processor: WhisperProcessor,
         noise_prob: float = 0.0,
         noise_snr_db: tuple[float, float] = (20.0, 30.0),
+        stretch_prob: float = 0.0,
+        stretch_rate_range: tuple[float, float] = (0.9, 1.1),
+        pitch_prob: float = 0.0,
+        pitch_semitone_range: tuple[float, float] = (-2.0, 2.0),
         seed: int | None = None,
     ):
-        """`noise_prob`/`noise_snr_db` add light Gaussian noise augmentation:
-        with probability `noise_prob`, mix white noise into the waveform at a
-        random SNR sampled uniformly from `noise_snr_db` (higher dB = quieter,
-        less noise -- 20-30dB is barely audible, meant as light regularization
-        rather than a robustness-to-real-noise measure). Off by default so
-        existing callers (evaluate_finetuned.py, smoke tests) are unaffected.
+        """Waveform augmentations, each applied independently with its own
+        probability -- off by default so existing callers (evaluate_finetuned.py,
+        smoke tests) are unaffected:
+
+        - `noise_prob`/`noise_snr_db`: mix white noise in at a random SNR
+          sampled uniformly from `noise_snr_db` (higher dB = quieter, less
+          noise -- 20-30dB is barely audible, meant as light regularization
+          rather than a robustness-to-real-noise measure).
+        - `stretch_prob`/`stretch_rate_range`: time-stretch the waveform by a
+          random rate (>1 = faster/shorter, <1 = slower/longer), to cover the
+          range of speaking paces Whisper will see in practice.
+        - `pitch_prob`/`pitch_semitone_range`: shift pitch by a random number
+          of semitones, to help the model generalize across voice types
+          (e.g. child vs. adult speakers).
         """
         self.table = _read_parquet_table(parquet_path, columns=["audio", "text"])
         self.processor = processor
         self.noise_prob = noise_prob
         self.noise_snr_db = noise_snr_db
+        self.stretch_prob = stretch_prob
+        self.stretch_rate_range = stretch_rate_range
+        self.pitch_prob = pitch_prob
+        self.pitch_semitone_range = pitch_semitone_range
         self._rng = np.random.default_rng(seed)
 
     def __len__(self):
@@ -113,6 +129,22 @@ class WhisperASRDataset(torch.utils.data.Dataset):
         noise = self._rng.normal(0.0, np.sqrt(noise_power), size=audio.shape).astype(np.float32)
         return audio + noise
 
+    def _maybe_time_stretch(self, audio: np.ndarray) -> np.ndarray:
+        if self.stretch_prob <= 0.0 or self._rng.random() >= self.stretch_prob:
+            return audio
+
+        import librosa
+        rate = self._rng.uniform(*self.stretch_rate_range)
+        return librosa.effects.time_stretch(audio, rate=rate).astype(np.float32)
+
+    def _maybe_pitch_shift(self, audio: np.ndarray) -> np.ndarray:
+        if self.pitch_prob <= 0.0 or self._rng.random() >= self.pitch_prob:
+            return audio
+
+        import librosa
+        n_steps = self._rng.uniform(*self.pitch_semitone_range)
+        return librosa.effects.pitch_shift(audio, sr=TARGET_SR, n_steps=n_steps).astype(np.float32)
+
     def __getitem__(self, idx):
         audio_bytes = self.table.column("audio")[idx].as_py()
         text = self.table.column("text")[idx].as_py()
@@ -122,6 +154,8 @@ class WhisperASRDataset(torch.utils.data.Dataset):
             import librosa
             audio = librosa.resample(audio, orig_sr=sr, target_sr=TARGET_SR)
 
+        audio = self._maybe_time_stretch(audio)
+        audio = self._maybe_pitch_shift(audio)
         audio = self._maybe_add_noise(audio)
 
         input_features = self.processor.feature_extractor(

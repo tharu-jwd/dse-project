@@ -157,30 +157,35 @@ python3 finetune_whisper_lora.py \
     --num-train-epochs 4
 ```
 
-### Noise augmentation
+### Audio augmentation
 
-Both scripts add light Gaussian noise to a fraction of the **training**
-clips only (the eval/test split is always kept clean, so WER/CER stays
-comparable across runs). Controlled via:
+Both scripts apply three independent waveform augmentations to a fraction of
+the **training** clips only (the eval/test split is always kept clean, so
+WER/CER stays comparable across runs). Each one is applied per-sample with
+its own probability, so a clip can get any combination of them (or none).
 
-| Flag | Default | Meaning |
-|---|---|---|
-| `--noise-prob` | `0.2` | Fraction of training clips that get noise mixed in (`0` disables it entirely) |
-| `--noise-snr-db-min` | `20.0` | Lower bound of the random SNR range (dB) |
-| `--noise-snr-db-max` | `30.0` | Upper bound of the random SNR range (dB) — lower dB = louder/more noise |
+| Augmentation | Flags | Defaults | Meaning |
+|---|---|---|---|
+| Noise injection | `--noise-prob`, `--noise-snr-db-min/max` | `0.2`, `20.0`/`30.0` | Mixes in light Gaussian noise at a random SNR (dB) — lower dB = louder/more noise |
+| Time stretching | `--stretch-prob`, `--stretch-rate-min/max` | `0.2`, `0.9`/`1.1` | Speeds up/slows down the clip by a random rate (>1 = faster, <1 = slower), to cover varying speaking paces |
+| Pitch shifting | `--pitch-prob`, `--pitch-semitones-min/max` | `0.2`, `-2.0`/`2.0` | Shifts pitch by a random number of semitones, to help generalize across voice types (e.g. child vs. adult speakers) |
 
-It's on by default (20% of clips, 20-30dB — subtle, not harsh static), so
-no extra flags are needed to use it. Override only if you want a different
-strength:
+Set any `--*-prob` to `0` to disable that augmentation. All three are on by
+default at light settings, so no extra flags are needed to use them:
 
 ```bash
+# override strength
 python3 finetune_whisper_lora.py ... --noise-prob 0.3 --noise-snr-db-min 15 --noise-snr-db-max 25
-python3 finetune_whisper_lora.py ... --noise-prob 0   # disable
+python3 finetune_whisper_lora.py ... --stretch-prob 0.3 --pitch-prob 0.3
+
+# disable all three
+python3 finetune_whisper_lora.py ... --noise-prob 0 --stretch-prob 0 --pitch-prob 0
 ```
 
-This is synthetic white-noise regularization, not real-world background
+Noise injection here is synthetic white noise, not real-world background
 noise (traffic, babble, etc.) — there's no noise-clip corpus (e.g. MUSAN) in
-this project yet.
+this project yet. Background-noise overlay was considered but skipped until
+such a corpus is added.
 
 ### W&B
 
