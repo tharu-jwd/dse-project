@@ -9,7 +9,7 @@ on the same data and the same held-out test set:
 | `finetune_whisper.py` | **Full fine-tune** — every model weight is trained | A full Whisper checkpoint (~1GB+) |
 | `finetune_whisper_lora.py` | **LoRA fine-tune** — base model frozen, a small low-rank adapter is trained | A PEFT adapter directory (a few MB) |
 | `evaluate_finetuned.py` | Scores your fine-tuned checkpoints/adapters against the test set — pass as many `--model`/`--lora` runs as you want compared, ranked by WER, to find the best one | Ranked console summary + one `<model>_predictions.csv` per model |
-| `prepare_whisper_dataset.py` | Shared library both fine-tune scripts import (audio decode + feature extraction + collation). | — |
+| `prepare_whisper_dataset.py` | Shared library both fine-tune scripts import (audio decode + optional noise augmentation + feature extraction + collation). | — |
 
 Both fine-tune scripts share the same CLI shape, the same data pipeline, and
 log to the same W&B project, so `--run-name`s from either one show up side by
@@ -156,6 +156,31 @@ python3 finetune_whisper_lora.py \
     --per-device-train-batch-size 32 \
     --num-train-epochs 4
 ```
+
+### Noise augmentation
+
+Both scripts add light Gaussian noise to a fraction of the **training**
+clips only (the eval/test split is always kept clean, so WER/CER stays
+comparable across runs). Controlled via:
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--noise-prob` | `0.2` | Fraction of training clips that get noise mixed in (`0` disables it entirely) |
+| `--noise-snr-db-min` | `20.0` | Lower bound of the random SNR range (dB) |
+| `--noise-snr-db-max` | `30.0` | Upper bound of the random SNR range (dB) — lower dB = louder/more noise |
+
+It's on by default (20% of clips, 20-30dB — subtle, not harsh static), so
+no extra flags are needed to use it. Override only if you want a different
+strength:
+
+```bash
+python3 finetune_whisper_lora.py ... --noise-prob 0.3 --noise-snr-db-min 15 --noise-snr-db-max 25
+python3 finetune_whisper_lora.py ... --noise-prob 0   # disable
+```
+
+This is synthetic white-noise regularization, not real-world background
+noise (traffic, babble, etc.) — there's no noise-clip corpus (e.g. MUSAN) in
+this project yet.
 
 ### W&B
 
