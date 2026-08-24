@@ -29,7 +29,10 @@ librosa>=0.10.2,<1.0.0
 
 # --- experiment tracking ---
 wandb>=0.17.0
-mlflow>=2.14.0,<3.0.0
+# mlflow is optional -- only needed if you pass --use-mlflow to the
+# fine-tune scripts (see finetuneGuide.md). Uncomment to install it here,
+# or `pip install mlflow>=2.14.0,<3.0.0` separately when you need it.
+# mlflow>=2.14.0,<3.0.0
 
 # --- progress reporting ---
 tqdm>=4.66.0,<5.0.0

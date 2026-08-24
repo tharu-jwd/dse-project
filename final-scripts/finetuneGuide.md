@@ -199,6 +199,83 @@ wandb login
 Omit `--wandb-project` to disable logging entirely (e.g. for the CPU smoke
 test below).
 
+### MLflow experiment tracking (optional)
+
+MLflow tracking is **opt-in** — pass `--use-mlflow` to either script and it
+logs params, per-epoch WER/CER, and final metrics into a shared experiment
+so the whole team can compare each other's runs in one place. Leave it off
+(the default) and neither script touches MLflow at all: no import, no
+network call, no need to even have `mlflow` installed or a server running.
+Use it if your team wants shared tracking; skip it if you're just running a
+one-off locally or prefer W&B alone.
+
+```bash
+pip install mlflow>=2.14.0,<3.0.0   # only needed if you're using --use-mlflow
+
+python3 finetune_whisper_lora.py \
+    --use-mlflow \
+    --output-dir /workspace/whisper-small-sinhala-lora/run1 \
+    --run-name run1-lr1e-4-bs32 \
+    --learning-rate 1e-4 --per-device-train-batch-size 32 --num-train-epochs 4
+```
+
+**No account needed anywhere.** MLflow here is self-hosted, not a SaaS
+product — there's a tracking server running as a Docker Compose service
+(`mlflow` in the repo-root [`docker-compose.yml`](../docker-compose.yml)),
+and "logging in" just means pointing your script at that server's URL. As
+currently set up there's no username/password on the server itself — anyone
+who can reach the port can read and write runs. That's fine for a small
+trusted team on a private network/VPN; if the server's port ever needs to be
+open to the wider internet (likely, since fine-tuning runs happen on RunPod
+pods, not on whoever's machine runs `docker compose up`), put it behind a
+firewall allowlist, an SSH tunnel, or a reverse proxy with basic auth rather
+than leaving `MLFLOW_PORT` open to everyone.
+
+**One-time setup (whoever runs the shared server):**
+```bash
+# from the repo root, alongside docker-compose.yml
+docker compose up -d mlflow
+```
+This starts the tracking server on `MLFLOW_PORT` (default `5000`, see
+[`.env.example`](../.env.example)), backed by a Docker volume (`mlflow_db`
+for run/param/metric metadata, `mlflow_artifacts` for any uploaded
+checkpoints) so history survives container restarts.
+
+**Every teammate / every GPU pod**, before running a fine-tune, points at
+that server once per machine:
+```bash
+export MLFLOW_TRACKING_URI=http://<host-running-docker-compose>:5000
+```
+(On a RunPod pod this needs the host's public IP/hostname and the port to
+be reachable from the pod — an SSH tunnel is the simplest way to do this
+without opening the port publicly: `ssh -N -L 5000:localhost:5000 you@host`
+run from the pod, then `MLFLOW_TRACKING_URI=http://localhost:5000`.)
+
+If `MLFLOW_TRACKING_URI` is unset, the scripts still work — MLflow just
+falls back to a local `./mlruns` folder, tracked but not shared with anyone.
+
+**Checking for already-tried hyperparameters:** before training starts,
+both scripts search the MLflow experiment for a previous run with the exact
+same hyperparameters (learning rate, batch size, epochs, augmentation
+settings, LoRA config, etc.) and print a warning listing any matches (run
+name, WER, run ID) if found. It's a heads-up, not a hard stop — a
+deliberate re-run is still allowed — but it means you'll see it before
+spending GPU hours repeating a run a teammate already logged.
+
+**Viewing runs:** open `http://<host>:5000` in a browser (same tracking
+server; MLflow's UI is served from the same port) to compare runs side by
+side, sort by WER, and inspect params/metrics/artifacts per run.
+
+Flags:
+```bash
+--use-mlflow                             # turn MLflow tracking on for this run (off by default)
+--mlflow-experiment my-experiment-name   # default: whisper-sinhala-finetune; only used with --use-mlflow
+--mlflow-log-artifacts                   # also upload the saved checkpoint/adapter
+                                          # to MLflow (off by default: full
+                                          # checkpoints are ~1GB+; adapters are small
+                                          # and cheap to include); only used with --use-mlflow
+```
+
 ### Smoke test (no GPU, before committing to a real run)
 
 Both scripts accept `--smoke-test`: 2 training steps, no generation-based
@@ -292,3 +369,73 @@ GPU — the full `stratified/train.parquet` split is large (123,862 rows).
    `gsutil cp` — is usually simplest locally).
 3. Run the same commands as §3/§4. If you don't have a CUDA GPU locally, use
    `--smoke-test` to validate the pipeline, then move the real run to RunPod.
+
+## 7. MLflow — step-by-step summary (RunPod + GCP dataset setup)
+
+End-to-end checklist for tracking a fine-tune in MLflow when training runs
+on a RunPod GPU pod, the dataset lives in a GCP bucket, and the MLflow
+server runs on an always-on host (not your laptop — see §"MLflow experiment
+tracking" above for why).
+
+1. **Start the MLflow server, once, on the always-on host** (not RunPod, not
+   a laptop you'll close):
+   ```bash
+   cd dse-project
+   docker compose up -d mlflow
+   ```
+2. **Open its port to the machines that need it** — your team's IPs and
+   RunPod's egress — in that host's firewall/security group. `MLFLOW_PORT`
+   defaults to `5000` (see `.env.example`).
+3. **Launch the RunPod GPU pod** (A100/A10 template with CUDA preinstalled).
+4. **Get `final-scripts/` onto the pod** — zip + `runpodctl send`/`receive`,
+   or `git clone` (§2 Method B / §5 steps 2–3).
+5. **Install dependencies on the pod** (MLflow tracking is opt-in, so also
+   install the `mlflow` client since you're using it here):
+   ```bash
+   cd final-scripts
+   pip install -r requirements.txt
+   pip install "mlflow>=2.14.0,<3.0.0"
+   ```
+6. **Pull the dataset from the GCP bucket onto the pod:**
+   ```bash
+   gcloud auth activate-service-account --key-file=/workspace/gcp-key.json
+   mkdir -p data/stratified
+   gsutil -m cp \
+       gs://singen/whisper/finalData/stratified/train.parquet \
+       gs://singen/whisper/finalData/stratified/validation.parquet \
+       gs://singen/whisper/finalData/stratified/test.parquet \
+       data/stratified/
+   ```
+7. **Point the pod at the MLflow server:**
+   ```bash
+   export MLFLOW_TRACKING_URI=http://<always-on-host-ip-or-domain>:5000
+   ```
+8. **Run the fine-tune with `--use-mlflow`** (tracking is opt-in — omit the
+   flag and none of this applies, no server or package needed):
+   ```bash
+   python3 finetune_whisper_lora.py \
+       --use-mlflow \
+       --output-dir /workspace/whisper-small-sinhala-lora/run1 \
+       --run-name run1-lr1e-4-bs32 \
+       --learning-rate 1e-4 \
+       --per-device-train-batch-size 32 \
+       --num-train-epochs 4
+   ```
+   Confirm the connection from the printed line right after startup:
+   `MLflow tracking: http://<host>:5000  experiment=whisper-sinhala-finetune`.
+   If the same hyperparameters were already run by a teammate, a warning
+   listing that run (name, WER, run ID) prints here too — not a blocker,
+   just a heads-up.
+9. **Watch it live** — from any machine, open
+   `http://<always-on-host-ip-or-domain>:5000`, click the
+   `whisper-sinhala-finetune` experiment, then the run name. Params show up
+   immediately; WER/CER metric charts fill in as each epoch finishes.
+10. **Compare runs** once you have more than one: select several runs on the
+    experiment page → **Compare**, for a side-by-side param/metric table.
+11. **(Optional) Keep the checkpoint in MLflow too:** add
+    `--mlflow-log-artifacts` to upload the saved checkpoint/adapter as a run
+    artifact (off by default — full checkpoints are ~1GB+).
+12. **After training**, copy the result off the pod before terminating it
+    (pod disk is ephemeral) — `runpodctl send`/`receive` as in §5 step 8.
+    The MLflow run itself doesn't need copying — it already lives on the
+    always-on server, independent of the pod.
