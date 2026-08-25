@@ -55,7 +55,6 @@ too, to compare):
 """
 
 import argparse
-import contextlib
 import os
 import sys
 
@@ -75,9 +74,6 @@ from prepare_whisper_dataset import (  # noqa: E402
     WhisperASRDataset,
     build_processor,
 )
-# mlflow / mlflow_utils are imported lazily inside main(), only when
-# --use-mlflow is passed -- neither the package nor a running tracking
-# server is required otherwise.
 
 # Fixed, not CLI flags: scripts and data are uploaded to the GPU pod together
 # (see README.md), so there's no need to pass paths at run time.
@@ -162,30 +158,9 @@ def main():
     parser.add_argument("--lora-target-modules", default="q_proj,v_proj",
                          help="comma-separated module names LoRA adapters attach to")
     parser.add_argument("--wandb-project", default=None, help="omit to disable W&B logging")
-    parser.add_argument("--use-mlflow", action="store_true",
-                         help="track this run in MLflow (requires `pip install mlflow` and "
-                              "MLFLOW_TRACKING_URI pointed at a server -- see finetuneGuide.md). "
-                              "Off by default: nothing MLflow-related runs unless this is passed.")
-    parser.add_argument("--mlflow-experiment", default=None,
-                         help="MLflow experiment name (default: whisper-sinhala-finetune); only used with --use-mlflow")
-    parser.add_argument("--mlflow-log-artifacts", action="store_true",
-                         help="also upload the saved adapter to MLflow as a run artifact; only used with --use-mlflow")
     parser.add_argument("--smoke-test", action="store_true",
                          help="tiny CPU run (a few steps, no generation-based eval) to sanity-check the pipeline")
     args = parser.parse_args()
-
-    track = args.use_mlflow and not args.smoke_test
-    mlflow_params = None
-    if track:
-        import mlflow  # noqa: F401  (also used further down in main())
-        import mlflow_utils
-        mlflow_params = mlflow_utils.build_run_params(args, training_type="lora")
-        tracking_uri = mlflow_utils.setup(args.mlflow_experiment)
-        mlflow_utils.warn_if_duplicate(
-            args.mlflow_experiment or mlflow_utils.DEFAULT_EXPERIMENT, mlflow_params,
-        )
-        print(f"MLflow tracking: {tracking_uri}  "
-              f"experiment={args.mlflow_experiment or mlflow_utils.DEFAULT_EXPERIMENT}")
 
     print(f"Loading processor + base model: {args.model_name}")
     processor = build_processor(args.model_name)
@@ -294,7 +269,7 @@ def main():
         # script doesn't need it -- WhisperForConditionalGeneration alone
         # already tells Trainer what its label column is).
         label_names=["labels"],
-        report_to=(["mlflow"] if track else []) + (["wandb"] if args.wandb_project else []),
+        report_to=["wandb"] if args.wandb_project else [],
         run_name=args.run_name or os.path.basename(os.path.normpath(args.output_dir)),
         **precision,
     )
@@ -311,32 +286,19 @@ def main():
         processing_class=processor,
     )
 
-    mlflow_run_ctx = mlflow.start_run(run_name=training_args.run_name) if track else contextlib.nullcontext()
-    with mlflow_run_ctx:
-        if track:
-            mlflow.log_params(mlflow_params)
+    print("\nStarting training...")
+    trainer.train()
 
-        print("\nStarting training...")
-        trainer.train()
+    # Saving a PeftModel writes only the adapter (config + weights), not the
+    # multi-gigabyte base model -- load it back with
+    # `PeftModel.from_pretrained(base_model, output_dir)`, same shape
+    # evaluate_finetuned.py's --lora expects.
+    print(f"\nSaving best adapter to {args.output_dir}")
+    trainer.save_model(args.output_dir)
+    processor.save_pretrained(args.output_dir)
 
-        # Saving a PeftModel writes only the adapter (config + weights), not the
-        # multi-gigabyte base model -- load it back with
-        # `PeftModel.from_pretrained(base_model, output_dir)`, same shape
-        # evaluate_finetuned.py's --lora expects.
-        print(f"\nSaving best adapter to {args.output_dir}")
-        trainer.save_model(args.output_dir)
-        processor.save_pretrained(args.output_dir)
-
-        metrics = trainer.evaluate()
-        print(f"\nFinal validation metrics: {metrics}")
-
-        if track:
-            mlflow.log_metrics({
-                f"final_{k}": v for k, v in metrics.items() if isinstance(v, (int, float))
-            })
-            if args.mlflow_log_artifacts:
-                print("Uploading adapter to MLflow...")
-                mlflow.log_artifacts(args.output_dir, artifact_path="model")
+    metrics = trainer.evaluate()
+    print(f"\nFinal validation metrics: {metrics}")
 
 
 if __name__ == "__main__":

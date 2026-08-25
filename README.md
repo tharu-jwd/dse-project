@@ -17,9 +17,7 @@ quizzes.
   it connects to the backend and to preprocessing.
 - `project-docs/`: the project's formal deliverables, SRS, Software Architecture Document, ERD, Gantt
   chart, and project proposal.
-- `docker-compose.yml`: local PostgreSQL service for the backend, and a shared MLflow tracking
-  server for fine-tuning experiments, opt-in via `--use-mlflow` (see
-  [`final-scripts/finetuneGuide.md`](final-scripts/finetuneGuide.md#mlflow-experiment-tracking-optional)).
+- `docker-compose.yml`: local PostgreSQL service for the backend.
 
 ## Status
 
