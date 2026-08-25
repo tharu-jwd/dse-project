@@ -137,6 +137,9 @@ def main():
     parser.add_argument("--per-device-eval-batch-size", type=int, default=8)
     parser.add_argument("--gradient-accumulation-steps", type=int, default=2)
     parser.add_argument("--learning-rate", type=float, default=1e-5)
+    parser.add_argument("--lr-scheduler-type", default="cosine",
+                         help="passed straight to Seq2SeqTrainingArguments -- 'cosine', 'linear', "
+                              "'constant_with_warmup', etc. (see transformers SchedulerType)")
     parser.add_argument("--warmup-steps", type=int, default=500)
     parser.add_argument("--dataloader-num-workers", type=int, default=8)
     parser.add_argument("--no-spec-augment", action="store_true")
@@ -258,6 +261,7 @@ def main():
         per_device_eval_batch_size=args.per_device_eval_batch_size,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         learning_rate=args.learning_rate,
+        lr_scheduler_type=args.lr_scheduler_type,
         warmup_steps=args.warmup_steps,
         num_train_epochs=args.num_train_epochs,
         eval_strategy="epoch",
