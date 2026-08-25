@@ -134,6 +134,9 @@ def main():
     parser.add_argument("--gradient-accumulation-steps", type=int, default=2)
     parser.add_argument("--learning-rate", type=float, default=1e-4,
                          help="LoRA adapters typically want a higher LR than full fine-tuning (default 1e-4 vs 1e-5)")
+    parser.add_argument("--lr-scheduler-type", default="cosine",
+                         help="passed straight to Seq2SeqTrainingArguments -- 'cosine', 'linear', "
+                              "'constant_with_warmup', etc. (see transformers SchedulerType)")
     parser.add_argument("--warmup-steps", type=int, default=500)
     parser.add_argument("--dataloader-num-workers", type=int, default=8)
     parser.add_argument("--no-spec-augment", action="store_true")
@@ -141,6 +144,14 @@ def main():
                          help="probability per training sample of mixing in light Gaussian noise (0 to disable)")
     parser.add_argument("--noise-snr-db-min", type=float, default=20.0)
     parser.add_argument("--noise-snr-db-max", type=float, default=30.0)
+    parser.add_argument("--stretch-prob", type=float, default=0.2,
+                         help="probability per training sample of time-stretching (0 to disable)")
+    parser.add_argument("--stretch-rate-min", type=float, default=0.9)
+    parser.add_argument("--stretch-rate-max", type=float, default=1.1)
+    parser.add_argument("--pitch-prob", type=float, default=0.2,
+                         help="probability per training sample of pitch-shifting (0 to disable)")
+    parser.add_argument("--pitch-semitones-min", type=float, default=-2.0)
+    parser.add_argument("--pitch-semitones-max", type=float, default=2.0)
     parser.add_argument("--lora-r", type=int, default=32)
     parser.add_argument("--lora-alpha", type=int, default=64)
     parser.add_argument("--lora-dropout", type=float, default=0.05)
@@ -180,10 +191,20 @@ def main():
         processor,
         noise_prob=args.noise_prob,
         noise_snr_db=(args.noise_snr_db_min, args.noise_snr_db_max),
+        stretch_prob=args.stretch_prob,
+        stretch_rate_range=(args.stretch_rate_min, args.stretch_rate_max),
+        pitch_prob=args.pitch_prob,
+        pitch_semitone_range=(args.pitch_semitones_min, args.pitch_semitones_max),
     )
     if args.noise_prob > 0:
         print(f"Noise augmentation enabled: prob={args.noise_prob}, "
               f"snr_db=({args.noise_snr_db_min}, {args.noise_snr_db_max})")
+    if args.stretch_prob > 0:
+        print(f"Time-stretch augmentation enabled: prob={args.stretch_prob}, "
+              f"rate=({args.stretch_rate_min}, {args.stretch_rate_max})")
+    if args.pitch_prob > 0:
+        print(f"Pitch-shift augmentation enabled: prob={args.pitch_prob}, "
+              f"semitones=({args.pitch_semitones_min}, {args.pitch_semitones_max})")
     print(f"Loading eval split: {EVAL_PARQUET}")
     eval_dataset = WhisperASRDataset(EVAL_PARQUET, processor)  # no noise -- eval must stay on clean audio
     print(f"train rows: {len(train_dataset)}  eval rows: {len(eval_dataset)}")
@@ -229,6 +250,7 @@ def main():
         per_device_eval_batch_size=args.per_device_eval_batch_size,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         learning_rate=args.learning_rate,
+        lr_scheduler_type=args.lr_scheduler_type,
         warmup_steps=args.warmup_steps,
         num_train_epochs=args.num_train_epochs,
         eval_strategy="epoch",

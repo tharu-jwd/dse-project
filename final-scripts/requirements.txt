@@ -5,8 +5,16 @@
 # Install on the GPU pod with: pip install -r dse-project/scripts/requirements.txt
 
 # --- core training stack ---
+# transformers lower bound is 4.46.0, not 4.41 -- finetune_whisper.py /
+# finetune_whisper_lora.py pass Seq2SeqTrainingArguments(eval_strategy=...),
+# and `eval_strategy` (replacing the older `evaluation_strategy`) was only
+# added in 4.46.0. Anything 4.41-4.45 raises
+# "TypeError: unexpected keyword argument 'eval_strategy'" at runtime, even
+# though it satisfies a >=4.41.0 pin -- this is why `pip install -r` can look
+# clean but the script still fails: pip won't upgrade an already-installed
+# version that technically satisfies the constraint.
 torch>=2.2.0,<3.0.0
-transformers>=4.41.0,<5.0.0
+transformers>=4.46.0,<5.0.0
 accelerate>=0.30.0,<1.0.0
 peft>=0.11.0,<1.0.0
 
