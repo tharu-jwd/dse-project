@@ -15,7 +15,12 @@
 # version that technically satisfies the constraint.
 torch>=2.2.0,<3.0.0
 transformers>=4.46.0,<5.0.0
-accelerate>=0.30.0,<1.0.0
+# accelerate lower bound raised from 0.30.0 -- Trainer._wrap_model() in
+# transformers 4.57.x calls Accelerator.unwrap_model(keep_torch_compile=...),
+# a kwarg accelerate only added in 1.x. accelerate 0.30-0.34 satisfies the old
+# >=0.30.0 pin but raises "TypeError: unexpected keyword argument
+# 'keep_torch_compile'" at trainer.train() time.
+accelerate>=1.0.0,<2.0.0
 peft>=0.11.0,<1.0.0
 
 # --- metrics ---
