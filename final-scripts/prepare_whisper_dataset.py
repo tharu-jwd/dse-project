@@ -174,7 +174,9 @@ class WhisperASRDataset(torch.utils.data.Dataset):
         input_features = self.processor.feature_extractor(
             audio, sampling_rate=TARGET_SR
         ).input_features[0]
-        labels = self.processor.tokenizer(text, truncation=True, max_length=448).input_ids
+        labels = self.processor.tokenizer(
+            text, truncation=True, max_length=448
+        ).input_ids
 
         return {
             "input_features": np.asarray(input_features, dtype=np.float32),
