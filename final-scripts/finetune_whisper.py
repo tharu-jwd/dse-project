@@ -70,6 +70,7 @@ from transformers import (
 
 sys.path.insert(0, os.path.dirname(__file__))
 from prepare_whisper_dataset import (  # noqa: E402
+    NORMALIZE,
     DataCollatorSpeechSeq2SeqWithPadding,
     WhisperASRDataset,
     build_processor,
@@ -114,6 +115,8 @@ def make_compute_metrics(processor):
 
         pred_str = processor.tokenizer.batch_decode(pred_ids, skip_special_tokens=True)
         label_str = processor.tokenizer.batch_decode(label_ids, skip_special_tokens=True)
+        pred_str = [NORMALIZE(p) for p in pred_str]
+        label_str = [NORMALIZE(l) for l in label_str]
 
         wer = 100 * wer_metric.compute(predictions=pred_str, references=label_str)
         cer = 100 * cer_metric.compute(predictions=pred_str, references=label_str)

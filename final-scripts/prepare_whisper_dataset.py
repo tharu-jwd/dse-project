@@ -37,6 +37,7 @@ import io
 from dataclasses import dataclass
 from typing import Any
 
+import jiwer
 import numpy as np
 import pyarrow.parquet as pq
 import soundfile as sf
@@ -46,6 +47,18 @@ from transformers import WhisperFeatureExtractor, WhisperProcessor, WhisperToken
 LANGUAGE = "sinhala"
 TASK = "transcribe"
 TARGET_SR = 16000
+
+# Shared text normalizer for WER/CER *scoring* only -- training targets
+# (WhisperASRDataset below) keep punctuation untouched. Used by
+# finetune_whisper.py / finetune_whisper_lora.py's compute_metrics and by
+# evaluate_baselines.py / evaluate_finetuned.py / evaluate_english_forgetting.py,
+# so every reported WER/CER number is graded the same way.
+NORMALIZE = jiwer.Compose([
+    jiwer.ToLowerCase(),
+    jiwer.RemovePunctuation(),
+    jiwer.RemoveMultipleSpaces(),
+    jiwer.Strip(),
+])
 
 
 def _read_parquet_table(path: str, columns: list[str]):
