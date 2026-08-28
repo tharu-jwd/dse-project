@@ -23,12 +23,14 @@ async def stream_transcription(websocket: WebSocket) -> None:
     """
 
     if not settings.streaming_enabled:
+        await websocket.accept()
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
     user = get_current_user_ws(websocket)
 
     if user is None:
+        await websocket.accept()
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
