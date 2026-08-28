@@ -1,0 +1,241 @@
+import { useEffect, useRef, useState } from 'react'
+import { API_BASE_URL } from '../api'
+import Icon from './Icon'
+import { Alert } from './UI'
+
+const TARGET_SAMPLE_RATE = 16000
+const CHUNK_SAMPLES = TARGET_SAMPLE_RATE * 0.25 // ~250ms per chunk, per the streaming protocol
+
+function downsampleTo16k(input, inputSampleRate) {
+  if (inputSampleRate === TARGET_SAMPLE_RATE) return input
+  const ratio = inputSampleRate / TARGET_SAMPLE_RATE
+  const outLength = Math.floor(input.length / ratio)
+  const output = new Float32Array(outLength)
+  for (let i = 0; i < outLength; i++) {
+    output[i] = input[Math.floor(i * ratio)]
+  }
+  return output
+}
+
+function floatTo16BitPCM(float32Array) {
+  const output = new Int16Array(float32Array.length)
+  for (let i = 0; i < float32Array.length; i++) {
+    const clamped = Math.max(-1, Math.min(1, float32Array[i]))
+    output[i] = clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff
+  }
+  return output
+}
+
+function wsUrl(path) {
+  return `${API_BASE_URL.replace(/^http/, 'ws')}${path}`
+}
+
+/**
+ * Live note-taking: streams mic audio to the streaming WebSocket and
+ * renders partial (grey) and final (black) transcript text as it arrives.
+ */
+export default function LiveTranscription({ title, onSessionEnd, disabled = false }) {
+  const [status, setStatus] = useState('idle') // idle | connecting | recording | stopping | error
+  const [error, setError] = useState('')
+  const [finals, setFinals] = useState([]) // [{ segment, text }]
+  const [partial, setPartial] = useState('')
+  const [seconds, setSeconds] = useState(0)
+
+  const wsRef = useRef(null)
+  const audioCtxRef = useRef(null)
+  const streamRef = useRef(null)
+  const processorRef = useRef(null)
+  const pendingSamplesRef = useRef(new Float32Array(0))
+  const intervalRef = useRef(null)
+  const endedRef = useRef(false)
+  const statusRef = useRef('idle')
+
+  useEffect(() => {
+    statusRef.current = status
+  }, [status])
+
+  const cleanupAudio = () => {
+    processorRef.current?.disconnect()
+    processorRef.current = null
+    streamRef.current?.getTracks().forEach((track) => track.stop())
+    streamRef.current = null
+    if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+      audioCtxRef.current.close().catch(() => {})
+    }
+    audioCtxRef.current = null
+    window.clearInterval(intervalRef.current)
+  }
+
+  useEffect(() => () => cleanupAudio(), [])
+
+  const start = async () => {
+    setError('')
+    setFinals([])
+    setPartial('')
+    setSeconds(0)
+    endedRef.current = false
+
+    if (!title.trim()) {
+      setError('Give your note a title before recording.')
+      return
+    }
+    if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
+      setError('Live transcription is not supported by this browser.')
+      return
+    }
+
+    setStatus('connecting')
+
+    const token = localStorage.getItem('sinhaspeech_token')
+    const socket = new WebSocket(wsUrl(`/streaming/ws?token=${encodeURIComponent(token || '')}`))
+    socket.binaryType = 'arraybuffer'
+    wsRef.current = socket
+
+    socket.onopen = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        streamRef.current = stream
+
+        const AudioCtx = window.AudioContext || window.webkitAudioContext
+        const audioCtx = new AudioCtx()
+        audioCtxRef.current = audioCtx
+
+        const source = audioCtx.createMediaStreamSource(stream)
+        const processor = audioCtx.createScriptProcessor(4096, 1, 1)
+        processorRef.current = processor
+        const silentGain = audioCtx.createGain()
+        silentGain.gain.value = 0
+
+        processor.onaudioprocess = (event) => {
+          if (socket.readyState !== WebSocket.OPEN) return
+          const input = event.inputBuffer.getChannelData(0)
+          const downsampled = downsampleTo16k(input, audioCtx.sampleRate)
+
+          const merged = new Float32Array(pendingSamplesRef.current.length + downsampled.length)
+          merged.set(pendingSamplesRef.current)
+          merged.set(downsampled, pendingSamplesRef.current.length)
+
+          let offset = 0
+          while (merged.length - offset >= CHUNK_SAMPLES) {
+            const slice = merged.subarray(offset, offset + CHUNK_SAMPLES)
+            socket.send(floatTo16BitPCM(slice).buffer)
+            offset += CHUNK_SAMPLES
+          }
+          pendingSamplesRef.current = merged.slice(offset)
+        }
+
+        source.connect(processor)
+        processor.connect(silentGain)
+        silentGain.connect(audioCtx.destination)
+
+        socket.send(JSON.stringify({ type: 'start', title: title.trim(), mode: 'NOTE' }))
+        setStatus('recording')
+        intervalRef.current = window.setInterval(() => setSeconds((value) => value + 1), 1000)
+      } catch (cause) {
+        setStatus('error')
+        if (cause?.name === 'NotAllowedError' || cause?.name === 'SecurityError')
+          setError('Microphone permission was denied.')
+        else if (cause?.name === 'NotFoundError') setError('No microphone was found.')
+        else setError('The microphone could not be started.')
+        socket.close()
+      }
+    }
+
+    socket.onmessage = (event) => {
+      const message = JSON.parse(event.data)
+      if (message.type === 'partial') {
+        setPartial(message.text)
+      } else if (message.type === 'final') {
+        setFinals((prev) => [...prev, { segment: message.segment, text: message.text }])
+        setPartial('')
+      } else if (message.type === 'session_end') {
+        endedRef.current = true
+        cleanupAudio()
+        setStatus('idle')
+        onSessionEnd(message.transcript_id)
+      } else if (message.type === 'error') {
+        setError(message.message)
+      }
+    }
+
+    socket.onclose = () => {
+      cleanupAudio()
+      if (!endedRef.current) {
+        const wasStopping = statusRef.current === 'stopping'
+        setStatus(wasStopping ? 'idle' : 'error')
+        if (!wasStopping) setError((prev) => prev || 'The connection was lost.')
+      }
+    }
+
+    socket.onerror = () => {
+      setStatus('error')
+      setError('Could not connect to the streaming service.')
+    }
+  }
+
+  const stop = () => {
+    setStatus('stopping')
+    const socket = wsRef.current
+    if (socket?.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: 'stop' }))
+    } else {
+      cleanupAudio()
+      setStatus('idle')
+    }
+  }
+
+  const time = (value) =>
+    `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`
+
+  return (
+    <div className="recorder">
+      {error && <Alert>{error}</Alert>}
+      <div className={`recorder__stage ${status === 'recording' ? 'is-recording' : ''}`} aria-live="polite">
+        {(status === 'idle' || status === 'error') && (
+          <>
+            <button
+              type="button"
+              className="record-button"
+              onClick={start}
+              disabled={disabled}
+              aria-label="Start live transcription"
+            >
+              <Icon name="mic" size={28} />
+            </button>
+            <strong>Ready for live transcription</strong>
+            <span>Speak in Sinhala — text appears on screen as you go.</span>
+          </>
+        )}
+        {status === 'connecting' && <strong>Connecting…</strong>}
+        {(status === 'recording' || status === 'stopping') && (
+          <>
+            <div className="recording-pulse">
+              <span />
+            </div>
+            <strong>
+              Live… <time>{time(seconds)}</time>
+            </strong>
+            <button
+              type="button"
+              className="button button--danger"
+              onClick={stop}
+              disabled={status === 'stopping'}
+            >
+              <Icon name="stop" size={17} /> {status === 'stopping' ? 'Finishing…' : 'Stop'}
+            </button>
+          </>
+        )}
+      </div>
+      {(finals.length > 0 || partial) && (
+        <div className="live-transcript" aria-live="polite">
+          {finals.map((item) => (
+            <span key={item.segment} className="live-transcript__final">
+              {item.text}{' '}
+            </span>
+          ))}
+          {partial && <span className="live-transcript__partial">{partial}</span>}
+        </div>
+      )}
+    </div>
+  )
+}

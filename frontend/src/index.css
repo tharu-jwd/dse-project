@@ -1315,6 +1315,20 @@ select:focus {
 .recorder__stage.is-recording .button {
   margin-top: 18px;
 }
+.live-transcript {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--surface-alt, #f6f6f8);
+  line-height: 1.7;
+  font-size: 1.02rem;
+}
+.live-transcript__final {
+  color: var(--text, #1a1a1a);
+}
+.live-transcript__partial {
+  color: #8a8a94;
+}
 .audio-ready {
   display: flex;
   align-items: center;

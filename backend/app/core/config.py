@@ -35,6 +35,18 @@ class Settings(BaseSettings):
     streaming_enabled: bool = False
     streaming_max_sessions_per_user: int = 3
 
+    # Source HF checkpoint to convert, and where the converted
+    # CTranslate2 model lives once `convert_to_ctranslate2.py` has run.
+    streaming_source_model: str = "models/whisper-sinhala1"
+    streaming_model_path: str = "models/whisper-sinhala1-ct2"
+    streaming_compute_type: str = "int8"
+
+    streaming_window_interval_seconds: float = 2.0
+    streaming_max_buffer_seconds: float = 15.0
+    streaming_overlap_seconds: float = 1.0
+    streaming_vad_silence_ms: int = 500
+    streaming_memory_ceiling_seconds: float = 60.0
+
 
     @property
     def cors_origins_list(self) -> list[str]:
@@ -65,6 +77,26 @@ class Settings(BaseSettings):
             return str(path.resolve())
 
         return self.whisper_model
+
+    @property
+    def streaming_model_source_path(self) -> str:
+        """Resolve the source HF checkpoint to convert, relative to repo root."""
+        path = Path(self.streaming_source_model)
+
+        if not path.is_absolute():
+            path = PROJECT_ROOT / path
+
+        return str(path.resolve())
+
+    @property
+    def streaming_model_ct2_path(self) -> str:
+        """Resolve the converted CTranslate2 model directory."""
+        path = Path(self.streaming_model_path)
+
+        if not path.is_absolute():
+            path = PROJECT_ROOT / path
+
+        return str(path.resolve())
 
     model_config = SettingsConfigDict(
         env_file = PROJECT_ROOT / ".env",

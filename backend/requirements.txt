@@ -15,3 +15,9 @@ openai-whisper
 transformers
 torch
 peft
+
+faster-whisper
+ctranslate2
+silero-vad
+onnxruntime
+websockets

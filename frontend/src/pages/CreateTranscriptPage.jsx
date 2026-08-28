@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import AudioRecorder from '../components/AudioRecorder'
 import FileUpload, { validateMediaFile } from '../components/FileUpload'
 import Icon from '../components/Icon'
+import LiveTranscription from '../components/LiveTranscription'
 import TranscriptionStatus from '../components/TranscriptionStatus'
 import useTranscriptionJob from '../components/useTranscriptionJob'
 import { Alert, PageHeader, ProgressSteps } from '../components/UI'
@@ -12,6 +13,7 @@ export default function CreateTranscriptPage({ type = 'LECTURE' }) {
   const [title, setTitle] = useState('')
   const [file, setFile] = useState(null)
   const [errors, setErrors] = useState({})
+  const [inputMode, setInputMode] = useState('capture')
   const { job, start, reset } = useTranscriptionJob()
   const navigate = useNavigate()
   useEffect(() => {
@@ -115,7 +117,36 @@ export default function CreateTranscriptPage({ type = 'LECTURE' }) {
           </div>
         </div>
         {isNote ? (
-          <AudioRecorder onUse={begin} />
+          <>
+            <div className="tabs" role="tablist" aria-label="Note input mode">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={inputMode === 'capture'}
+                className={inputMode === 'capture' ? 'active' : ''}
+                onClick={() => setInputMode('capture')}
+              >
+                <Icon name="mic" size={18} /> Record or upload
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={inputMode === 'live'}
+                className={inputMode === 'live' ? 'active' : ''}
+                onClick={() => setInputMode('live')}
+              >
+                <Icon name="mic" size={18} /> Live transcription
+              </button>
+            </div>
+            {inputMode === 'capture' ? (
+              <AudioRecorder onUse={begin} />
+            ) : (
+              <LiveTranscription
+                title={title}
+                onSessionEnd={(transcriptId) => navigate(`/transcripts/${transcriptId}`)}
+              />
+            )}
+          </>
         ) : (
           <>
             <FileUpload
