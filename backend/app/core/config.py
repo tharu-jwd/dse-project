@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     whisper_base_model: str = "openai/whisper-small"
     whisper_adapter_model: str = "SPEAK-ASR/whisper-si-exp-10"
 
+    # Live streaming transcription (parallel path, off by default).
+    streaming_enabled: bool = False
+    streaming_max_sessions_per_user: int = 3
+
 
     @property
     def cors_origins_list(self) -> list[str]:
