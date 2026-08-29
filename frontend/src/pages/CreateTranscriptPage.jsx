@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
+import lectureBackground from '../assets/2.jpg'
+import rocketImage from '../assets/rocket.png'
 import AudioRecorder from '../components/AudioRecorder'
 import FileUpload, { validateMediaFile } from '../components/FileUpload'
 import Icon from '../components/Icon'
@@ -50,7 +52,10 @@ export default function CreateTranscriptPage({ type = 'LECTURE' }) {
   }
   if (job)
     return (
-      <div className="page page--narrow">
+      <div
+        className={`page page--narrow ${isNote ? '' : 'has-bg-image'}`}
+        style={isNote ? undefined : { backgroundImage: `url(${lectureBackground})` }}
+      >
         <PageHeader
           eyebrow={isNote ? 'Self-study notes' : 'Lecture captioning'}
           title={job.status === 'FAILED' ? 'Something went wrong' : 'Creating your transcript'}
@@ -67,7 +72,10 @@ export default function CreateTranscriptPage({ type = 'LECTURE' }) {
       </div>
     )
   return (
-    <div className="page">
+    <div
+      className={`page ${isNote ? '' : 'has-bg-image'}`}
+      style={isNote ? undefined : { backgroundImage: `url(${lectureBackground})` }}
+    >
       <div className="upload-hero">
         <span className="eyebrow">
           {isNote ? 'Speak it. Save it. Study it.' : 'Accessible learning starts here'}
@@ -80,107 +88,111 @@ export default function CreateTranscriptPage({ type = 'LECTURE' }) {
         </p>
       </div>
       <div className="upload-grid">
-        <section className="glass-card">
-          <div className="form-card__heading">
-            <span>1</span>
-            <div>
-              <h2>{isNote ? 'Name your note' : 'Lecture details'}</h2>
-              <p>Use a clear title so you can find it later.</p>
-            </div>
-          </div>
-          <div className="field">
-            <label htmlFor="media-title">{isNote ? 'Note title' : 'Lecture title'}</label>
-            <input
-              id="media-title"
-              value={title}
-              onChange={(e) => {
-                setTitle(e.target.value)
-                setErrors({ ...errors, title: '' })
-              }}
-              placeholder={
-                isNote
-                  ? 'e.g. Database revision — Week 4'
-                  : 'e.g. Introduction to Algorithms — Week 2'
-              }
-              aria-invalid={Boolean(errors.title)}
-            />
-            {errors.title && (
-              <span className="field-error" role="alert">
-                {errors.title}
-              </span>
-            )}
-          </div>
-          <div className="form-card__heading" style={{ marginTop: 28 }}>
-            <span>2</span>
-            <div>
-              <h2>{isNote ? 'Add your voice note' : 'Add the lecture recording'}</h2>
-              <p>
-                {isNote
-                  ? 'Record here or choose an audio clip you already have.'
-                  : 'Choose a common audio or video format.'}
-              </p>
-            </div>
-          </div>
-          {isNote ? (
-            <>
-              <div className="tabs" role="tablist" aria-label="Note input mode">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={inputMode === 'capture'}
-                  className={inputMode === 'capture' ? 'active' : ''}
-                  onClick={() => setInputMode('capture')}
-                >
-                  <Icon name="mic" size={18} /> Record or upload
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={inputMode === 'live'}
-                  className={inputMode === 'live' ? 'active' : ''}
-                  onClick={() => setInputMode('live')}
-                >
-                  <Icon name="mic" size={18} /> Live transcription
-                </button>
+        {isNote ? (
+          <section className="glass-card">
+            <div className="form-card__heading">
+              <span>1</span>
+              <div>
+                <h2>Name your note</h2>
+                <p>Use a clear title so you can find it later.</p>
               </div>
-              {inputMode === 'capture' ? (
-                <AudioRecorder onUse={begin} />
-              ) : (
-                <LiveTranscription
-                  title={title}
-                  onSessionEnd={(transcriptId) => navigate(`/transcripts/${transcriptId}`)}
-                />
-              )}
-            </>
-          ) : (
-            <>
-              <FileUpload
-                file={file}
-                onChange={(value) => {
-                  setFile(value)
-                  setErrors({ ...errors, file: '' })
+            </div>
+            <div className="field">
+              <label htmlFor="media-title">Note title</label>
+              <input
+                id="media-title"
+                value={title}
+                onChange={(e) => {
+                  setTitle(e.target.value)
+                  setErrors({ ...errors, title: '' })
                 }}
-                error={errors.file}
+                placeholder="e.g. Database revision — Week 4"
+                aria-invalid={Boolean(errors.title)}
               />
-              <div className="button-row button-row--end">
-                <button type="button" className="button button--primary" onClick={() => begin()}>
-                  <Icon name="upload" size={17} /> Upload & transcribe
-                </button>
+              {errors.title && (
+                <span className="field-error" role="alert">
+                  {errors.title}
+                </span>
+              )}
+            </div>
+            <div className="form-card__heading" style={{ marginTop: 28 }}>
+              <span>2</span>
+              <div>
+                <h2>Add your voice note</h2>
+                <p>Record here or choose an audio clip you already have.</p>
               </div>
-            </>
-          )}
-        </section>
+            </div>
+            <div className="tabs" role="tablist" aria-label="Note input mode">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={inputMode === 'capture'}
+                className={inputMode === 'capture' ? 'active' : ''}
+                onClick={() => setInputMode('capture')}
+              >
+                <Icon name="mic" size={18} /> Record or upload
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={inputMode === 'live'}
+                className={inputMode === 'live' ? 'active' : ''}
+                onClick={() => setInputMode('live')}
+              >
+                <Icon name="mic" size={18} /> Live transcription
+              </button>
+            </div>
+            {inputMode === 'capture' ? (
+              <AudioRecorder onUse={begin} />
+            ) : (
+              <LiveTranscription
+                title={title}
+                onSessionEnd={(transcriptId) => navigate(`/transcripts/${transcriptId}`)}
+              />
+            )}
+          </section>
+        ) : (
+          <section className="glass-card upload-tile">
+            <div className="field">
+              <label htmlFor="media-title">Lecture title</label>
+              <input
+                id="media-title"
+                value={title}
+                onChange={(e) => {
+                  setTitle(e.target.value)
+                  setErrors({ ...errors, title: '' })
+                }}
+                placeholder="e.g. Introduction to Algorithms — Week 2"
+                aria-invalid={Boolean(errors.title)}
+              />
+              {errors.title && (
+                <span className="field-error" role="alert">
+                  {errors.title}
+                </span>
+              )}
+            </div>
+            <FileUpload
+              file={file}
+              onChange={(value) => {
+                setFile(value)
+                setErrors({ ...errors, file: '' })
+              }}
+              error={errors.file}
+              iconImage={rocketImage}
+              floatingIcon
+              heading="Ready for liftoff?"
+              tagline="Drag and drop your lecture files here or use the button below."
+            />
+            <div className="button-row button-row--end">
+              <button type="button" className="button button--primary" onClick={() => begin()}>
+                <Icon name="upload" size={17} /> Upload &amp; transcribe
+              </button>
+            </div>
+          </section>
+        )}
         <div className="upload-grid__side">
           <div className="glass-card glass-card--tight">
-            <h3>Your privacy matters</h3>
-            <p className="muted" style={{ fontSize: '0.8rem', lineHeight: 1.6 }}>
-              Recordings are stored securely for transcription and later review. Only you and
-              authorized course staff can access them. Do not upload sensitive personal
-              information.
-            </p>
-          </div>
-          <div className="glass-card glass-card--tight">
-            <h3>Recent uploads</h3>
+            <h3>{isNote ? 'Recent uploads' : 'Recent transcriptions'}</h3>
             {recent === null ? (
               <Loading label="Loading…" />
             ) : recent.length ? (
@@ -218,6 +230,16 @@ export default function CreateTranscriptPage({ type = 'LECTURE' }) {
               </p>
             )}
           </div>
+          {isNote && (
+            <div className="glass-card glass-card--tight">
+              <h3>Your privacy matters</h3>
+              <p className="muted" style={{ fontSize: '0.8rem', lineHeight: 1.6 }}>
+                Recordings are stored securely for transcription and later review. Only you and
+                authorized course staff can access them. Do not upload sensitive personal
+                information.
+              </p>
+            </div>
+          )}
         </div>
       </div>
       <div className="feature-row">

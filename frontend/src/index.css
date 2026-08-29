@@ -1286,6 +1286,26 @@ select:focus {
   flex-direction: column;
   gap: 20px;
 }
+.upload-grid__side .confidence-control {
+  margin-top: 0;
+  border: 2px solid rgba(139, 92, 246, 0.3);
+  border-radius: 24px;
+  background: rgba(35, 27, 53, 0.6);
+  backdrop-filter: blur(8px);
+}
+.upload-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.upload-tile .field {
+  margin-bottom: 0;
+}
+.upload-tile .dropzone {
+  min-height: 320px;
+  border-width: 2px;
+  border-radius: 28px;
+}
 .glass-card {
   padding: 32px;
   border: 2px solid rgba(160, 120, 255, 0.4);
@@ -1318,7 +1338,8 @@ select:focus {
   place-items: center;
   border: 2px solid var(--teal);
   border-radius: 50%;
-  background: var(--surface-3);
+  background: rgba(35, 27, 53, 0.55);
+  backdrop-filter: blur(6px);
   color: var(--teal);
 }
 .feature-row h5 {
@@ -1435,7 +1456,7 @@ select:focus {
   justify-content: center;
   border: 1.5px dashed #4d4363;
   border-radius: 10px;
-  background: #1f1731;
+  background: rgba(0, 0, 0, 0.15);
   text-align: center;
   transition: 0.15s;
 }
@@ -1460,6 +1481,41 @@ select:focus {
   border-radius: 50%;
   background: var(--teal-soft);
   color: var(--teal);
+}
+.dropzone__icon--floating {
+  width: 84px;
+  height: 84px;
+  margin-bottom: 18px;
+  background: transparent;
+  animation: dropzone-float 4s ease-in-out infinite;
+}
+@keyframes dropzone-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-4deg);
+  }
+  50% {
+    transform: translateY(-14px) rotate(4deg);
+  }
+}
+.dropzone__icon-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.dropzone__heading {
+  margin-bottom: 6px;
+  color: var(--navy);
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+.dropzone__tagline {
+  max-width: 380px;
+  margin: 0 0 22px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  text-align: center;
 }
 .dropzone label {
   font-size: 0.83rem;
