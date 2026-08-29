@@ -1,19 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, downloadBlob } from '../api'
+import editorBackground from '../assets/1.jpg'
 import Icon from '../components/Icon'
 import TranscriptEditor from '../components/TranscriptEditor'
-import { Alert, EmptyState, Loading, PageHeader, StatusBadge } from '../components/UI'
+import { Alert, ConfirmDialog, EmptyState, Loading, PageHeader, StatusBadge } from '../components/UI'
 import { useToast } from '../contexts/ToastContext'
 
 const typeLabel = { LECTURE: 'Lecture', NOTE: 'Study note', QUIZ_ANSWER: 'Quiz answer' }
 
 export function TranscriptLibraryPage() {
+  const [searchParams] = useSearchParams()
   const [items, setItems] = useState(null)
   const [error, setError] = useState('')
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(searchParams.get('q') || '')
   const [type, setType] = useState('ALL')
   const [status, setStatus] = useState('ALL')
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const { showToast } = useToast()
   const load = () => {
     setItems(null)
@@ -41,6 +45,25 @@ export function TranscriptLibraryPage() {
       showToast('Transcript downloaded.')
     } catch (cause) {
       setError(cause.message)
+    }
+  }
+  const deleteItem = async () => {
+    if (isDeleting) return
+    const target = deleteTarget
+    setIsDeleting(true)
+    try {
+      try {
+        await api.deleteTranscript(target.id)
+      } catch (cause) {
+        if (!/not found/i.test(cause.message)) throw cause
+      }
+      setItems((prev) => (prev || []).filter((entry) => entry.id !== target.id))
+      showToast('Transcript deleted.')
+      setDeleteTarget(null)
+    } catch (cause) {
+      setError(cause.message)
+    } finally {
+      setIsDeleting(false)
     }
   }
   return (
@@ -152,6 +175,14 @@ export function TranscriptLibraryPage() {
                           <Icon name="download" size={18} />
                         </button>
                       )}
+                      <button
+                        className="icon-button"
+                        title="Delete"
+                        aria-label={`Delete ${item.title}`}
+                        onClick={() => setDeleteTarget(item)}
+                      >
+                        <Icon name="trash" size={18} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -177,6 +208,16 @@ export function TranscriptLibraryPage() {
           }
         />
       )}
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete transcript"
+        message={`Are you sure you want to delete "${deleteTarget?.title}"? This cannot be undone.`}
+        confirmLabel="Delete transcript"
+        dangerous
+        busy={isDeleting}
+        onConfirm={deleteItem}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   )
 }
@@ -212,7 +253,10 @@ export function TranscriptPage() {
       </div>
     )
   return (
-    <div className="page page--editor">
+    <div
+      className="page page--editor has-bg-image"
+      style={{ backgroundImage: `url(${editorBackground})` }}
+    >
       <PageHeader
         eyebrow={`${typeLabel[item.type]} transcript`}
         title="Review transcript"

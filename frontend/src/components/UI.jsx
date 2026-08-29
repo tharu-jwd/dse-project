@@ -60,6 +60,7 @@ export function ConfirmDialog({
   message,
   confirmLabel = 'Confirm',
   dangerous = false,
+  busy = false,
   onConfirm,
   onCancel,
 }) {
@@ -86,14 +87,20 @@ export function ConfirmDialog({
         <h2 id="dialog-title">{title}</h2>
         <p id="dialog-message">{message}</p>
         <div className="dialog__actions">
-          <button ref={cancelRef} className="button button--secondary" onClick={onCancel}>
+          <button
+            ref={cancelRef}
+            className="button button--secondary"
+            onClick={onCancel}
+            disabled={busy}
+          >
             Cancel
           </button>
           <button
             className={`button ${dangerous ? 'button--danger' : 'button--primary'}`}
             onClick={onConfirm}
+            disabled={busy}
           >
-            {confirmLabel}
+            {busy ? 'Working…' : confirmLabel}
           </button>
         </div>
       </div>

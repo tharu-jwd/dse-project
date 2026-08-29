@@ -172,6 +172,16 @@ export const api = {
     if (!USE_MOCK_API) return request(`/transcripts/${id}/finalize`, { method: 'POST' })
     return api.updateTranscript(id, { status: 'FINALIZED' })
   },
+  async deleteTranscript(id) {
+    if (!USE_MOCK_API) {
+      await request(`/transcripts/${id}`, { method: 'DELETE' })
+      return
+    }
+    await pause(400)
+    const index = transcripts.findIndex((t) => t.id === id)
+    if (index < 0) throw new Error('Transcript was not found.')
+    transcripts.splice(index, 1)
+  },
   async exportTranscript(id, format) {
     if (!USE_MOCK_API) return request(`/transcripts/${id}/export?format=${format}`)
     await pause(400)

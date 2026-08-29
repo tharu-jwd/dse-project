@@ -175,6 +175,26 @@ def finalize_owned_transcript(
     return transcript
 
 
+def delete_owned_transcript(
+    db: Session,
+    user: User,
+    transcript_id: UUID,
+) -> None:
+    transcript = get_owned_transcript(
+        db=db,
+        user=user,
+        transcript_id=transcript_id,
+    )
+
+    if transcript is None:
+        raise TranscriptNotFoundError(
+            "Transcript was not found."
+        )
+
+    db.delete(transcript)
+    db.commit()
+
+
 def serialize_segment(
     segment: TranscriptSegment,
 ) -> TranscriptSegmentResponse:
