@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, downloadBlob } from '../api'
 import editorBackground from '../assets/1.jpg'
+import libraryBackground from '../assets/5.png'
 import Icon from '../components/Icon'
 import TranscriptEditor from '../components/TranscriptEditor'
 import { Alert, ConfirmDialog, EmptyState, Loading, PageHeader, StatusBadge } from '../components/UI'
@@ -67,7 +68,7 @@ export function TranscriptLibraryPage() {
     }
   }
   return (
-    <div className="page">
+    <div className="page has-bg-image" style={{ backgroundImage: `url(${libraryBackground})` }}>
       <PageHeader
         eyebrow="Your saved work"
         title="Transcript library"
@@ -239,7 +240,10 @@ export function TranscriptPage() {
   }, [id])
   if (error)
     return (
-      <div className="page page--narrow">
+      <div
+        className="page page--narrow has-bg-image"
+        style={{ backgroundImage: `url(${editorBackground})` }}
+      >
         <Alert title="Could not open transcript">{error}</Alert>
         <button className="button button--secondary" onClick={() => navigate('/transcripts')}>
           Back to library
@@ -248,7 +252,7 @@ export function TranscriptPage() {
     )
   if (!item)
     return (
-      <div className="page">
+      <div className="page has-bg-image" style={{ backgroundImage: `url(${editorBackground})` }}>
         <Loading label="Opening transcript editor…" />
       </div>
     )

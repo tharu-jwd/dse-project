@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
+import teacherQuizBackground from '../assets/6.jpg'
 import Icon from '../components/Icon'
 import {
   Alert,
@@ -24,7 +25,7 @@ export function TeacherQuizListPage() {
   }, [])
   const shown = (items || []).filter((item) => filter === 'ALL' || item.status === filter)
   return (
-    <div className="page">
+    <div className="page has-bg-image" style={{ backgroundImage: `url(${teacherQuizBackground})` }}>
       <PageHeader
         eyebrow="Teacher workspace"
         title="Manage quizzes"
@@ -156,12 +157,12 @@ export function QuizFormPage() {
   }
   if (loading)
     return (
-      <div className="page">
+      <div className="page has-bg-image" style={{ backgroundImage: `url(${teacherQuizBackground})` }}>
         <Loading label="Loading quiz editor…" />
       </div>
     )
   return (
-    <div className="page page--narrow">
+    <div className="page page--narrow has-bg-image" style={{ backgroundImage: `url(${teacherQuizBackground})` }}>
       <button className="back-link" onClick={() => navigate('/teacher/quizzes')}>
         ← Back to quizzes
       </button>

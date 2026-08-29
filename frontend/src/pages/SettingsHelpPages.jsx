@@ -1,3 +1,4 @@
+import settingsBackground from '../assets/3.jpg'
 import AccessibilityControls from '../components/AccessibilityControls'
 import Icon from '../components/Icon'
 import { PageHeader } from '../components/UI'
@@ -8,7 +9,10 @@ export function SettingsPage() {
   const { confidenceThreshold, updatePreference } = useAccessibility()
   const { showToast } = useToast()
   return (
-    <div className="page page--narrow">
+    <div
+      className="page page--narrow has-bg-image"
+      style={{ backgroundImage: `url(${settingsBackground})` }}
+    >
       <PageHeader
         eyebrow="Make SinhaSpeech work for you"
         title="Accessibility settings"
@@ -107,7 +111,7 @@ const guides = [
 
 export function HelpPage() {
   return (
-    <div className="page">
+    <div className="page has-bg-image" style={{ backgroundImage: `url(${settingsBackground})` }}>
       <PageHeader
         eyebrow="English · සිංහල"
         title="Quick start guide"

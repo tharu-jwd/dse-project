@@ -1027,7 +1027,8 @@ select:focus {
   padding: 48px 56px;
   border: 3px solid rgba(139, 92, 246, 0.25);
   border-radius: 0 0 64px 64px;
-  background: linear-gradient(135deg, var(--surface-3), var(--surface));
+  background: linear-gradient(135deg, rgba(46, 38, 64, 0.75), rgba(31, 23, 49, 0.75));
+  backdrop-filter: blur(6px);
 }
 .hero-banner h1 {
   max-width: 620px;
@@ -1072,7 +1073,8 @@ select:focus {
   overflow: hidden;
   border: 3px solid rgba(139, 92, 246, 0.16);
   border-radius: 32px;
-  background: var(--surface);
+  background: rgba(31, 23, 49, 0.65);
+  backdrop-filter: blur(6px);
   text-align: center;
   transition:
     transform 0.18s,
@@ -1134,7 +1136,8 @@ select:focus {
   padding: 20px;
   border: 2px solid var(--border);
   border-radius: 24px;
-  background: var(--surface);
+  background: rgba(31, 23, 49, 0.65);
+  backdrop-filter: blur(6px);
 }
 .stat-card__icon {
   display: grid;
@@ -1177,7 +1180,8 @@ select:focus {
   padding: 30px;
   border: 2px solid var(--border);
   border-radius: 32px;
-  background: var(--surface);
+  background: rgba(31, 23, 49, 0.65);
+  backdrop-filter: blur(6px);
 }
 .recent-list {
   display: grid;
@@ -1356,7 +1360,8 @@ select:focus {
   padding: 25px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: var(--surface);
+  background: rgba(31, 23, 49, 0.7);
+  backdrop-filter: blur(6px);
   box-shadow: 0 2px 7px rgba(0, 0, 0, 0.3);
 }
 .form-card__heading {
@@ -1726,7 +1731,8 @@ select:focus {
   padding: 45px;
   border: 1px solid var(--border);
   border-radius: 14px;
-  background: var(--surface);
+  background: rgba(31, 23, 49, 0.7);
+  backdrop-filter: blur(6px);
   text-align: center;
   box-shadow: var(--shadow);
 }
@@ -1835,7 +1841,8 @@ select:focus {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 11px;
-  background: var(--surface);
+  background: rgba(31, 23, 49, 0.7);
+  backdrop-filter: blur(6px);
 }
 .table-card table {
   width: 100%;
@@ -2493,7 +2500,8 @@ select:focus {
   padding: 22px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: var(--surface);
+  background: rgba(31, 23, 49, 0.7);
+  backdrop-filter: blur(6px);
 }
 .help-card__icon {
   display: grid;
@@ -2569,7 +2577,8 @@ select:focus {
   padding: 22px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: var(--surface);
+  background: rgba(31, 23, 49, 0.7);
+  backdrop-filter: blur(6px);
 }
 .quiz-card__top {
   display: flex;
@@ -2663,7 +2672,8 @@ select:focus {
   padding: 25px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: var(--surface);
+  background: rgba(31, 23, 49, 0.7);
+  backdrop-filter: blur(6px);
 }
 .question-prompt {
   padding-bottom: 20px;
@@ -2756,7 +2766,8 @@ select:focus {
   padding: 14px 16px;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: var(--surface);
+  background: rgba(31, 23, 49, 0.7);
+  backdrop-filter: blur(6px);
 }
 .manage-list article > div {
   display: flex;

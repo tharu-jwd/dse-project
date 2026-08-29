@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
+import quizBackground from '../assets/4.jpg'
 import AudioRecorder from '../components/AudioRecorder'
 import Icon from '../components/Icon'
 import TranscriptEditor from '../components/TranscriptEditor'
@@ -26,7 +27,7 @@ export function QuizListPage() {
       .catch((cause) => setError(cause.message))
   }, [])
   return (
-    <div className="page">
+    <div className="page has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>
       <PageHeader
         eyebrow="Speak your answer"
         title="My quizzes"
@@ -112,19 +113,19 @@ export function QuizAnswerPage() {
   }, [job])
   if (error)
     return (
-      <div className="page page--narrow">
+      <div className="page page--narrow has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>
         <Alert>{error}</Alert>
       </div>
     )
   if (!quiz)
     return (
-      <div className="page">
+      <div className="page has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>
         <Loading label="Opening quiz…" />
       </div>
     )
   if (submitted)
     return (
-      <div className="page page--narrow">
+      <div className="page page--narrow has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>
         <div className="success-state">
           <span>
             <Icon name="check" size={34} />
@@ -177,7 +178,7 @@ export function QuizAnswerPage() {
     }
   }
   return (
-    <div className="page">
+    <div className="page has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>
       <button className="back-link" onClick={() => navigate('/quizzes')}>
         ← Exit quiz
       </button>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
+import dashboardBackground from '../assets/3.jpg'
 import Icon from '../components/Icon'
 import { Loading, StatusBadge } from '../components/UI'
 import { useAuth } from '../contexts/AuthContext'
@@ -94,7 +95,7 @@ export default function DashboardPage() {
   }).format(new Date())
   const firstAction = actions[user.role][0]
   return (
-    <div className="page">
+    <div className="page has-bg-image" style={{ backgroundImage: `url(${dashboardBackground})` }}>
       <section className="hero-banner">
         <span className="eyebrow">{date}</span>
         <h1>Ayubowan, {user.name.split(' ')[0]}!</h1>

@@ -1,9 +1,13 @@
 import { Link } from 'react-router-dom'
+import notFoundBackground from '../assets/4.jpg'
 import { EmptyState } from '../components/UI'
 
 export default function NotFoundPage() {
   return (
-    <main className="standalone-page">
+    <main
+      className="standalone-page has-bg-image"
+      style={{ backgroundImage: `url(${notFoundBackground})` }}
+    >
       <EmptyState
         icon="search"
         title="Page not found"

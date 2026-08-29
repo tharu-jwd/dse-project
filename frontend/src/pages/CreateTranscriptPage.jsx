@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import lectureBackground from '../assets/2.jpg'
+import noteBackground from '../assets/6.jpg'
 import rocketImage from '../assets/rocket.png'
 import AudioRecorder from '../components/AudioRecorder'
 import FileUpload, { validateMediaFile } from '../components/FileUpload'
@@ -53,8 +54,8 @@ export default function CreateTranscriptPage({ type = 'LECTURE' }) {
   if (job)
     return (
       <div
-        className={`page page--narrow ${isNote ? '' : 'has-bg-image'}`}
-        style={isNote ? undefined : { backgroundImage: `url(${lectureBackground})` }}
+        className="page page--narrow has-bg-image"
+        style={{ backgroundImage: `url(${isNote ? noteBackground : lectureBackground})` }}
       >
         <PageHeader
           eyebrow={isNote ? 'Self-study notes' : 'Lecture captioning'}
@@ -73,8 +74,8 @@ export default function CreateTranscriptPage({ type = 'LECTURE' }) {
     )
   return (
     <div
-      className={`page ${isNote ? '' : 'has-bg-image'}`}
-      style={isNote ? undefined : { backgroundImage: `url(${lectureBackground})` }}
+      className="page has-bg-image"
+      style={{ backgroundImage: `url(${isNote ? noteBackground : lectureBackground})` }}
     >
       <div className="upload-hero">
         <span className="eyebrow">
