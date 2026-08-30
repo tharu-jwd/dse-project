@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from app.models.media import MediaFile
     from app.models.quiz import Quiz, QuizSubmission
     from app.models.transcription import ExportRecord, Transcript, TranscriptionJob
+    from app.models.voice_enrollment import CommandEnrollment
 
 
 class User(Base):
@@ -75,4 +76,8 @@ class User(Base):
     )
     export_records: Mapped[list[ExportRecord]] = relationship(
         back_populates="requester",
+    )
+    command_enrollments: Mapped[list[CommandEnrollment]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
     )

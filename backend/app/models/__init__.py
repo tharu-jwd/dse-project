@@ -12,6 +12,7 @@ from app.models.quiz import (
     QuizSubmission,
 )
 from app.models.user import User
+from app.models.voice_enrollment import CommandEnrollment
 
 __all__ = [
     "User",
@@ -24,4 +25,5 @@ __all__ = [
     "Question",
     "QuizSubmission",
     "AnswerSubmission",
+    "CommandEnrollment",
 ]

@@ -8,10 +8,23 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 from app.api.dependencies import get_current_user_ws
 from app.core.config import settings
 from app.models.user import User
-from app.services.streaming_persistence import add_final_segment, create_live_transcript
+from app.services import voice_enrollment
+from app.services.streaming_persistence import (
+    add_final_segment,
+    create_live_transcript,
+    delete_last_segment,
+)
 from app.streaming.buffer import StreamingBuffer
+from app.streaming.command_resolution import resolve_command
+from app.streaming.embeddings import ClipTooShortError
 from app.streaming.inference import get_streaming_transcriber
 from app.streaming.vad import get_vad
+
+# Voice commands that are handled while taking a live note. Anything else
+# in the command vocabulary (next/previous/save/submit) has no defined
+# action in this view yet, so a fuzzy match on those is left as ordinary
+# dictated text rather than silently swallowed.
+_ACTIONABLE_NOTE_COMMANDS = {"delete", "stop"}
 
 
 logger = logging.getLogger(__name__)
@@ -64,8 +77,32 @@ async def stream_transcription(websocket: WebSocket) -> None:
       client -> {"type": "stop"}
       server -> {"type": "partial", "text": str, "segment": int}
       server -> {"type": "final", "text": str, "start": float, "end": float, "segment": int}
+      server -> {"type": "command", "command": str}
+      server -> {"type": "command_maybe", "fuzzy_command": str|null, "embedding_command": str|null}
       server -> {"type": "session_end", "transcript_id": str}
       server -> {"type": "error", "message": str}
+
+    Every finalized utterance is checked against the voice-command
+    vocabulary via app.streaming.command_resolution, which combines the
+    fuzzy-text match (app.streaming.commands) with, for an enrolled
+    student, a speaker-embedding match (app.streaming.embeddings) - see
+    that module for the exact combination rule. Three outcomes:
+      - "execute": treated as a command instead of dictated text -
+        nothing is added to the note; a "command" message is sent so the
+        client can act on it (today: delete the last line / stop the
+        session - other recognized commands have no defined action in
+        this view yet).
+      - "confirm": ambiguous (the two signals disagree, or only a weak
+        candidate exists on either side). Nothing is guessed - the
+        utterance is persisted as ordinary note text as a safe default,
+        but a "command_maybe" message is also sent so the client can
+        surface it to the student.
+      - "none": ordinary dictation, persisted as normal note text.
+
+    A student with no enrollment bank (or with embedding matching
+    switched off globally) gets exactly the fuzzy-only "execute"/"none"
+    behaviour that existed before enrollment did - see
+    resolve_command's fallback.
     """
 
     if not settings.streaming_enabled:
@@ -119,12 +156,22 @@ async def _run_session(websocket: WebSocket, user: User) -> None:
         create_live_transcript, user, title, TRANSCRIPT_TYPE_BY_MODE[mode]
     )
 
+    # Loaded once per session, not per utterance - small (a handful of
+    # commands x a handful of samples x one float vector each) and never
+    # changes mid-session. Empty for a student who hasn't enrolled, which
+    # is exactly what makes resolve_command's fallback kick in below.
+    bank = (
+        await asyncio.to_thread(voice_enrollment.load_bank, user.user_id)
+        if settings.voice_command_embedding_matching_enabled
+        else {}
+    )
+
     buffer = StreamingBuffer(
         max_buffer_seconds=settings.streaming_max_buffer_seconds,
         overlap_seconds=settings.streaming_overlap_seconds,
         memory_ceiling_seconds=settings.streaming_memory_ceiling_seconds,
     )
-    state = {"segment_order": 0}
+    state = {"segment_order": 0, "bank": bank}
 
     ticker = asyncio.create_task(
         _window_ticker(websocket, buffer, state, transcript_id)
@@ -240,7 +287,8 @@ async def _process_window(
             buffer.force_cut()
         return
 
-    text = (await transcriber.transcribe(audio)).text
+    result = await transcriber.transcribe(audio)
+    text = result.text
 
     is_pause = (
         vad_result.trailing_silence_seconds * 1000
@@ -249,7 +297,9 @@ async def _process_window(
     should_force = buffer.exceeded_max_buffer()
 
     if is_pause or should_force:
-        await _emit_final(websocket, buffer, state, transcript_id, text)
+        await _emit_final(
+            websocket, buffer, state, transcript_id, text, result.avg_logprob, audio
+        )
     else:
         await websocket.send_json(
             {"type": "partial", "text": text, "segment": state["segment_order"]}
@@ -268,6 +318,8 @@ async def _emit_final(
     state: dict,
     transcript_id: UUID,
     text: str,
+    avg_logprob: float | None,
+    audio,
 ) -> None:
     segment = buffer.finalize(text) if text else None
 
@@ -275,7 +327,61 @@ async def _emit_final(
         buffer.force_cut()
         return
 
+    await _resolve_and_dispatch(websocket, state, transcript_id, segment, avg_logprob, audio)
+
+
+async def _resolve_and_dispatch(
+    websocket: WebSocket,
+    state: dict,
+    transcript_id: UUID,
+    segment,
+    avg_logprob: float | None,
+    audio,
+) -> None:
+    bank = state["bank"]
+    embedding = None
+
+    if settings.voice_command_embedding_matching_enabled and bank:
+        try:
+            embedding = await get_streaming_transcriber().embed(audio)
+        except ClipTooShortError:
+            embedding = None
+
+    decision = resolve_command(
+        segment.text, avg_logprob=avg_logprob, embedding=embedding, bank=bank
+    )
+
+    if decision.outcome == "execute" and decision.command_id in _ACTIONABLE_NOTE_COMMANDS:
+        await _handle_command(websocket, transcript_id, decision.command_id)
+        return
+
+    if decision.outcome == "confirm":
+        try:
+            await websocket.send_json(
+                {
+                    "type": "command_maybe",
+                    "fuzzy_command": decision.fuzzy_command_id,
+                    "embedding_command": decision.embedding_command_id,
+                }
+            )
+        except RuntimeError:
+            pass
+        # Nothing was guessed - fall through and keep the words the
+        # student actually said, same as ordinary dictation.
+
     await _persist_and_send_final(websocket, state, transcript_id, segment)
+
+
+async def _handle_command(websocket: WebSocket, transcript_id: UUID, command_id: str) -> None:
+    """Act on a recognized voice command instead of persisting it as text."""
+
+    if command_id == "delete":
+        await asyncio.to_thread(delete_last_segment, transcript_id)
+
+    try:
+        await websocket.send_json({"type": "command", "command": command_id})
+    except RuntimeError:
+        pass
 
 
 async def _persist_and_send_final(
@@ -329,15 +435,17 @@ async def _finalize_remaining_buffer(
             return
 
         transcriber = get_streaming_transcriber()
-        text = (await transcriber.transcribe(audio)).text
+        result = await transcriber.transcribe(audio)
     except Exception:
         logger.exception(
             "Failed to finalize trailing buffer for transcript %s.", transcript_id
         )
         return
 
-    if not text.strip():
+    if not result.text.strip():
         return
 
-    segment = buffer.finalize(text)
-    await _persist_and_send_final(websocket, state, transcript_id, segment)
+    segment = buffer.finalize(result.text)
+    await _resolve_and_dispatch(
+        websocket, state, transcript_id, segment, result.avg_logprob, audio
+    )

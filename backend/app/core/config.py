@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     media_storage_dir: str = "storage/uploads"
     max_upload_size_bytes: int = 100 * 1024 * 1024
 
+    # Step-1 data collection only (see scripts/validate_command_embeddings.py) -
+    # not part of the real per-student enrollment bank built in a later step.
+    voice_samples_dir: str = "storage/voice_samples"
+
     transcriber_backend: str = "fake"
 
     # Complete Hugging Face Whisper checkpoint, local path or Hub model ID.
@@ -56,6 +60,49 @@ class Settings(BaseSettings):
     # confident speech); below this, a borderline fuzzy score is rejected.
     voice_command_logprob_floor: float = -0.5
 
+    # Speaker-enrolled embedding matching: a second, sound-based opinion
+    # alongside the fuzzy-text path above (app.streaming.embeddings).
+    # Threshold set from the step-1 validation harness's max-margin
+    # suggestion on real recordings, not guessed - re-run
+    # scripts/validate_command_embeddings.py and update this if the
+    # checkpoint or the recording conditions change materially.
+    voice_embedding_similarity_threshold: float = 0.8875
+    voice_embedding_min_clip_seconds: float = 0.3
+    # Stamped onto every enrolled sample so a future checkpoint swap can
+    # be detected instead of silently comparing embeddings from two
+    # different model spaces. Bump this by hand when the streaming
+    # checkpoint is retrained/reconverted.
+    voice_embedding_model_version: str = "whisper-sinhala1-ct2"
+
+    # Enrollment: recording the samples that go into the bank above.
+    voice_enrollment_samples_required: int = 5
+    # Floor for "does this new take sound like this student's previous
+    # takes of the same command" - deliberately looser than the runtime
+    # match threshold above. Step 1's real recordings had same-phrase
+    # pairs scoring as low as 0.84 purely from natural variation, so a
+    # stricter floor here would reject valid samples during enrollment,
+    # not just genuinely mis-recorded ones.
+    voice_enrollment_min_sample_similarity: float = 0.80
+
+    # Runtime combination of the fuzzy-text and embedding paths
+    # (app.streaming.command_resolution). Off by default so it can be
+    # A/B tested - fuzzy-only is exactly today's behaviour either way,
+    # and this only ever changes anything for a student who is both
+    # flagged in and has an enrollment bank.
+    voice_command_embedding_matching_enabled: bool = False
+    # Higher bar for a destructive command (submit, delete) to count as
+    # a *strong* embedding match, mirroring
+    # voice_command_destructive_threshold on the fuzzy side.
+    voice_embedding_destructive_threshold: float = 0.92
+    # "Is there SOME weak candidate worth mentioning" floors, used only
+    # to distinguish "confirm" (something maybe happened) from "none"
+    # (ordinary dictation) when neither signal was strong. Below these,
+    # nothing is reported at all - without a floor, ordinary fuzzy
+    # string matching would loosely resemble *some* command in almost
+    # every sentence and turn every dictated line into a confirmation
+    # prompt.
+    voice_command_fuzzy_borderline_floor: float = 60.0
+    voice_embedding_borderline_floor: float = 0.75
 
     @property
     def cors_origins_list(self) -> list[str]:
@@ -68,6 +115,15 @@ class Settings(BaseSettings):
     @property
     def media_storage_path(self) -> Path:
         path = Path(self.media_storage_dir)
+
+        if not path.is_absolute():
+            path = PROJECT_ROOT / path
+
+        return path.resolve()
+
+    @property
+    def voice_samples_path(self) -> Path:
+        path = Path(self.voice_samples_dir)
 
         if not path.is_absolute():
             path = PROJECT_ROOT / path

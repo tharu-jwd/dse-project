@@ -1,5 +1,7 @@
 from uuid import UUID
 
+from sqlalchemy import select
+
 from app.db.session import SessionLocal
 from app.models.transcription import Transcript, TranscriptSegment
 from app.models.user import User
@@ -44,3 +46,30 @@ def add_final_segment(
                 word_metadata=None,
             )
         )
+
+
+def delete_last_segment(transcript_id: UUID) -> int | None:
+    """Remove the most recently added segment for a live transcript.
+
+    Backs the "delete" voice command: the student speaks a command instead
+    of dictated text, so nothing was persisted for that utterance - this
+    just un-does the last real segment before it. Returns the removed
+    segment's order (so the caller can tell the client what to remove from
+    its own local list), or None if the transcript has no segments yet.
+    """
+
+    with SessionLocal.begin() as db:
+        last_segment = db.scalar(
+            select(TranscriptSegment)
+            .where(TranscriptSegment.transcript_id == transcript_id)
+            .order_by(TranscriptSegment.segment_order.desc())
+            .limit(1)
+        )
+
+        if last_segment is None:
+            return None
+
+        removed_order = last_segment.segment_order
+        db.delete(last_segment)
+
+        return removed_order
