@@ -240,7 +240,7 @@ async def _process_window(
             buffer.force_cut()
         return
 
-    text = await transcriber.transcribe(audio)
+    text = (await transcriber.transcribe(audio)).text
 
     is_pause = (
         vad_result.trailing_silence_seconds * 1000
@@ -329,7 +329,7 @@ async def _finalize_remaining_buffer(
             return
 
         transcriber = get_streaming_transcriber()
-        text = await transcriber.transcribe(audio)
+        text = (await transcriber.transcribe(audio)).text
     except Exception:
         logger.exception(
             "Failed to finalize trailing buffer for transcript %s.", transcript_id

@@ -21,3 +21,6 @@ ctranslate2
 silero-vad
 onnxruntime
 websockets
+rapidfuzz
+
+pytest

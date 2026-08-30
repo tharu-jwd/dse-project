@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
-import dashboardBackground from '../assets/3.jpg'
+import dashboardBackground from '../assets/7.jpg'
+import heroImage from '../assets/astronaut.png'
 import Icon from '../components/Icon'
 import { Loading, StatusBadge } from '../components/UI'
 import { useAuth } from '../contexts/AuthContext'
@@ -112,9 +113,6 @@ export default function DashboardPage() {
             View library
           </Link>
         </div>
-        <span className="hero-banner__star hero-banner__star--1" aria-hidden="true">
-          <Icon name="rocket" size={30} />
-        </span>
       </section>
       <section className="section">
         <div className="section-heading">

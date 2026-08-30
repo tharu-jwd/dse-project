@@ -8,7 +8,6 @@ const time = (seconds) =>
 
 export default function AudioRecorder({ onUse, disabled = false }) {
   const uploadId = useId()
-  const [mode, setMode] = useState('record')
   const [state, setState] = useState('idle')
   const [seconds, setSeconds] = useState(0)
   const [audio, setAudio] = useState(null)
@@ -103,110 +102,90 @@ export default function AudioRecorder({ onUse, disabled = false }) {
 
   return (
     <div className="recorder">
-      <div className="tabs" role="tablist" aria-label="Audio source">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === 'record'}
-          className={mode === 'record' ? 'active' : ''}
-          onClick={() => setMode('record')}
-          disabled={state === 'recording'}
-        >
-          <Icon name="mic" size={18} /> Record audio
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === 'upload'}
-          className={mode === 'upload' ? 'active' : ''}
-          onClick={() => setMode('upload')}
-          disabled={state === 'recording'}
-        >
-          <Icon name="upload" size={18} /> Upload a clip
-        </button>
-      </div>
       {error && <Alert>{error}</Alert>}
-      {mode === 'upload' ? (
-        <FileUpload
-          audioOnly
-          id={`audio-${uploadId}`}
-          file={audio?.file || null}
-          onChange={selectUpload}
-        />
-      ) : (
-        <div
-          className={`recorder__stage ${state === 'recording' ? 'is-recording' : ''}`}
-          aria-live="polite"
-        >
-          {state === 'idle' && (
-            <>
+      <div
+        className={`recorder__stage ${state === 'recording' ? 'is-recording' : ''}`}
+        aria-live="polite"
+      >
+        {state === 'idle' && (
+          <>
+            <button
+              type="button"
+              className="record-button"
+              onClick={start}
+              disabled={disabled}
+              aria-label="Start recording"
+            >
+              <Icon name="mic" size={28} />
+            </button>
+            <strong>Ready to record</strong>
+            <span>Speak clearly in Sinhala, or upload a clip below.</span>
+          </>
+        )}
+        {state === 'recording' && (
+          <>
+            <div className="recording-pulse">
+              <span />
+            </div>
+            <strong>
+              Recording… <time>{time(seconds)}</time>
+            </strong>
+            <span>Your microphone is active</span>
+            <button type="button" className="button button--danger" onClick={stop}>
+              <Icon name="stop" size={17} /> Stop recording
+            </button>
+          </>
+        )}
+        {state === 'ready' && (
+          <>
+            <div className="audio-ready">
+              <span>
+                <Icon name="check" />
+              </span>
+              <div>
+                <strong>Recording ready</strong>
+                <small>{time(seconds)} · Review it before continuing</small>
+              </div>
+            </div>
+            <audio controls src={audio.url} aria-label="Recorded audio preview" />
+            <div className="button-row">
+              <button type="button" className="button button--secondary" onClick={clearAudio}>
+                <Icon name="trash" size={17} /> Discard & re-record
+              </button>
               <button
                 type="button"
-                className="record-button"
-                onClick={start}
+                className="button button--primary"
+                onClick={() => onUse(new File([audio.blob], audio.name, { type: audio.type }))}
                 disabled={disabled}
-                aria-label="Start recording"
               >
-                <Icon name="mic" size={28} />
+                <Icon name="check" size={17} /> Use recording
               </button>
-              <strong>Ready to record</strong>
-              <span>Speak clearly in Sinhala. You can listen before using it.</span>
-            </>
-          )}
-          {state === 'recording' && (
-            <>
-              <div className="recording-pulse">
-                <span />
-              </div>
-              <strong>
-                Recording… <time>{time(seconds)}</time>
-              </strong>
-              <span>Your microphone is active</span>
-              <button type="button" className="button button--danger" onClick={stop}>
-                <Icon name="stop" size={17} /> Stop recording
+            </div>
+          </>
+        )}
+      </div>
+      {state === 'idle' && (
+        <>
+          <p className="recorder__divider">or upload an audio clip</p>
+          <FileUpload
+            audioOnly
+            id={`audio-${uploadId}`}
+            file={audio?.file || null}
+            onChange={selectUpload}
+          />
+          {audio?.file && (
+            <div className="button-row button-row--end">
+              <button
+                type="button"
+                className="button button--primary"
+                disabled={disabled}
+                onClick={() => onUse(audio.file)}
+              >
+                <Icon name="check" size={17} /> Use audio clip
               </button>
-            </>
+            </div>
           )}
-          {state === 'ready' && (
-            <>
-              <div className="audio-ready">
-                <span>
-                  <Icon name="check" />
-                </span>
-                <div>
-                  <strong>Recording ready</strong>
-                  <small>{time(seconds)} · Review it before continuing</small>
-                </div>
-              </div>
-              <audio controls src={audio.url} aria-label="Recorded audio preview" />
-              <div className="button-row">
-                <button type="button" className="button button--secondary" onClick={clearAudio}>
-                  <Icon name="trash" size={17} /> Discard & re-record
-                </button>
-                <button
-                  type="button"
-                  className="button button--primary"
-                  onClick={() => onUse(new File([audio.blob], audio.name, { type: audio.type }))}
-                  disabled={disabled}
-                >
-                  <Icon name="check" size={17} /> Use recording
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-      {mode === 'upload' && audio && (
-        <div className="button-row button-row--end">
-          <button
-            type="button"
-            className="button button--primary"
-            disabled={disabled}
-            onClick={() => onUse(audio.file)}
-          >
-            <Icon name="check" size={17} /> Use audio clip
-          </button>
-        </div>
+        </>
       )}
     </div>
   )

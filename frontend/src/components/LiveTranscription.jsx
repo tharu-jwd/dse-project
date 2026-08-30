@@ -236,61 +236,52 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
   const time = (value) =>
     `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`
 
+  const isRecording = status === 'recording' || status === 'stopping'
+
   return (
-    <div className="recorder">
+    <div className="note-workspace">
       {error && <Alert>{error}</Alert>}
-      <div className={`recorder__stage ${status === 'recording' ? 'is-recording' : ''}`} aria-live="polite">
-        {(status === 'idle' || status === 'error') && (
-          <>
-            <button
-              type="button"
-              className="record-button"
-              onClick={start}
-              disabled={disabled}
-              aria-label="Start live transcription"
-            >
-              <Icon name="mic" size={28} />
-            </button>
-            <strong>Ready for live transcription</strong>
-            <span>Speak in Sinhala — text appears on screen as you go.</span>
-          </>
-        )}
-        {status === 'connecting' && <strong>Connecting…</strong>}
-        {(status === 'recording' || status === 'stopping') && (
-          <>
-            <div className={`voice-meter ${voiceDetected ? 'voice-meter--active' : ''}`}>
-              {Array.from({ length: VOICE_BAR_COUNT }).map((_, index) => (
-                <i key={index} ref={(el) => (barRefs.current[index] = el)} />
-              ))}
-            </div>
-            <strong>
-              {voiceDetected ? 'Voice detected' : 'Listening…'} <time>{time(seconds)}</time>
-            </strong>
-            <span className="sr-only" aria-live="polite">
-              {voiceDetected ? 'Voice detected' : 'Listening for speech'}
-            </span>
-            <button
-              type="button"
-              className="button button--danger"
-              onClick={stop}
-              disabled={status === 'stopping'}
-            >
-              <Icon name="stop" size={17} /> {status === 'stopping' ? 'Finishing…' : 'Stop'}
-            </button>
-          </>
+      <div className={`note-toolbar ${isRecording ? 'is-recording' : ''}`}>
+        <button
+          type="button"
+          className={`note-toolbar__record ${isRecording ? 'is-recording' : ''}`}
+          onClick={isRecording ? stop : start}
+          disabled={disabled || status === 'connecting' || status === 'stopping'}
+          aria-label={isRecording ? 'Stop recording' : 'Start live transcription'}
+        >
+          <Icon name={isRecording ? 'stop' : 'mic'} size={19} />
+        </button>
+        <div className={`voice-meter ${voiceDetected ? 'voice-meter--active' : ''}`}>
+          {Array.from({ length: VOICE_BAR_COUNT }).map((_, index) => (
+            <i key={index} ref={(el) => (barRefs.current[index] = el)} />
+          ))}
+        </div>
+        <span className="note-toolbar__status" aria-live="polite">
+          {status === 'connecting' && 'Connecting…'}
+          {status === 'stopping' && 'Finishing…'}
+          {status === 'recording' && (voiceDetected ? 'Voice detected' : 'Listening…')}
+          {(status === 'idle' || status === 'error') && 'Ready to record'}
+        </span>
+        {isRecording && <time className="note-toolbar__time">{time(seconds)}</time>}
+      </div>
+      <div className="note-page" aria-live="polite">
+        {finals.length === 0 && !partial ? (
+          <p className="note-page__placeholder">
+            {isRecording
+              ? 'Listening for speech…'
+              : 'Your note will appear here as you speak. Press the microphone above to begin.'}
+          </p>
+        ) : (
+          <p>
+            {finals.map((item) => (
+              <span key={item.segment} className="live-transcript__final">
+                {item.text}{' '}
+              </span>
+            ))}
+            {partial && <span className="live-transcript__partial">{partial}</span>}
+          </p>
         )}
       </div>
-      {(finals.length > 0 || partial) && (
-        <div className="live-transcript" aria-live="polite">
-          <span className="live-transcript__label">Live note</span>
-          {finals.map((item) => (
-            <span key={item.segment} className="live-transcript__final">
-              {item.text}{' '}
-            </span>
-          ))}
-          {partial && <span className="live-transcript__partial">{partial}</span>}
-        </div>
-      )}
     </div>
   )
 }

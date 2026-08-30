@@ -6,11 +6,43 @@ blocks other streaming sessions, never the event loop itself.
 """
 
 import asyncio
+import inspect
+from dataclasses import dataclass
+from typing import Literal
 
 import numpy as np
 from faster_whisper import WhisperModel
 
 from app.core.config import settings
+from app.streaming.commands import HOTWORDS
+
+
+TranscriptionMode = Literal["dictation", "command"]
+
+
+@dataclass(frozen=True)
+class TranscriptionResult:
+    text: str
+    avg_logprob: float
+
+
+def build_transcribe_kwargs(
+    mode: TranscriptionMode,
+    *,
+    hotwords_supported: bool,
+    hotwords_enabled: bool = True,
+) -> dict:
+    """Decoding-bias kwargs for `WhisperModel.transcribe`.
+
+    Pure and model-free so it can be unit tested without loading Whisper.
+    Dictation mode always returns `{}` - hotword biasing must never pull
+    normal speech toward the command vocabulary.
+    """
+
+    if mode != "command" or not hotwords_enabled:
+        return {}
+
+    return {"hotwords": HOTWORDS} if hotwords_supported else {"initial_prompt": HOTWORDS}
 
 
 class StreamingTranscriber:
@@ -39,10 +71,24 @@ class StreamingTranscriber:
             )
         self._language = language
         self._gpu_gate = asyncio.Semaphore(1)
+        self._hotwords_supported = "hotwords" in inspect.signature(
+            self._model.transcribe
+        ).parameters
 
-    async def transcribe(self, audio: np.ndarray) -> str:
+    async def transcribe(
+        self,
+        audio: np.ndarray,
+        *,
+        mode: TranscriptionMode = "dictation",
+    ) -> TranscriptionResult:
         if audio.size == 0:
-            return ""
+            return TranscriptionResult(text="", avg_logprob=0.0)
+
+        bias_kwargs = build_transcribe_kwargs(
+            mode,
+            hotwords_supported=self._hotwords_supported,
+            hotwords_enabled=settings.voice_command_hotwords_enabled,
+        )
 
         async with self._gpu_gate:
             segments_iterator, _info = await asyncio.to_thread(
@@ -52,10 +98,18 @@ class StreamingTranscriber:
                 task="transcribe",
                 vad_filter=False,
                 without_timestamps=True,
+                **bias_kwargs,
             )
             segments = await asyncio.to_thread(list, segments_iterator)
 
-        return " ".join(segment.text.strip() for segment in segments).strip()
+        text = " ".join(segment.text.strip() for segment in segments).strip()
+        avg_logprob = (
+            sum(segment.avg_logprob for segment in segments) / len(segments)
+            if segments
+            else 0.0
+        )
+
+        return TranscriptionResult(text=text, avg_logprob=avg_logprob)
 
 
 def _cuda_available() -> bool:

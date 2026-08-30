@@ -47,6 +47,15 @@ class Settings(BaseSettings):
     streaming_vad_silence_ms: int = 500
     streaming_memory_ceiling_seconds: float = 60.0
 
+    # Voice commands: fuzzy-matched against a fixed phrase vocabulary in
+    # COMMAND streaming mode only. Never applied to NOTE/dictation mode.
+    voice_command_hotwords_enabled: bool = True
+    voice_command_fuzzy_threshold: float = 80.0
+    voice_command_destructive_threshold: float = 90.0
+    # avg_logprob is a per-token log probability (typically in [-1, 0] for
+    # confident speech); below this, a borderline fuzzy score is rejected.
+    voice_command_logprob_floor: float = -0.5
+
 
     @property
     def cors_origins_list(self) -> list[str]:

@@ -18,7 +18,7 @@ export default function CreateTranscriptPage({ type = 'LECTURE' }) {
   const [title, setTitle] = useState('')
   const [file, setFile] = useState(null)
   const [errors, setErrors] = useState({})
-  const [inputMode, setInputMode] = useState('capture')
+  const [inputMode, setInputMode] = useState('live')
   const [recent, setRecent] = useState(null)
   const [liveResult, setLiveResult] = useState(null)
   const [liveLoading, setLiveLoading] = useState(false)
@@ -127,7 +127,7 @@ export default function CreateTranscriptPage({ type = 'LECTURE' }) {
             : 'Upload an audio or video recording and SinhaSpeech will create an editable Sinhala transcript.'}
         </p>
       </div>
-      <div className="upload-grid">
+      <div className={`upload-grid${isNote ? ' upload-grid--note' : ''}`}>
         {isNote ? (
           <section className="glass-card">
             <div className="form-card__heading">
