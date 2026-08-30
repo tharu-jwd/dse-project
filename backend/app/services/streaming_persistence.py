@@ -44,11 +44,3 @@ def add_final_segment(
                 word_metadata=None,
             )
         )
-
-
-def finalize_live_transcript(transcript_id: UUID) -> None:
-    with SessionLocal.begin() as db:
-        transcript = db.get(Transcript, transcript_id)
-
-        if transcript is not None:
-            transcript.status = "FINALIZED"

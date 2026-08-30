@@ -34,12 +34,16 @@ function wsUrl(path) {
  * Live note-taking: streams mic audio to the streaming WebSocket and
  * renders partial (grey) and final (black) transcript text as it arrives.
  */
+const VOICE_BAR_COUNT = 9
+const VOICE_THRESHOLD = 0.02
+
 export default function LiveTranscription({ title, onSessionEnd, disabled = false }) {
   const [status, setStatus] = useState('idle') // idle | connecting | recording | stopping | error
   const [error, setError] = useState('')
   const [finals, setFinals] = useState([]) // [{ segment, text }]
   const [partial, setPartial] = useState('')
   const [seconds, setSeconds] = useState(0)
+  const [voiceDetected, setVoiceDetected] = useState(false)
 
   const wsRef = useRef(null)
   const audioCtxRef = useRef(null)
@@ -49,10 +53,46 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
   const intervalRef = useRef(null)
   const endedRef = useRef(false)
   const statusRef = useRef('idle')
+  const levelRef = useRef(0)
+  const voiceDetectedRef = useRef(false)
+  const barRefs = useRef([])
+  const meterFrameRef = useRef(null)
 
   useEffect(() => {
     statusRef.current = status
   }, [status])
+
+  const stopMeterLoop = () => {
+    if (meterFrameRef.current) window.cancelAnimationFrame(meterFrameRef.current)
+    meterFrameRef.current = null
+    levelRef.current = 0
+    voiceDetectedRef.current = false
+    setVoiceDetected(false)
+    barRefs.current.forEach((bar) => {
+      if (bar) bar.style.transform = 'scaleY(0.15)'
+    })
+  }
+
+  const startMeterLoop = () => {
+    const tick = () => {
+      const level = levelRef.current
+      barRefs.current.forEach((bar, index) => {
+        if (!bar) return
+        // Give each bar a slightly different sensitivity so the meter looks
+        // organic rather than every bar moving in lockstep.
+        const wobble = 0.6 + ((index % 4) / 4) * 0.8
+        const scale = Math.min(1, 0.15 + level * wobble * 4)
+        bar.style.transform = `scaleY(${scale})`
+      })
+      const detected = level > VOICE_THRESHOLD
+      if (detected !== voiceDetectedRef.current) {
+        voiceDetectedRef.current = detected
+        setVoiceDetected(detected)
+      }
+      meterFrameRef.current = window.requestAnimationFrame(tick)
+    }
+    meterFrameRef.current = window.requestAnimationFrame(tick)
+  }
 
   const cleanupAudio = () => {
     processorRef.current?.disconnect()
@@ -64,6 +104,7 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
     }
     audioCtxRef.current = null
     window.clearInterval(intervalRef.current)
+    stopMeterLoop()
   }
 
   useEffect(() => () => cleanupAudio(), [])
@@ -109,6 +150,13 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
         processor.onaudioprocess = (event) => {
           if (socket.readyState !== WebSocket.OPEN) return
           const input = event.inputBuffer.getChannelData(0)
+
+          let sumSquares = 0
+          for (let i = 0; i < input.length; i++) sumSquares += input[i] * input[i]
+          const rms = Math.sqrt(sumSquares / input.length)
+          // Exponential moving average so the meter eases rather than jitters.
+          levelRef.current = levelRef.current * 0.6 + rms * 0.4
+
           const downsampled = downsampleTo16k(input, audioCtx.sampleRate)
 
           const merged = new Float32Array(pendingSamplesRef.current.length + downsampled.length)
@@ -131,6 +179,7 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
         socket.send(JSON.stringify({ type: 'start', title: title.trim(), mode: 'NOTE' }))
         setStatus('recording')
         intervalRef.current = window.setInterval(() => setSeconds((value) => value + 1), 1000)
+        startMeterLoop()
       } catch (cause) {
         setStatus('error')
         if (cause?.name === 'NotAllowedError' || cause?.name === 'SecurityError')
@@ -209,12 +258,17 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
         {status === 'connecting' && <strong>Connecting…</strong>}
         {(status === 'recording' || status === 'stopping') && (
           <>
-            <div className="recording-pulse">
-              <span />
+            <div className={`voice-meter ${voiceDetected ? 'voice-meter--active' : ''}`}>
+              {Array.from({ length: VOICE_BAR_COUNT }).map((_, index) => (
+                <i key={index} ref={(el) => (barRefs.current[index] = el)} />
+              ))}
             </div>
             <strong>
-              Live… <time>{time(seconds)}</time>
+              {voiceDetected ? 'Voice detected' : 'Listening…'} <time>{time(seconds)}</time>
             </strong>
+            <span className="sr-only" aria-live="polite">
+              {voiceDetected ? 'Voice detected' : 'Listening for speech'}
+            </span>
             <button
               type="button"
               className="button button--danger"
@@ -228,6 +282,7 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
       </div>
       {(finals.length > 0 || partial) && (
         <div className="live-transcript" aria-live="polite">
+          <span className="live-transcript__label">Live note</span>
           {finals.map((item) => (
             <span key={item.segment} className="live-transcript__final">
               {item.text}{' '}

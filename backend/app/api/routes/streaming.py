@@ -8,11 +8,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 from app.api.dependencies import get_current_user_ws
 from app.core.config import settings
 from app.models.user import User
-from app.services.streaming_persistence import (
-    add_final_segment,
-    create_live_transcript,
-    finalize_live_transcript,
-)
+from app.services.streaming_persistence import add_final_segment, create_live_transcript
 from app.streaming.buffer import StreamingBuffer
 from app.streaming.inference import get_streaming_transcriber
 from app.streaming.vad import get_vad
@@ -166,7 +162,8 @@ async def _run_session(websocket: WebSocket, user: User) -> None:
             pass
 
         await _finalize_remaining_buffer(websocket, buffer, state, transcript_id)
-        await asyncio.to_thread(finalize_live_transcript, transcript_id)
+        # The transcript is left in DRAFT status so the user can review, edit
+        # and correct low-confidence words before finalizing it themselves.
 
         try:
             await websocket.send_json(

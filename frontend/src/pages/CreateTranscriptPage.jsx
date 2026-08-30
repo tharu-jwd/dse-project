@@ -8,6 +8,7 @@ import AudioRecorder from '../components/AudioRecorder'
 import FileUpload, { validateMediaFile } from '../components/FileUpload'
 import Icon from '../components/Icon'
 import LiveTranscription from '../components/LiveTranscription'
+import TranscriptEditor from '../components/TranscriptEditor'
 import TranscriptionStatus from '../components/TranscriptionStatus'
 import useTranscriptionJob from '../components/useTranscriptionJob'
 import { Loading, PageHeader } from '../components/UI'
@@ -19,8 +20,18 @@ export default function CreateTranscriptPage({ type = 'LECTURE' }) {
   const [errors, setErrors] = useState({})
   const [inputMode, setInputMode] = useState('capture')
   const [recent, setRecent] = useState(null)
+  const [liveResult, setLiveResult] = useState(null)
+  const [liveLoading, setLiveLoading] = useState(false)
   const { job, start, reset } = useTranscriptionJob()
   const navigate = useNavigate()
+  const handleLiveSessionEnd = (transcriptId) => {
+    setLiveLoading(true)
+    api
+      .getTranscript(transcriptId)
+      .then(setLiveResult)
+      .catch(() => navigate(`/transcripts/${transcriptId}`))
+      .finally(() => setLiveLoading(false))
+  }
   useEffect(() => {
     if (job?.status === 'COMPLETED' && job.transcriptId) {
       const timer = window.setTimeout(() => navigate(`/transcripts/${job.transcriptId}`), 550)
@@ -70,6 +81,34 @@ export default function CreateTranscriptPage({ type = 'LECTURE' }) {
             window.setTimeout(() => begin(file), 0)
           }}
         />
+      </div>
+    )
+  if (liveLoading)
+    return (
+      <div
+        className="page page--narrow has-bg-image"
+        style={{ backgroundImage: `url(${noteBackground})` }}
+      >
+        <Loading label="Preparing your note for review…" />
+      </div>
+    )
+  if (liveResult)
+    return (
+      <div
+        className="page page--editor has-bg-image"
+        style={{ backgroundImage: `url(${noteBackground})` }}
+      >
+        <PageHeader
+          eyebrow="Self-study notes"
+          title="Review your note"
+          description="Correct any low-confidence words, adjust the sensitivity, then save it as a draft or finalize it."
+          back={
+            <button className="back-link" onClick={() => setLiveResult(null)}>
+              ← Record another note
+            </button>
+          }
+        />
+        <TranscriptEditor initialTranscript={liveResult} onTranscriptChange={setLiveResult} />
       </div>
     )
   return (
@@ -146,10 +185,7 @@ export default function CreateTranscriptPage({ type = 'LECTURE' }) {
             {inputMode === 'capture' ? (
               <AudioRecorder onUse={begin} />
             ) : (
-              <LiveTranscription
-                title={title}
-                onSessionEnd={(transcriptId) => navigate(`/transcripts/${transcriptId}`)}
-              />
+              <LiveTranscription title={title} onSessionEnd={handleLiveSessionEnd} />
             )}
           </section>
         ) : (
