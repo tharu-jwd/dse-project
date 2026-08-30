@@ -10,6 +10,7 @@ import { SubmissionReviewPage, SubmissionsPage } from './pages/SubmissionPages'
 import { QuizAnswerPage, QuizListPage } from './pages/StudentQuizPages'
 import { QuizFormPage, TeacherQuizListPage } from './pages/TeacherQuizPages'
 import { TranscriptLibraryPage, TranscriptPage } from './pages/TranscriptPages'
+import VoiceSampleCollectorPage from './pages/VoiceSampleCollectorPage'
 
 const protectedShell = (
   <ProtectedRoute>
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="teacher/submissions/:id" element={teacher(<SubmissionReviewPage />)} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="help" element={<HelpPage />} />
+        <Route path="dev/voice-samples" element={<VoiceSampleCollectorPage />} />
       </Route>
       <Route path="*" element={<NotFoundPage />} />
     </Routes>

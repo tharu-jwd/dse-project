@@ -249,6 +249,20 @@ export const api = {
     Object.assign(item, review, { status: 'REVIEWED' })
     return clone(item)
   },
+  // Dev-only: step-1 data collection for the voice-command embedding work.
+  // Always hits the real backend - there is no mock-mode story for this,
+  // it doesn't belong in the product's mock dataset.
+  async getVoiceSampleProgress() {
+    return request('/voice-samples')
+  },
+  async uploadVoiceSample(commandId, blob) {
+    const formData = new FormData()
+    formData.append('file', blob, `${commandId}.webm`)
+    return request(`/voice-samples/${commandId}`, { method: 'POST', body: formData })
+  },
+  async deleteVoiceSamples(commandId) {
+    return request(`/voice-samples/${commandId}`, { method: 'DELETE' })
+  },
 }
 
 export function downloadBlob(blob, filename) {

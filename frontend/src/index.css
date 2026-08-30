@@ -1813,6 +1813,19 @@ select:focus {
   color: var(--muted);
   font-style: italic;
 }
+.command-feedback {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 7px 16px;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  background: rgba(74, 222, 128, 0.14);
+  color: var(--success);
+  font-size: 0.76rem;
+  font-weight: 650;
+}
 .audio-ready {
   display: flex;
   align-items: center;

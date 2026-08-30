@@ -44,6 +44,7 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
   const [partial, setPartial] = useState('')
   const [seconds, setSeconds] = useState(0)
   const [voiceDetected, setVoiceDetected] = useState(false)
+  const [commandFeedback, setCommandFeedback] = useState('')
 
   const wsRef = useRef(null)
   const audioCtxRef = useRef(null)
@@ -57,6 +58,13 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
   const voiceDetectedRef = useRef(false)
   const barRefs = useRef([])
   const meterFrameRef = useRef(null)
+  const feedbackTimeoutRef = useRef(null)
+
+  const showCommandFeedback = (message) => {
+    window.clearTimeout(feedbackTimeoutRef.current)
+    setCommandFeedback(message)
+    feedbackTimeoutRef.current = window.setTimeout(() => setCommandFeedback(''), 2200)
+  }
 
   useEffect(() => {
     statusRef.current = status
@@ -107,7 +115,13 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
     stopMeterLoop()
   }
 
-  useEffect(() => () => cleanupAudio(), [])
+  useEffect(
+    () => () => {
+      cleanupAudio()
+      window.clearTimeout(feedbackTimeoutRef.current)
+    },
+    [],
+  )
 
   const start = async () => {
     setError('')
@@ -197,6 +211,21 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
       } else if (message.type === 'final') {
         setFinals((prev) => [...prev, { segment: message.segment, text: message.text }])
         setPartial('')
+      } else if (message.type === 'command') {
+        setPartial('')
+        if (message.command === 'delete') {
+          setFinals((prev) => {
+            if (prev.length === 0) {
+              showCommandFeedback('Nothing to delete')
+              return prev
+            }
+            showCommandFeedback('Last line deleted')
+            return prev.slice(0, -1)
+          })
+        } else if (message.command === 'stop') {
+          showCommandFeedback('Stopping…')
+          stop()
+        }
       } else if (message.type === 'session_end') {
         endedRef.current = true
         cleanupAudio()
@@ -264,6 +293,11 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
         </span>
         {isRecording && <time className="note-toolbar__time">{time(seconds)}</time>}
       </div>
+      {commandFeedback && (
+        <p className="command-feedback" role="status">
+          <Icon name="check" size={14} /> {commandFeedback}
+        </p>
+      )}
       <div className="note-page" aria-live="polite">
         {finals.length === 0 && !partial ? (
           <p className="note-page__placeholder">
