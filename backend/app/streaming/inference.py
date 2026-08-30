@@ -15,6 +15,7 @@ from faster_whisper import WhisperModel
 
 from app.core.config import settings
 from app.streaming.commands import HOTWORDS
+from app.streaming.embeddings import embed_audio
 
 
 TranscriptionMode = Literal["dictation", "command"]
@@ -110,6 +111,17 @@ class StreamingTranscriber:
         )
 
         return TranscriptionResult(text=text, avg_logprob=avg_logprob)
+
+    async def embed(self, audio: np.ndarray) -> np.ndarray:
+        """Speaker-embedding for one clip, via the same loaded encoder.
+
+        Shares this transcriber's GPU gate with `transcribe` - embedding
+        is still a model forward pass, so it must not run concurrently
+        with a transcription on the same device.
+        """
+
+        async with self._gpu_gate:
+            return await asyncio.to_thread(embed_audio, self._model, audio)
 
 
 def _cuda_available() -> bool:
