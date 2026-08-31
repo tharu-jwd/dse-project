@@ -163,13 +163,15 @@ export function QuizFormPage() {
     )
   return (
     <div className="page page--narrow has-bg-image" style={{ backgroundImage: `url(${teacherQuizBackground})` }}>
-      <button className="back-link" onClick={() => navigate('/teacher/quizzes')}>
-        ← Back to quizzes
-      </button>
       <PageHeader
         eyebrow={id ? 'Edit quiz' : 'New quiz'}
         title={id ? quiz.title : 'Create a speech quiz'}
         description="Add simple text questions that students will answer using recorded speech."
+        back={
+          <button className="back-link" onClick={() => navigate('/teacher/quizzes')}>
+            ← Back to quizzes
+          </button>
+        }
       />
       {error && <Alert>{error}</Alert>}
       <section className="form-card">

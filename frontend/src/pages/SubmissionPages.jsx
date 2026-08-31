@@ -138,14 +138,16 @@ export function SubmissionReviewPage() {
     )
   return (
     <div className="page page--narrow has-bg-image" style={{ backgroundImage: `url(${submissionsBackground})` }}>
-      <button className="back-link" onClick={() => navigate('/teacher/submissions')}>
-        ← Back to submissions
-      </button>
       <PageHeader
         eyebrow="Submission review"
         title={item.studentName}
         description={`${item.quizTitle} · Submitted ${new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(item.submittedAt))}`}
         actions={<StatusBadge status={item.status} />}
+        back={
+          <button className="back-link" onClick={() => navigate('/teacher/submissions')}>
+            ← Back to submissions
+          </button>
+        }
       />
       {error && <Alert>{error}</Alert>}
       <section className="answers-review">

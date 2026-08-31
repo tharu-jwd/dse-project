@@ -20,10 +20,14 @@ from app.streaming.embeddings import ClipTooShortError
 from app.streaming.inference import get_streaming_transcriber
 from app.streaming.vad import get_vad
 
-# Voice commands that are handled while taking a live note. Anything else
-# in the command vocabulary (next/previous/save/submit) has no defined
-# action in this view yet, so a fuzzy match on those is left as ordinary
-# dictated text rather than silently swallowed.
+# Voice commands with a defined action *inside NOTE dictation* - anything
+# else in the vocabulary (next/previous/save/submit) has no meaning while
+# taking a note, so a fuzzy match on those is left as ordinary dictated
+# text rather than silently swallowed. This restriction does not apply to
+# COMMAND mode (see _run_session) - there, every recognized command is
+# forwarded and the *client* decides what it means for the page it's on
+# (the transcript review page maps save/submit to its own buttons, the
+# quiz page maps next/previous/submit to its own navigation).
 _ACTIONABLE_NOTE_COMMANDS = {"delete", "stop"}
 
 
@@ -69,40 +73,41 @@ async def _release_session_slot(user_id: UUID) -> None:
 
 @router.websocket("/ws")
 async def stream_transcription(websocket: WebSocket) -> None:
-    """Live transcription WebSocket - NOTE mode.
+    """Live transcription WebSocket - NOTE (dictation) and COMMAND
+    (voice-commands-only, no transcript) modes.
 
     Protocol:
-      client -> {"type": "start", "title": str, "mode": "NOTE"}
+      client -> {"type": "start", "mode": "NOTE", "title": str}
+      client -> {"type": "start", "mode": "COMMAND"}
       client -> binary frames of 16kHz mono 16-bit PCM
       client -> {"type": "stop"}
       server -> {"type": "partial", "text": str, "segment": int}
       server -> {"type": "final", "text": str, "start": float, "end": float, "segment": int}
+        (NOTE mode only - COMMAND mode never persists or reports dictated text)
       server -> {"type": "command", "command": str}
       server -> {"type": "command_maybe", "fuzzy_command": str|null, "embedding_command": str|null}
-      server -> {"type": "session_end", "transcript_id": str}
+      server -> {"type": "session_end", "transcript_id": str|null}
       server -> {"type": "error", "message": str}
 
     Every finalized utterance is checked against the voice-command
     vocabulary via app.streaming.command_resolution, which combines the
     fuzzy-text match (app.streaming.commands) with, for an enrolled
     student, a speaker-embedding match (app.streaming.embeddings) - see
-    that module for the exact combination rule. Three outcomes:
-      - "execute": treated as a command instead of dictated text -
-        nothing is added to the note; a "command" message is sent so the
-        client can act on it (today: delete the last line / stop the
-        session - other recognized commands have no defined action in
-        this view yet).
-      - "confirm": ambiguous (the two signals disagree, or only a weak
-        candidate exists on either side). Nothing is guessed - the
-        utterance is persisted as ordinary note text as a safe default,
-        but a "command_maybe" message is also sent so the client can
-        surface it to the student.
-      - "none": ordinary dictation, persisted as normal note text.
+    that module for the exact combination rule.
+
+    In NOTE mode, only "delete" and "stop" have a server-side effect
+    (delete the last line / stop the session); anything else recognized
+    is left as ordinary dictated text, since most commands have no
+    meaning mid-note. In COMMAND mode there is no dictation to protect -
+    every recognized command is forwarded via a "command" message with
+    no server-side effect at all; the client (transcript review page,
+    quiz page, ...) decides what each command means there. Neither mode
+    ever guesses: a "confirm" outcome only ever sends "command_maybe",
+    never "command".
 
     A student with no enrollment bank (or with embedding matching
-    switched off globally) gets exactly the fuzzy-only "execute"/"none"
-    behaviour that existed before enrollment did - see
-    resolve_command's fallback.
+    switched off globally) gets exactly the fuzzy-only behaviour in both
+    modes - see resolve_command's fallback.
     """
 
     if not settings.streaming_enabled:
@@ -142,19 +147,21 @@ async def _run_session(websocket: WebSocket, user: User) -> None:
         await websocket.close(code=status.WS_1003_UNSUPPORTED_DATA)
         return
 
-    title = start_message.get("title") or "Untitled note"
     mode = start_message.get("mode")
 
-    if mode != "NOTE":
+    if mode not in ("NOTE", "COMMAND"):
         await websocket.send_json(
-            {"type": "error", "message": "Only NOTE mode is currently supported."}
+            {"type": "error", "message": "Only NOTE and COMMAND modes are currently supported."}
         )
         await websocket.close(code=status.WS_1003_UNSUPPORTED_DATA)
         return
 
-    transcript_id = await asyncio.to_thread(
-        create_live_transcript, user, title, TRANSCRIPT_TYPE_BY_MODE[mode]
-    )
+    transcript_id: UUID | None = None
+    if mode == "NOTE":
+        title = start_message.get("title") or "Untitled note"
+        transcript_id = await asyncio.to_thread(
+            create_live_transcript, user, title, TRANSCRIPT_TYPE_BY_MODE["NOTE"]
+        )
 
     # Loaded once per session, not per utterance - small (a handful of
     # commands x a handful of samples x one float vector each) and never
@@ -171,7 +178,7 @@ async def _run_session(websocket: WebSocket, user: User) -> None:
         overlap_seconds=settings.streaming_overlap_seconds,
         memory_ceiling_seconds=settings.streaming_memory_ceiling_seconds,
     )
-    state = {"segment_order": 0, "bank": bank}
+    state = {"segment_order": 0, "bank": bank, "mode": mode}
 
     ticker = asyncio.create_task(
         _window_ticker(websocket, buffer, state, transcript_id)
@@ -209,12 +216,16 @@ async def _run_session(websocket: WebSocket, user: User) -> None:
             pass
 
         await _finalize_remaining_buffer(websocket, buffer, state, transcript_id)
-        # The transcript is left in DRAFT status so the user can review, edit
-        # and correct low-confidence words before finalizing it themselves.
+        # A NOTE transcript is left in DRAFT status so the user can
+        # review, edit and correct low-confidence words before finalizing
+        # it themselves. COMMAND mode never created a transcript.
 
         try:
             await websocket.send_json(
-                {"type": "session_end", "transcript_id": str(transcript_id)}
+                {
+                    "type": "session_end",
+                    "transcript_id": str(transcript_id) if transcript_id else None,
+                }
             )
         except RuntimeError:
             # Socket already closed (client disconnected first) - nothing to notify.
@@ -247,7 +258,7 @@ async def _window_ticker(
     websocket: WebSocket,
     buffer: StreamingBuffer,
     state: dict,
-    transcript_id: UUID,
+    transcript_id: UUID | None,
 ) -> None:
     vad = get_vad()
     transcriber = get_streaming_transcriber()
@@ -274,7 +285,7 @@ async def _process_window(
     websocket: WebSocket,
     buffer: StreamingBuffer,
     state: dict,
-    transcript_id: UUID,
+    transcript_id: UUID | None,
     vad,
     transcriber,
 ) -> None:
@@ -300,7 +311,9 @@ async def _process_window(
         await _emit_final(
             websocket, buffer, state, transcript_id, text, result.avg_logprob, audio
         )
-    else:
+    elif state["mode"] == "NOTE":
+        # Partial previews only matter for the dictation flow - COMMAND
+        # mode has no note text to show the client mid-utterance.
         await websocket.send_json(
             {"type": "partial", "text": text, "segment": state["segment_order"]}
         )
@@ -316,7 +329,7 @@ async def _emit_final(
     websocket: WebSocket,
     buffer: StreamingBuffer,
     state: dict,
-    transcript_id: UUID,
+    transcript_id: UUID | None,
     text: str,
     avg_logprob: float | None,
     audio,
@@ -333,7 +346,7 @@ async def _emit_final(
 async def _resolve_and_dispatch(
     websocket: WebSocket,
     state: dict,
-    transcript_id: UUID,
+    transcript_id: UUID | None,
     segment,
     avg_logprob: float | None,
     audio,
@@ -351,35 +364,55 @@ async def _resolve_and_dispatch(
         segment.text, avg_logprob=avg_logprob, embedding=embedding, bank=bank
     )
 
+    if state["mode"] == "COMMAND":
+        # No note to protect and nothing persisted either way - every
+        # recognized command is just forwarded, the client owns what it
+        # means on whatever page it's listening from.
+        if decision.outcome == "execute":
+            await _send_command(websocket, decision.command_id)
+        elif decision.outcome == "confirm":
+            await _send_command_maybe(websocket, decision)
+        return
+
     if decision.outcome == "execute" and decision.command_id in _ACTIONABLE_NOTE_COMMANDS:
-        await _handle_command(websocket, transcript_id, decision.command_id)
+        await _handle_note_command(websocket, transcript_id, decision.command_id)
         return
 
     if decision.outcome == "confirm":
-        try:
-            await websocket.send_json(
-                {
-                    "type": "command_maybe",
-                    "fuzzy_command": decision.fuzzy_command_id,
-                    "embedding_command": decision.embedding_command_id,
-                }
-            )
-        except RuntimeError:
-            pass
+        await _send_command_maybe(websocket, decision)
         # Nothing was guessed - fall through and keep the words the
         # student actually said, same as ordinary dictation.
 
     await _persist_and_send_final(websocket, state, transcript_id, segment)
 
 
-async def _handle_command(websocket: WebSocket, transcript_id: UUID, command_id: str) -> None:
-    """Act on a recognized voice command instead of persisting it as text."""
+async def _handle_note_command(
+    websocket: WebSocket, transcript_id: UUID | None, command_id: str
+) -> None:
+    """Act on a recognized voice command instead of persisting it as note text."""
 
-    if command_id == "delete":
+    if command_id == "delete" and transcript_id is not None:
         await asyncio.to_thread(delete_last_segment, transcript_id)
 
+    await _send_command(websocket, command_id)
+
+
+async def _send_command(websocket: WebSocket, command_id: str) -> None:
     try:
         await websocket.send_json({"type": "command", "command": command_id})
+    except RuntimeError:
+        pass
+
+
+async def _send_command_maybe(websocket: WebSocket, decision) -> None:
+    try:
+        await websocket.send_json(
+            {
+                "type": "command_maybe",
+                "fuzzy_command": decision.fuzzy_command_id,
+                "embedding_command": decision.embedding_command_id,
+            }
+        )
     except RuntimeError:
         pass
 
@@ -387,7 +420,7 @@ async def _handle_command(websocket: WebSocket, transcript_id: UUID, command_id:
 async def _persist_and_send_final(
     websocket: WebSocket,
     state: dict,
-    transcript_id: UUID,
+    transcript_id: UUID | None,
     segment,
 ) -> None:
     order = state["segment_order"]
@@ -420,7 +453,7 @@ async def _finalize_remaining_buffer(
     websocket: WebSocket,
     buffer: StreamingBuffer,
     state: dict,
-    transcript_id: UUID,
+    transcript_id: UUID | None,
 ) -> None:
     if buffer.is_empty:
         return

@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { api, downloadBlob } from '../api'
 import { useAccessibility } from '../contexts/AccessibilityContext'
 import { useToast } from '../contexts/ToastContext'
+import useVoiceCommands from '../hooks/useVoiceCommands'
 import Icon from './Icon'
 import { Alert, ConfirmDialog, StatusBadge } from './UI'
+import VoiceMeter from './VoiceMeter'
 
 const formatTime = (seconds) =>
   `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`
@@ -52,7 +54,7 @@ export default function TranscriptEditor({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [confirmFinalize, setConfirmFinalize] = useState(false)
-  const { confidenceThreshold, updatePreference } = useAccessibility()
+  const { confidenceThreshold, interactionMode, updatePreference } = useAccessibility()
   const { showToast } = useToast()
   const player = useRef(null)
   const [playbackUrl, setPlaybackURL] = useState('')
@@ -63,6 +65,33 @@ export default function TranscriptEditor({
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [lastFormat, setLastFormat] = useState('')
+  const [commandFeedback, setCommandFeedback] = useState('')
+  const feedbackTimeoutRef = useRef(null)
+  const showCommandFeedback = (message) => {
+    window.clearTimeout(feedbackTimeoutRef.current)
+    setCommandFeedback(message)
+    feedbackTimeoutRef.current = window.setTimeout(() => setCommandFeedback(''), 2200)
+  }
+  useEffect(() => () => window.clearTimeout(feedbackTimeoutRef.current), [])
+  const voice = useVoiceCommands({
+    onCommand: (command) => {
+      if (transcript.status === 'FINALIZED') return
+      if (command === 'save') {
+        if (!dirty) {
+          showCommandFeedback('Nothing to save')
+          return
+        }
+        showCommandFeedback('Saving…')
+        save()
+      } else if (command === 'submit') {
+        showCommandFeedback('Opening finalize confirmation…')
+        setConfirmFinalize(true)
+      }
+    },
+  })
+  useEffect(() => {
+    if (interactionMode !== 'command' && voice.isListening) voice.stop()
+  }, [interactionMode]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => setTranscript(initialTranscript), [initialTranscript])
   useEffect(() => {
     let active = true
@@ -265,6 +294,23 @@ export default function TranscriptEditor({
             </div>
           </div>
           <div className="editor-toolbar__actions">
+            {interactionMode === 'command' && transcript.status !== 'FINALIZED' && (
+              <div className="voice-command-toggle">
+                <button
+                  type="button"
+                  className={`button button--icon ${voice.isListening ? 'is-recording' : ''}`}
+                  onClick={voice.isListening ? voice.stop : voice.start}
+                  disabled={voice.status === 'connecting' || voice.status === 'stopping'}
+                  aria-label={voice.isListening ? 'Stop voice commands' : 'Listen for voice commands'}
+                  title={voice.isListening ? 'Stop voice commands' : 'Say "save" or "submit"'}
+                >
+                  <Icon name={voice.isListening ? 'stop' : 'mic'} size={17} />
+                </button>
+                {voice.isListening && (
+                  <VoiceMeter registerBar={voice.registerBar} active={voice.voiceDetected} compact />
+                )}
+              </div>
+            )}
             {!compact && (
               <div className="export-toggle" role="group" aria-label="Export format">
                 {exportFormats.map((format) => (
@@ -311,6 +357,12 @@ export default function TranscriptEditor({
         <Alert>
           {error} {dirty && 'Your unsaved edits have been preserved.'}
         </Alert>
+      )}
+      {voice.error && <Alert>{voice.error}</Alert>}
+      {commandFeedback && (
+        <p className="command-feedback command-feedback--success" role="status">
+          <Icon name="check" size={14} /> {commandFeedback}
+        </p>
       )}
       {!compact && (
         <div className={`player-bar ${!playbackUrl ? 'player-bar--empty' : ''}`}>
@@ -370,37 +422,45 @@ export default function TranscriptEditor({
             const isLow = segment.confidence > 0 && segment.confidence < confidenceThreshold
             return (
               <article className={`segment ${isLow ? 'segment--review' : ''}`} key={segment.id}>
-                <div className="segment__top">
+                <div className="segment__gutter">
                   <button
                     type="button"
                     className="timestamp"
                     onClick={() => seek(segment.startTime)}
                     aria-label={`Play from ${formatTime(segment.startTime)}`}
+                    title={`Play from ${formatTime(segment.startTime)}`}
                   >
-                    <Icon name="play" size={13} /> {formatTime(segment.startTime)}
+                    {formatTime(segment.startTime)}
                   </button>
-                  <span>Segment {index + 1}</span>
-                  {segment.confidence > 0 && (
-                    <span className={`confidence-score ${isLow ? 'is-low' : ''}`}>
-                      {isLow && <Icon name="alert" size={14} />}{' '}
-                      {Math.round(segment.confidence * 100)}% confidence
+                  {isLow && (
+                    <span
+                      className="confidence-flag"
+                      title={`${Math.round(segment.confidence * 100)}% confidence — needs review`}
+                    >
+                      <Icon name="alert" size={13} />
+                      <span className="sr-only">
+                        {Math.round(segment.confidence * 100)}% confidence, needs review
+                      </span>
                     </span>
                   )}
+                  <span className="sr-only">Segment {index + 1}</span>
                 </div>
-                <div className="confidence-preview" lang="si">
-                  <ConfidenceText segment={segment} threshold={confidenceThreshold} />
+                <div className="segment__body">
+                  <div className="confidence-preview" lang="si">
+                    <ConfidenceText segment={segment} threshold={confidenceThreshold} />
+                  </div>
+                  <label htmlFor={`segment-${segment.id}`} className="sr-only">
+                    Edit segment {index + 1}
+                  </label>
+                  <textarea
+                    id={`segment-${segment.id}`}
+                    lang="si"
+                    value={segment.text}
+                    onChange={(e) => editSegment(segment.id, e.target.value)}
+                    disabled={transcript.status === 'FINALIZED'}
+                    rows={Math.max(2, Math.ceil(segment.text.length / 55))}
+                  />
                 </div>
-                <label htmlFor={`segment-${segment.id}`}>
-                  Edit segment <span className="sr-only">{index + 1}</span>
-                </label>
-                <textarea
-                  id={`segment-${segment.id}`}
-                  lang="si"
-                  value={segment.text}
-                  onChange={(e) => editSegment(segment.id, e.target.value)}
-                  disabled={transcript.status === 'FINALIZED'}
-                  rows={Math.max(2, Math.ceil(segment.text.length / 55))}
-                />
               </article>
             )
           })}

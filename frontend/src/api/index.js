@@ -263,6 +263,21 @@ export const api = {
   async deleteVoiceSamples(commandId) {
     return request(`/voice-samples/${commandId}`, { method: 'DELETE' })
   },
+
+  // Real per-student voice-command enrollment. Always hits the real
+  // backend (no mock story - it needs an actual embedding model behind
+  // it), same as the dev collection tool above.
+  async getVoiceEnrollmentStatus() {
+    return request('/voice-enrollment')
+  },
+  async submitVoiceEnrollmentSample(commandId, blob) {
+    const formData = new FormData()
+    formData.append('file', blob, `${commandId}.webm`)
+    return request(`/voice-enrollment/${commandId}/samples`, { method: 'POST', body: formData })
+  },
+  async deleteVoiceEnrollmentSamples(commandId) {
+    return request(`/voice-enrollment/${commandId}`, { method: 'DELETE' })
+  },
 }
 
 export function downloadBlob(blob, filename) {

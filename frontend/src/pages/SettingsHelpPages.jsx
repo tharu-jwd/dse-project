@@ -1,12 +1,15 @@
+import { Link } from 'react-router-dom'
 import settingsBackground from '../assets/3.jpg'
 import AccessibilityControls from '../components/AccessibilityControls'
 import Icon from '../components/Icon'
 import { PageHeader } from '../components/UI'
 import { useAccessibility } from '../contexts/AccessibilityContext'
+import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 
 export function SettingsPage() {
-  const { confidenceThreshold, updatePreference } = useAccessibility()
+  const { confidenceThreshold, interactionMode, updatePreference } = useAccessibility()
+  const { user } = useAuth()
   const { showToast } = useToast()
   return (
     <div
@@ -47,6 +50,54 @@ export function SettingsPage() {
           </div>
         </div>
       </section>
+      {user.role === 'STUDENT' && (
+        <section className="settings-card">
+          <h2>Interaction mode</h2>
+          <p className="muted" style={{ fontSize: '0.85rem', marginBottom: 16 }}>
+            Choose how you want to use SinhaSpeech. Command mode is built for students who find
+            typing or using a mouse difficult - it adds voice-controlled buttons (say "save",
+            "submit", "next" or "previous") wherever they're available. Normal mode hides those
+            extra controls and works entirely through the keyboard and mouse as usual.
+          </p>
+          <div className="mode-toggle" role="radiogroup" aria-label="Interaction mode">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={interactionMode === 'normal'}
+              className={`mode-toggle__option ${interactionMode === 'normal' ? 'active' : ''}`}
+              onClick={() => updatePreference('interactionMode', 'normal')}
+            >
+              <Icon name="check" size={17} />
+              <span>
+                <strong>Normal</strong>
+                <small>Keyboard &amp; mouse</small>
+              </span>
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={interactionMode === 'command'}
+              className={`mode-toggle__option ${interactionMode === 'command' ? 'active' : ''}`}
+              onClick={() => updatePreference('interactionMode', 'command')}
+            >
+              <Icon name="mic" size={17} />
+              <span>
+                <strong>Command mode</strong>
+                <small>Voice-controlled</small>
+              </span>
+            </button>
+          </div>
+          <p className="muted" style={{ fontSize: '0.85rem', marginTop: 16, marginBottom: 16 }}>
+            While taking a self-study note, say a command like "delete" or "stop" to control the
+            app hands-free - this always works, in either mode. Enrolling your voice makes
+            recognition more reliable for commands - optional, and normal typing/dictation is
+            unaffected either way.
+          </p>
+          <Link className="button button--secondary" to="/settings/voice-commands">
+            <Icon name="mic" size={17} /> Set up voice commands
+          </Link>
+        </section>
+      )}
       <button
         type="button"
         className="button button--primary"

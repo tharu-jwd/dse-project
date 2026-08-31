@@ -45,6 +45,7 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
   const [seconds, setSeconds] = useState(0)
   const [voiceDetected, setVoiceDetected] = useState(false)
   const [commandFeedback, setCommandFeedback] = useState('')
+  const [commandFeedbackTone, setCommandFeedbackTone] = useState('success')
 
   const wsRef = useRef(null)
   const audioCtxRef = useRef(null)
@@ -60,9 +61,10 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
   const meterFrameRef = useRef(null)
   const feedbackTimeoutRef = useRef(null)
 
-  const showCommandFeedback = (message) => {
+  const showCommandFeedback = (message, tone = 'success') => {
     window.clearTimeout(feedbackTimeoutRef.current)
     setCommandFeedback(message)
+    setCommandFeedbackTone(tone)
     feedbackTimeoutRef.current = window.setTimeout(() => setCommandFeedback(''), 2200)
   }
 
@@ -226,6 +228,16 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
           showCommandFeedback('Stopping…')
           stop()
         }
+      } else if (message.type === 'command_maybe') {
+        // Ambiguous: neither signal was confident enough to act on its
+        // own, or the two disagreed. Nothing was changed - the words are
+        // kept as ordinary text - this is just a heads-up in case the
+        // student meant a command and wants to say it again more clearly.
+        const candidate = message.fuzzy_command || message.embedding_command
+        showCommandFeedback(
+          candidate ? `Did you mean "${candidate}"? Try saying it again clearly.` : 'Possible command, unsure — kept as text.',
+          'advisory',
+        )
       } else if (message.type === 'session_end') {
         endedRef.current = true
         cleanupAudio()
@@ -294,8 +306,9 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
         {isRecording && <time className="note-toolbar__time">{time(seconds)}</time>}
       </div>
       {commandFeedback && (
-        <p className="command-feedback" role="status">
-          <Icon name="check" size={14} /> {commandFeedback}
+        <p className={`command-feedback command-feedback--${commandFeedbackTone}`} role="status">
+          <Icon name={commandFeedbackTone === 'advisory' ? 'alert' : 'check'} size={14} />{' '}
+          {commandFeedback}
         </p>
       )}
       <div className="note-page" aria-live="polite">

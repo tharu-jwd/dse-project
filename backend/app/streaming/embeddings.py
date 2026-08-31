@@ -78,6 +78,35 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.dot(a, b) / denominator) if denominator > 0 else 0.0
 
 
+def manhattan_distance(a: np.ndarray, b: np.ndarray) -> float:
+    return float(np.sum(np.abs(a - b)))
+
+
+def manhattan_similarity(a: np.ndarray, b: np.ndarray) -> float:
+    """Manhattan distance, rescaled to a bounded "higher is better" score
+    with roughly the same 0-1 feel as cosine similarity.
+
+    `scripts/validate_command_embeddings.py` found Manhattan distance
+    separates same-command from different-command pairs slightly better
+    than cosine on real recordings (Cohen's d 2.47 vs 2.27) - this is
+    what `best_match` actually scores on.
+
+    The rescale isn't an arbitrary magic number: for two L2-normalised
+    vectors of dimension `dim`, Manhattan distance is bounded above by
+    `2 * sqrt(dim)` (Cauchy-Schwarz applied to the L2 distance, which is
+    itself at most 2 for unit vectors). Dividing by that bound and
+    subtracting from 1 gives an unarbitrary 0-1-ish scale that doesn't
+    need re-deriving if the embedding dimension ever changes - only the
+    *threshold* on this score is empirically tuned, in config.py, from
+    `scripts/validate_command_embeddings.py`'s output.
+    """
+
+    dim = a.shape[-1]
+    max_possible_distance = 2 * np.sqrt(dim)
+
+    return 1.0 - manhattan_distance(a, b) / max_possible_distance
+
+
 @dataclass(frozen=True)
 class EmbeddingMatch:
     label: str
@@ -114,7 +143,7 @@ def best_match(
 
     for label, samples in bank.items():
         for sample in samples:
-            score = cosine_similarity(query, sample)
+            score = manhattan_similarity(query, sample)
             if score > best_score:
                 best_score = score
                 best_label = label

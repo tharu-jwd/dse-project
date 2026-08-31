@@ -62,11 +62,14 @@ class Settings(BaseSettings):
 
     # Speaker-enrolled embedding matching: a second, sound-based opinion
     # alongside the fuzzy-text path above (app.streaming.embeddings).
-    # Threshold set from the step-1 validation harness's max-margin
-    # suggestion on real recordings, not guessed - re-run
-    # scripts/validate_command_embeddings.py and update this if the
-    # checkpoint or the recording conditions change materially.
-    voice_embedding_similarity_threshold: float = 0.8875
+    # `best_match` scores on Manhattan-distance-derived similarity, not
+    # cosine - re-validation on the same 31 real recordings showed a
+    # slightly larger same-vs-different-command separation (Cohen's d
+    # 2.47 vs 2.27). This threshold is the max-margin suggestion from
+    # that data (see scripts/validate_command_embeddings.py's `--csv`
+    # output), not guessed - re-run it and update this if the checkpoint
+    # or the recording conditions change materially.
+    voice_embedding_similarity_threshold: float = 0.828
     voice_embedding_min_clip_seconds: float = 0.3
     # Stamped onto every enrolled sample so a future checkpoint swap can
     # be detected instead of silently comparing embeddings from two
@@ -78,11 +81,11 @@ class Settings(BaseSettings):
     voice_enrollment_samples_required: int = 5
     # Floor for "does this new take sound like this student's previous
     # takes of the same command" - deliberately looser than the runtime
-    # match threshold above. Step 1's real recordings had same-phrase
-    # pairs scoring as low as 0.84 purely from natural variation, so a
+    # match threshold above. Under Manhattan similarity, real same-phrase
+    # pairs scored as low as 0.79 purely from natural variation, so a
     # stricter floor here would reject valid samples during enrollment,
     # not just genuinely mis-recorded ones.
-    voice_enrollment_min_sample_similarity: float = 0.80
+    voice_enrollment_min_sample_similarity: float = 0.77
 
     # Runtime combination of the fuzzy-text and embedding paths
     # (app.streaming.command_resolution). Off by default so it can be
@@ -92,8 +95,12 @@ class Settings(BaseSettings):
     voice_command_embedding_matching_enabled: bool = False
     # Higher bar for a destructive command (submit, delete) to count as
     # a *strong* embedding match, mirroring
-    # voice_command_destructive_threshold on the fuzzy side.
-    voice_embedding_destructive_threshold: float = 0.92
+    # voice_command_destructive_threshold on the fuzzy side. Set from
+    # real data: delete/submit's own same-phrase pairs under Manhattan
+    # similarity averaged 0.858 - this sits below that average (so
+    # genuine repeats of the command still clear it) but comfortably
+    # above the general threshold above.
+    voice_embedding_destructive_threshold: float = 0.85
     # "Is there SOME weak candidate worth mentioning" floors, used only
     # to distinguish "confirm" (something maybe happened) from "none"
     # (ordinary dictation) when neither signal was strong. Below these,
@@ -102,7 +109,7 @@ class Settings(BaseSettings):
     # every sentence and turn every dictated line into a confirmation
     # prompt.
     voice_command_fuzzy_borderline_floor: float = 60.0
-    voice_embedding_borderline_floor: float = 0.75
+    voice_embedding_borderline_floor: float = 0.74
 
     @property
     def cors_origins_list(self) -> list[str]:

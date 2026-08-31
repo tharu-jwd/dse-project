@@ -1,7 +1,12 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
 const AccessibilityContext = createContext(null)
-const defaults = { fontSize: 'normal', highContrast: false, confidenceThreshold: 0.8 }
+const defaults = {
+  fontSize: 'normal',
+  highContrast: false,
+  confidenceThreshold: 0.8,
+  interactionMode: 'normal', // 'normal' (keyboard & mouse) | 'command' (voice-command driven)
+}
 
 function readPreferences() {
   try {

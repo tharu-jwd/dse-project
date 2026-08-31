@@ -20,8 +20,12 @@ takes of the same phrase" is a meaningful test and not just "the same
 audio file twice".
 
 What it prints:
-  - mean/min/max cosine similarity for same-phrase pairs
-  - mean/min/max cosine similarity for different-phrase pairs
+  - mean/min/max Manhattan-distance-derived similarity for same-phrase
+    pairs, and for different-phrase pairs (this is the metric
+    app.streaming.embeddings.best_match actually scores on - it beat
+    cosine similarity's separation on the first real recording session
+    tried here, Cohen's d 2.47 vs 2.27; use --csv to compare cosine,
+    Euclidean and Pearson too if you want to re-check that on new data)
   - the separation gap and a suggested threshold
   - any command whose own within-phrase similarity looks unusually low
     (a bad candidate phrase - likely too short, or too acoustically
@@ -34,6 +38,7 @@ phrase set or recording quality first, or stop.
 """
 
 import argparse
+import csv
 import logging
 import re
 from collections import defaultdict
@@ -146,6 +151,90 @@ def _load_clips(wav_dir: Path, model: WhisperModel, vad_model) -> list[Clip]:
     return clips
 
 
+def _pairwise_metrics(a: np.ndarray, b: np.ndarray) -> dict[str, float]:
+    """Several ways to compare two embeddings, not just cosine.
+
+    Since every embedding is already L2-normalised (see `_embed`),
+    cosine similarity and the plain dot product are mathematically
+    identical here - only one is reported. Euclidean/Manhattan distance
+    and Pearson correlation are genuinely different measures and can
+    disagree with cosine on individual pairs even though all four are
+    highly correlated in aggregate for unit vectors.
+    """
+
+    cosine_similarity = float(np.dot(a, b))
+    euclidean_distance = float(np.linalg.norm(a - b))
+    manhattan_distance = float(np.sum(np.abs(a - b)))
+    # Pearson correlation: cosine similarity computed on mean-centred
+    # vectors - differs from plain cosine whenever the two vectors' means
+    # (average activation across dimensions) differ.
+    a_centered = a - a.mean()
+    b_centered = b - b.mean()
+    denom = np.linalg.norm(a_centered) * np.linalg.norm(b_centered)
+    pearson_correlation = float(np.dot(a_centered, b_centered) / denom) if denom > 0 else 0.0
+
+    return {
+        "cosine_similarity": cosine_similarity,
+        "euclidean_distance": euclidean_distance,
+        "manhattan_distance": manhattan_distance,
+        "pearson_correlation": pearson_correlation,
+    }
+
+
+def _manhattan_similarity(a: np.ndarray, b: np.ndarray) -> float:
+    """Same transform as app.streaming.embeddings.manhattan_similarity,
+    duplicated here rather than imported - this script is deliberately
+    standalone (see module docstring)."""
+
+    dim = a.shape[-1]
+    max_possible_distance = 2 * np.sqrt(dim)
+
+    return 1.0 - float(np.sum(np.abs(a - b))) / max_possible_distance
+
+
+def _write_csv(clips: list[Clip], csv_path: Path) -> None:
+    """Every pairwise comparison, one row each - for spreadsheet/plotting
+    use rather than just the printed summary. `manhattan_distance` is
+    what the app actually matches on, via `manhattan_similarity` (see
+    app.streaming.embeddings.best_match) - the other columns are for
+    inspection/comparison, not used at runtime."""
+
+    with csv_path.open("w", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(
+            [
+                "file_a",
+                "command_a",
+                "file_b",
+                "command_b",
+                "same_phrase",
+                "cosine_similarity",
+                "euclidean_distance",
+                "manhattan_distance",
+                "pearson_correlation",
+            ]
+        )
+        for i in range(len(clips)):
+            for j in range(i + 1, len(clips)):
+                a, b = clips[i], clips[j]
+                metrics = _pairwise_metrics(a.embedding, b.embedding)
+                writer.writerow(
+                    [
+                        a.path.name,
+                        a.command_id,
+                        b.path.name,
+                        b.command_id,
+                        a.command_id == b.command_id,
+                        f"{metrics['cosine_similarity']:.6f}",
+                        f"{metrics['euclidean_distance']:.6f}",
+                        f"{metrics['manhattan_distance']:.6f}",
+                        f"{metrics['pearson_correlation']:.6f}",
+                    ]
+                )
+
+    print(f"\nWrote {len(clips) * (len(clips) - 1) // 2} pairwise rows to {csv_path}")
+
+
 def _pairwise_report(clips: list[Clip]) -> None:
     if len(clips) < 2:
         print("Need at least 2 usable clips to compare anything.")
@@ -161,7 +250,7 @@ def _pairwise_report(clips: list[Clip]) -> None:
 
     for i in range(len(clips)):
         for j in range(i + 1, len(clips)):
-            score = float(np.dot(clips[i].embedding, clips[j].embedding))
+            score = _manhattan_similarity(clips[i].embedding, clips[j].embedding)
             if clips[i].command_id == clips[j].command_id:
                 same_scores.append(score)
                 same_scores_by_command[clips[i].command_id].append(score)
@@ -244,6 +333,12 @@ def main() -> None:
     parser.add_argument(
         "wav_dir", type=Path, help="Directory of {command_id}_{n}.wav recordings."
     )
+    parser.add_argument(
+        "--csv",
+        type=Path,
+        default=None,
+        help="Also write every pairwise similarity to this CSV file.",
+    )
     arguments = parser.parse_args()
 
     if not arguments.wav_dir.is_dir():
@@ -261,6 +356,9 @@ def main() -> None:
 
     clips = _load_clips(arguments.wav_dir, model, vad_model)
     _pairwise_report(clips)
+
+    if arguments.csv:
+        _write_csv(clips, arguments.csv)
 
 
 if __name__ == "__main__":

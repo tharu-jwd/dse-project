@@ -20,7 +20,7 @@ from app.core.config import settings
 from app.db.session import SessionLocal
 from app.models.voice_enrollment import CommandEnrollment
 from app.streaming.commands import COMMANDS
-from app.streaming.embeddings import cosine_similarity
+from app.streaming.embeddings import manhattan_similarity
 
 
 logger = logging.getLogger(__name__)
@@ -123,7 +123,7 @@ def submit_sample(user_id: UUID, command_id: str, embedding: np.ndarray) -> Subm
         similarity: float | None = None
         if existing:
             similarity = max(
-                cosine_similarity(embedding, np.frombuffer(row.embedding, dtype=np.float32))
+                manhattan_similarity(embedding, np.frombuffer(row.embedding, dtype=np.float32))
                 for row in existing
             )
             if similarity < settings.voice_enrollment_min_sample_similarity:
