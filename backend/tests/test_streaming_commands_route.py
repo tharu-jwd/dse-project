@@ -52,7 +52,7 @@ async def test_delete_command_removes_last_segment_instead_of_persisting(monkeyp
     buffer = StreamingBuffer(max_buffer_seconds=15.0, overlap_seconds=1.0)
     buffer.append(b"\x00\x00" * 1600)  # silence, only used for timing here
     transcript_id = uuid4()
-    state = {"segment_order": 0, "bank": {}}
+    state = {"segment_order": 0, "bank": {}, "mode": "NOTE"}
 
     await streaming_route._emit_final(
         websocket, buffer, state, transcript_id, _phrase("delete"), None, None
@@ -84,7 +84,7 @@ async def test_stop_command_notifies_client_without_persisting(monkeypatch):
     websocket = FakeWebSocket()
     buffer = StreamingBuffer(max_buffer_seconds=15.0, overlap_seconds=1.0)
     buffer.append(b"\x00\x00" * 1600)
-    state = {"segment_order": 0, "bank": {}}
+    state = {"segment_order": 0, "bank": {}, "mode": "NOTE"}
 
     await streaming_route._emit_final(
         websocket, buffer, state, uuid4(), _phrase("stop"), None, None
@@ -114,7 +114,7 @@ async def test_ordinary_dictation_is_still_persisted_normally(monkeypatch):
     websocket = FakeWebSocket()
     buffer = StreamingBuffer(max_buffer_seconds=15.0, overlap_seconds=1.0)
     buffer.append(b"\x00\x00" * 1600)
-    state = {"segment_order": 0, "bank": {}}
+    state = {"segment_order": 0, "bank": {}, "mode": "NOTE"}
 
     await streaming_route._emit_final(
         websocket, buffer, state, uuid4(), "අද කාලගුණය හොඳයි", None, None
@@ -153,7 +153,7 @@ async def test_partial_dictation_never_invokes_embedding_matching(monkeypatch):
     websocket = FakeWebSocket()
     buffer = StreamingBuffer(max_buffer_seconds=15.0, overlap_seconds=1.0)
     buffer.append(b"\x00\x00" * 1600)
-    state = {"segment_order": 0, "bank": {"stop": []}}  # non-empty bank, feature on
+    state = {"segment_order": 0, "bank": {"stop": []}, "mode": "NOTE"}  # non-empty bank, feature on
 
     await streaming_route._process_window(
         websocket, buffer, state, uuid4(), FakeVad(), FakeTranscriber()
@@ -192,7 +192,7 @@ async def test_unenrolled_student_still_gets_working_fuzzy_commands(monkeypatch)
     buffer = StreamingBuffer(max_buffer_seconds=15.0, overlap_seconds=1.0)
     buffer.append(b"\x00\x00" * 1600)
     transcript_id = uuid4()
-    state = {"segment_order": 0, "bank": {}}  # unenrolled
+    state = {"segment_order": 0, "bank": {}, "mode": "NOTE"}  # unenrolled
 
     await streaming_route._emit_final(
         websocket, buffer, state, transcript_id, _phrase("delete"), -0.1, None

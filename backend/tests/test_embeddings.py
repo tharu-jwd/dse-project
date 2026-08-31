@@ -12,6 +12,7 @@ from app.streaming.embeddings import (
     best_match,
     cosine_similarity,
     l2_normalize,
+    manhattan_similarity,
     mean_pool,
 )
 
@@ -71,7 +72,22 @@ def test_best_match_finds_the_closer_label():
     match = best_match(query, bank, threshold=0.5)
     assert match is not None
     assert match.label == "delete"
-    assert match.score == pytest.approx(cosine_similarity(query, bank["delete"][0]))
+    # best_match scores on Manhattan similarity, not cosine - see
+    # embeddings.manhattan_similarity for why (it separates real
+    # same-vs-different-command recordings slightly better).
+    assert match.score == pytest.approx(manhattan_similarity(query, bank["delete"][0]))
+
+
+def test_manhattan_similarity_identical_vectors_is_one():
+    vector = _unit(1.0, 2.0, 3.0)
+    assert manhattan_similarity(vector, vector) == pytest.approx(1.0)
+
+
+def test_manhattan_similarity_decreases_as_vectors_diverge():
+    query = _unit(1.0, 0.0)
+    close = _unit(0.99, 0.01)
+    far = _unit(0.0, 1.0)
+    assert manhattan_similarity(query, close) > manhattan_similarity(query, far)
 
 
 def test_best_match_uses_best_sample_not_mean():

@@ -10,7 +10,7 @@ import pytest
 
 from app.services import voice_enrollment
 from app.streaming.commands import COMMANDS
-from app.streaming.embeddings import l2_normalize
+from app.streaming.embeddings import l2_normalize, manhattan_similarity
 
 
 def _vector(*values: float) -> np.ndarray:
@@ -35,8 +35,11 @@ def test_similar_second_sample_is_accepted_and_counted(db_user):
     voice_enrollment.submit_sample(db_user, "stop", _vector(1.0, 0.0, 0.0))
     result = voice_enrollment.submit_sample(db_user, "stop", _vector(0.99, 0.01, 0.0))
     assert result.accepted
+    # Enrollment gating scores on Manhattan similarity too, same as
+    # runtime matching (app.streaming.embeddings.manhattan_similarity) -
+    # not the raw cosine dot product.
     assert result.similarity == pytest.approx(
-        float(np.dot(_vector(1.0, 0.0, 0.0), _vector(0.99, 0.01, 0.0))), abs=1e-4
+        manhattan_similarity(_vector(1.0, 0.0, 0.0), _vector(0.99, 0.01, 0.0)), abs=1e-4
     )
     assert result.collected == 2
 
