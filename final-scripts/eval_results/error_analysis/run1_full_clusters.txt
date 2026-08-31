@@ -1,0 +1,108 @@
+=== run1_full: 6128 wrong samples grouped into 8 clusters ===
+(clusters are by textual similarity of reference+prediction, not meaning -- 
+ use them to spot repeated failure patterns, e.g. same speaker/topic/word)
+
+--- cluster 0 (278 samples, avg WER 0.37, top n-grams: ‍ය, ්‍ය, ්‍, ය , ‍ය , ්‍ය , ්‍යා, ‍යා) ---
+  WER=1.33  ref:  එය සත්‍යයද අසත්‍යද
+              pred: එය සත්‍යය ද අසත්‍යය ද
+  WER=1.25  ref:  බුදුදහම හා මනෝවිද්‍යාව පිළිබඳ
+              pred: බුදු දහම හා මනෝ විද්‍යාව පිළිබඳව
+  WER=1.00  ref:  චතුරාර්ය සත්‍ය විස්තර වූවත්
+              pred: සතුරාර්ය සත්‍යය විතර වුවත්
+  WER=1.00  ref:  මධ්‍යස්ථ ව හිතල බලල
+              pred: මධ්‍යස්තුව හිතලා බලලා
+  WER=1.00  ref:  ත්‍රිකුණාමලය නාවුක කඳවුරේ බ්‍රිතාන්‍ය රාජකීය නාවික හමුදාවට
+              pred: ත්‍රී කුණාමලය නාවක කඳුරේ බ්‍රිතාන්‍ය රාජ්‍යයෙකි ඊය නාවක හමුදාවට
+  ... and 273 more in this cluster (see run1_full_errors_by_severity.csv)
+
+--- cluster 1 (2749 samples, avg WER 0.42, top n-grams: ් ,  ව,  ම,  ස, ේ , ත්,  අ, ම ) ---
+  WER=3.00  ref:  තුන්වැදෑරුම්ය.
+              pred: තුන් වැදෑරුම් ය.
+  WER=2.00  ref:  කදාවළලු,
+              pred: කඳා වළලු
+  WER=2.00  ref:  බොරුකීම
+              pred: බොරු කීම,
+  WER=2.00  ref:  ටීවිවල
+              pred: ටීවි වල
+  WER=2.00  ref:  එනම්ඉතිරිය
+              pred: එනම් ඉතිරිය
+  ... and 2744 more in this cluster (see run1_full_errors_by_severity.csv)
+
+--- cluster 2 (401 samples, avg WER 0.38, top n-grams: ‍ර, ්‍ර, ්‍, ප්‍, ප්‍ර, ප්,  ප්‍,  ප්) ---
+  WER=1.50  ref:  ගරු කතානායකතුමනි
+              pred: නොකරු කතා ක්‍රමාවකතුමනි.
+  WER=1.50  ref:  එහි ප්‍රතිඵලය
+              pred: ඒ ප්‍රථක කළේ.
+  WER=1.25  ref:  මේ ආශ්‍රම භූමියතුලදී ඉවතලන්නේ
+              pred: මෙම ආශ්‍රම භූමිය තුළදී ඉවත ලන්නේ
+  WER=1.00  ref:  ප්‍රතිලෝම ව සමානුපාතික ව
+              pred: ප්‍රතිලෝමව සමානුපාතිකව
+  WER=1.00  ref:  අතිශයින් ම ප්‍රකාශිත ය
+              pred: අතිශයින්ම ප්‍රකාශිතය
+  ... and 396 more in this cluster (see run1_full_errors_by_severity.csv)
+
+--- cluster 3 (857 samples, avg WER 0.39, top n-grams: න්න, ්න, න්, න්න , ්න , න , ් , නේ) ---
+  WER=1.33  ref:  මගෙන් දැනගන්න ඕනෙනං
+              pred: මගෙන් දැන ගන්න ඕනෙ නං.
+  WER=1.25  ref:  ලලනාවගේ නළලත තිලකය තබන්නේ
+              pred: රළ නාවගේ නල් ඇත තිළකය තබන්නේ
+  WER=1.14  ref:  දහයට එකොලහට විතර නැගිටින්න මොන මුස්පේන්තුකමක්ද පිංවතුනි
+              pred: 18ගොලහට විතරන්න ගින්නේ. මොන්න මුස් පේන්තු කුමන්ද පින්වතුනි
+  WER=1.00  ref:  හිතාගන්න බෑ
+              pred: හිතා ගන්න බෑ.
+  WER=1.00  ref:  හිතන්න පුළුවන්
+              pred: හිතන පුරුවන්
+  ... and 852 more in this cluster (see run1_full_errors_by_severity.csv)
+
+--- cluster 4 (353 samples, avg WER 0.36, top n-grams:  කිය, කිය,  කි, කි,  ක, ිය, කියල, ියල) ---
+  WER=1.33  ref:  සුන්දරලිංගම් මහාලිංගම් කියලා.
+              pred: සුන්දර ලිංගම්, මහා ලිංගම් කියලා.
+  WER=1.00  ref:  අයින්කරන්නෙ නෑ කියල.
+              pred: අයින් කරන්නේ නෑ කියලා.
+  WER=1.00  ref:  බුදුධහමෙ හරය කියලා
+              pred: බුදු දහමේ හරය කියල
+  WER=1.00  ref:  හොදයි කියනවා නේ.
+              pred: හොඳයි කියනවානේ.
+  WER=1.00  ref:  මොන වගේ චිත්‍රපටයකට ද කියල
+              pred: මොනවද චිත්‍රපටයකටද කියලා
+  ... and 348 more in this cluster (see run1_full_errors_by_severity.csv)
+
+--- cluster 5 (534 samples, avg WER 0.40, top n-grams: කි, ීම, ැක, ැකි, හැක,  ක, හැකි, හැ) ---
+  WER=1.50  ref:  මෙය සිදුකිරීමට
+              pred: මේ සිදු කිරීමට
+  WER=1.50  ref:  පිළිගැන්වීම සිදුකෙරේ.
+              pred: පිළිගැනීම සිදු කළේ
+  WER=1.20  ref:  කිසිදෙයක් කරකියා ගත නොහැකි ව
+              pred: කිසි දෙයක් කර කියා ගත නොහැකිව
+  WER=1.00  ref:  රජය හෙමිහිට තෝරාගැනීමට
+              pred: රජය හිමිහිට තෝරා ගැනීමට
+  WER=1.00  ref:  ආහාර ලබාදීමට
+              pred: ආහාර ලබා දීමට
+  ... and 529 more in this cluster (see run1_full_errors_by_severity.csv)
+
+--- cluster 6 (323 samples, avg WER 0.38, top n-grams: තිය,  තිය,  ති, ෙන, ියෙන, තියෙ, ති, ියෙ) ---
+  WER=1.00  ref:  ස්තූතියි ඇත්තෙන් ම
+              pred: ස්තුතියි ඇත්තෙන්ම
+  WER=1.00  ref:  කර්ම රැස්වෙනවා.
+              pred: කර්ම රැස් වෙනවා.
+  WER=1.00  ref:  හදලා තියෙන්නේ.
+              pred: හදල තියෙන්නෙ.
+  WER=1.00  ref:  පෙන්නල තියෙන්නෙ.
+              pred: පෙන්නලා තියෙන්නේ.
+  WER=1.00  ref:  උපශීර්ෂවලට ස්තුතියි
+              pred: උපශීර්ෂ වලට ස්තුතියි
+  ... and 318 more in this cluster (see run1_full_errors_by_severity.csv)
+
+--- cluster 7 (633 samples, avg WER 0.39, top n-grams: ින, ින්, න්, ් , න් , ින් ,  ම,  ව) ---
+  WER=1.50  ref:  එමගින් සිදුවූයේ
+              pred: එමඟින් සිදු වූයේ
+  WER=1.00  ref:  ආගමික මුහුණුවරකින්ය
+              pred: ආගමික මුහුණුවරකින් ය.
+  WER=1.00  ref:  එමෙන් ම පංච කාම වස්තුන්
+              pred: එමෙන්ම පංචකාම වස්තූන්
+  WER=1.00  ref:  ආගම්වල මෙන්
+              pred: ආගම් වල මෙන්
+  WER=1.00  ref:  හැබය් ඉතින් අධිකරණවලින් ඉල්ලා
+              pred: හැබැයි ඉතින් අධිකරණ වලින් ඉල්ලලා
+  ... and 628 more in this cluster (see run1_full_errors_by_severity.csv)
+

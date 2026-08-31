@@ -1,0 +1,108 @@
+=== run3_lora: 13993 wrong samples grouped into 8 clusters ===
+(clusters are by textual similarity of reference+prediction, not meaning -- 
+ use them to spot repeated failure patterns, e.g. same speaker/topic/word)
+
+--- cluster 0 (990 samples, avg WER 0.64, top n-grams: සි,  සි,  ස, ් , සිට, ිට, සිද,  සිට) ---
+  WER=2.00  ref:  සිතුවිලිවල රළුභාවයන්
+              pred: සිතු විලිවල රලු භාවයන්
+  WER=1.67  ref:  මව්කුසින් නික්මෙන කොටම
+              pred: මාවක සින්නික් වෙන කොට්ට ම
+  WER=1.67  ref:  තිලකසිරි ආරියසේන විදානපතිරණ
+              pred: තිරක සිරි ආරීසයන විදාන් පතිරණ
+  WER=1.50  ref:  සිදුවෙච්ච දේවල්
+              pred: සිදු වෙච්ච දෙවල්
+  WER=1.50  ref:  දිවැසින් බැලූසේක.
+              pred: දුවෙසින් බෙළු සියෙක
+  ... and 985 more in this cluster (see run3_lora_errors_by_severity.csv)
+
+--- cluster 1 (666 samples, avg WER 0.58, top n-grams:  කිය, කිය,  කි, කි, ිය,  ක, කියල, ියල) ---
+  WER=1.50  ref:  හැරුන කියමුකෝ
+              pred: හැරුණ කිය මුකෝ
+  WER=1.50  ref:  කියවලා බලන්නකෝ.
+              pred: කියවල බලන්න කෝ
+  WER=1.50  ref:  කියන්නෙ මොකක්ද?
+              pred: කියන්නය මොකක් ද
+  WER=1.46  ref:  ඒක අපි කියන්නේ appropriation bill එකක් කියලනේ. ඒ කියන්නේ විසර්ජන පනතක් ඉදිරිපත් කරනකොට
+              pred: එක අපි කෙන් ම අර්පිල්ලේ කරක් කෙනෙන් එකෙනෙන් සර්ජන පනතක් කිදෙන් පත් කිදෙන් පත් කිදෙන් පත් කිදෙන් පත් කෙනෙන්න කොට
+  WER=1.33  ref:  සුන්දරලිංගම් මහාලිංගම් කියලා.
+              pred: සුන්දර ලිංගම් මහා ලිංගම් කියලා
+  ... and 661 more in this cluster (see run3_lora_errors_by_severity.csv)
+
+--- cluster 2 (7819 samples, avg WER 0.64, top n-grams: ් ,  ම,  ව, න්,  අ, ත්,  ප, ට ) ---
+  WER=3.00  ref:  ඩී.එස්.සේනානායක,
+              pred: ඩියස් යන නෑක.
+  WER=2.00  ref:  ආයුබෝවන්
+              pred: හායි බොවන්
+  WER=2.00  ref:  බොරුකීම
+              pred: බොරු කීම
+  WER=2.00  ref:  මෙයාගෙ ගතිගුණවලට
+              pred: මේ ආගේක් ගතිගුණ බලට
+  WER=2.00  ref:  කතන්දර.
+              pred: කතන්ද ව
+  ... and 7814 more in this cluster (see run3_lora_errors_by_severity.csv)
+
+--- cluster 3 (1791 samples, avg WER 0.63, top n-grams: න්, න්න, ්න, න්න , ්න , න , ෙන, ් ) ---
+  WER=2.00  ref:  වැඩිදුරටත් පවසන්න
+              pred: වැඩි දුරටත් පව සන්න
+  WER=1.67  ref:  නොදැනුවත්කම වෙන්නැති නේද?
+              pred: නතුයනුවත් කම වෙන්නෙ තිනේ ද
+  WER=1.50  ref:  මරණය වන්නේය.
+              pred: මර්ණය වන්නේ ය.
+  WER=1.50  ref:  සුවිශේෂී වන්නේය.
+              pred: සුවිසේෂී වන්නේ ය.
+  WER=1.50  ref:  මොකට බයවෙන්නද.
+              pred: මොකට බය වෙන්න ද
+  ... and 1786 more in this cluster (see run3_lora_errors_by_severity.csv)
+
+--- cluster 4 (1067 samples, avg WER 0.68, top n-grams: ‍ර, ්‍ර, ්‍, ප්‍, ප්‍ර, ප්,  ප්‍,  ප්) ---
+  WER=1.67  ref:  ඒකනායක මහතා ක්‍රමක්‍රයෙන්
+              pred: ඒක නෑක මහත්තාක් කම කමයෙන්
+  WER=1.67  ref:  අදාළ ප්‍රවෘත්ති සාකච්ඡාවේදීය.
+              pred: අදාල ප්‍රවුතිය සාකච්වාවේ දී ය
+  WER=1.50  ref:  ගොඩිගමුව අකරගම ප්‍රදේශයේ පදිංචි
+              pred: ගොඩි ගමුව අකර ගම ප්‍රදේසේ පදින්චි.
+  WER=1.50  ref:  ඇතිකරගත් ප්‍රශ්නයකි.
+              pred: ඇති කරගත් පක්ෂ්හනකි.
+  WER=1.50  ref:  යථාර්ථවාදි විග්‍රහයකිනි.
+              pred: යතාර්තවාදී විඟ්‍රහය කිනින්
+  ... and 1062 more in this cluster (see run3_lora_errors_by_severity.csv)
+
+--- cluster 5 (656 samples, avg WER 0.57, top n-grams: කරන, රන,  කරන, කර,  කර, රන්, රන්න, කරන්) ---
+  WER=1.50  ref:  පින්කරන තැනැත්තෝ
+              pred: පින් කරන තනත්තෝ
+  WER=1.50  ref:  මේවා හාරන්නේ?
+              pred: මේ ම අහරන්නේ
+  WER=1.50  ref:  සදහන් කරන්නමු
+              pred: සඳහන් කරන්න ම
+  WER=1.33  ref:  ඔක්කොම කරන්නේ උපක්‍රමශීලීව.
+              pred: ඔක්කම කරන්න යුකක් කමසීරීව
+  WER=1.33  ref:  එල මචං.ගොඩක් කරනවා
+              pred: එළ මචන් ගොඩක් කරනව
+  ... and 651 more in this cluster (see run3_lora_errors_by_severity.csv)
+
+--- cluster 6 (745 samples, avg WER 0.62, top n-grams: නව, නවා, වා, ෙනව, නවා , ෙන, ෙනවා,  තිය) ---
+  WER=1.50  ref:  නිපැයුමක් සොයාගන්නවා.
+              pred: නිපයි මක්සුය අගන්නවා
+  WER=1.50  ref:  අඩුකරලා දාන්න පුළුවන්කම ඇතිවෙනවා.
+              pred: අඩුකර ලදාන පුළුවන් කම ඇති වෙනවා.
+  WER=1.50  ref:  අඩුකරලා දාන්න පුළුවන්කම ඇතිවෙනවා.
+              pred: හඩු කොරලා දාන්න පුළුවන් කම ඇති වෙනවා.
+  WER=1.50  ref:  තියෙන්නේ කුදිරමලේ.
+              pred: තියෙන්නෙ කුදිර මලය
+  WER=1.50  ref:  එතකොට හම්බවෙනවා
+              pred: ඇතකුට හමබ වෙනවා
+  ... and 740 more in this cluster (see run3_lora_errors_by_severity.csv)
+
+--- cluster 7 (259 samples, avg WER 0.63, top n-grams: න්සේ, න්ස, හන්ස, වහන්, වහන, ්සේ, වහ, හන්) ---
+  WER=1.50  ref:  උන්වන්සේගේ බලයෙන්
+              pred: ඔන්න හන්සේගේ බලවෙන්
+  WER=1.50  ref:  බුදුරදුන්ගේ අණට
+              pred: බුදුරදුන් ගේ අනට
+  WER=1.50  ref:  බුදුරජාණන් වහන්සේගේ ශ්‍රාවකයන් වහන්සේලා
+              pred: බුදුරිජාණන් වහන්සේ ගිය ස්රාවකයන් වහන්සේ ලා
+  WER=1.50  ref:  භික්‍ෂූන්වහන්සේ දැකීම්
+              pred: භික්ෂුන් වහන්සේ දැකීම
+  WER=1.33  ref:  එබැවින් බුදුරජාණන් වහන්සේ
+              pred: එබ වෙන් උදුරජා නන්වහන්සේ
+  ... and 254 more in this cluster (see run3_lora_errors_by_severity.csv)
+
