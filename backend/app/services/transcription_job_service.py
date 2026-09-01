@@ -1,7 +1,7 @@
 from uuid import UUID, uuid4
 
 from fastapi import UploadFile
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.media import MediaFile
@@ -16,6 +16,7 @@ from app.services.media_storage_service import (
     delete_stored_media,
     save_media_upload,
 )
+from app.services.transcript_service import title_is_taken
 
 
 ALLOWED_TRANSCRIPT_TYPES = {
@@ -27,6 +28,19 @@ ALLOWED_TRANSCRIPT_TYPES = {
 
 class InvalidTranscriptionRequestError(ValueError):
     pass
+
+
+def _pending_job_title_is_taken(db: Session, owner_id: UUID, title: str) -> bool:
+    """A job still QUEUED/PROCESSING has no Transcript row yet, but will
+    claim this title once it completes - so it counts as taken too."""
+
+    statement = select(TranscriptionJob.job_id).where(
+        TranscriptionJob.requested_by == owner_id,
+        TranscriptionJob.status.in_(("QUEUED", "PROCESSING")),
+        func.lower(TranscriptionJob.title) == title.strip().lower(),
+    )
+
+    return db.scalar(statement) is not None
 
 
 def create_transcription_job(
@@ -52,6 +66,13 @@ def create_transcription_job(
     if normalized_type not in ALLOWED_TRANSCRIPT_TYPES:
         raise InvalidTranscriptionRequestError(
             "Invalid transcript type."
+        )
+
+    if title_is_taken(db, user.user_id, normalized_title) or _pending_job_title_is_taken(
+        db, user.user_id, normalized_title
+    ):
+        raise InvalidTranscriptionRequestError(
+            f'You already have a transcript titled "{normalized_title}".'
         )
 
     media_id = uuid4()

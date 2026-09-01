@@ -5,10 +5,16 @@ from sqlalchemy import select
 from app.db.session import SessionLocal
 from app.models.transcription import Transcript, TranscriptSegment
 from app.models.user import User
+from app.services.transcript_service import DuplicateTranscriptTitleError, title_is_taken
 
 
 def create_live_transcript(owner: User, title: str, transcript_type: str) -> UUID:
     with SessionLocal.begin() as db:
+        if title_is_taken(db, owner.user_id, title):
+            raise DuplicateTranscriptTitleError(
+                f'You already have a transcript titled "{title.strip()}".'
+            )
+
         transcript = Transcript(
             owner_id=owner.user_id,
             media_id=None,

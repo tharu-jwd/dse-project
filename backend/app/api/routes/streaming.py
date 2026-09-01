@@ -15,6 +15,7 @@ from app.services.streaming_persistence import (
     create_live_transcript,
     delete_last_segment,
 )
+from app.services.transcript_service import DuplicateTranscriptTitleError
 from app.streaming.buffer import StreamingBuffer
 from app.streaming.command_resolution import resolve_command
 from app.streaming.embeddings import ClipTooShortError
@@ -174,9 +175,14 @@ async def _run_session(websocket: WebSocket, user: User) -> None:
     transcript_id: UUID | None = None
     if mode == "NOTE":
         title = start_message.get("title") or "Untitled note"
-        transcript_id = await asyncio.to_thread(
-            create_live_transcript, user, title, TRANSCRIPT_TYPE_BY_MODE["NOTE"]
-        )
+        try:
+            transcript_id = await asyncio.to_thread(
+                create_live_transcript, user, title, TRANSCRIPT_TYPE_BY_MODE["NOTE"]
+            )
+        except DuplicateTranscriptTitleError as error:
+            await websocket.send_json({"type": "error", "message": str(error)})
+            await websocket.close(code=status.WS_1003_UNSUPPORTED_DATA)
+            return
 
     # Which phrase set this student's commands are matched against - a
     # database setting (see User.command_language), never a code change.

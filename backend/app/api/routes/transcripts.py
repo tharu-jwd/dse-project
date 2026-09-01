@@ -13,6 +13,7 @@ from app.schemas.transcript import (
     TranscriptUpdate,
 )
 from app.services.transcript_service import (
+    DuplicateTranscriptTitleError,
     TranscriptFinalizedError,
     TranscriptNotFoundError,
     TranscriptSegmentMismatchError,
@@ -111,6 +112,11 @@ def update_transcript(
     except TranscriptSegmentMismatchError as error:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(error),
+        ) from error
+    except DuplicateTranscriptTitleError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
             detail=str(error),
         ) from error
 

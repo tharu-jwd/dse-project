@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.models.transcription import Transcript, TranscriptSegment
@@ -24,6 +24,31 @@ class TranscriptFinalizedError(ValueError):
 
 class TranscriptSegmentMismatchError(ValueError):
     pass
+
+
+class DuplicateTranscriptTitleError(ValueError):
+    pass
+
+
+def title_is_taken(
+    db: Session,
+    owner_id: UUID,
+    title: str,
+    exclude_transcript_id: UUID | None = None,
+) -> bool:
+    """Case-insensitive check: does this owner already have a transcript
+    with this title? Titles are only required to be unique per-owner, not
+    globally - two students can both call a note "Chapter 1"."""
+
+    statement = select(Transcript.transcript_id).where(
+        Transcript.owner_id == owner_id,
+        func.lower(Transcript.title) == title.strip().lower(),
+    )
+
+    if exclude_transcript_id is not None:
+        statement = statement.where(Transcript.transcript_id != exclude_transcript_id)
+
+    return db.scalar(statement) is not None
 
 
 def transcript_access_condition(user: User):
@@ -133,7 +158,11 @@ def update_owned_transcript(
                 "One or more segments do not belong to this transcript."
             )
 
-    if update_data.title is not None:
+    if update_data.title is not None and update_data.title.strip().lower() != transcript.title.strip().lower():
+        if title_is_taken(db, transcript.owner_id, update_data.title, exclude_transcript_id=transcript.transcript_id):
+            raise DuplicateTranscriptTitleError(
+                f'You already have a transcript titled "{update_data.title.strip()}".'
+            )
         transcript.title = update_data.title
 
     if segment_updates is not None:

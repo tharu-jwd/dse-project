@@ -50,12 +50,14 @@
 }
 html {
   min-width: 320px;
+  overflow-x: hidden;
   background: var(--surface-2);
 }
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  overflow-x: hidden;
   background: var(--surface-2);
   color: var(--navy);
 }
@@ -252,6 +254,8 @@ textarea:focus-visible {
   background: transparent;
   color: var(--muted);
   cursor: pointer;
+  margin-left: 25px;
+
 }
 .icon-button:hover {
   background: var(--surface-2);
@@ -743,14 +747,16 @@ textarea:focus-visible {
      don't add margin-left to individual elements inside a page, they'll
      drift out of alignment with everything else the moment this changes. */
   width: calc(100% - 15px);
-  /* margin: 0 0 0 15px; */
+  margin: 0 0 0 15px;
   padding: 52px 0 70px;
 }
 .page--narrow {
   width: min(820px, calc(100% - 64px));
+  margin: 0 auto;
 }
 .page--editor {
   width: min(1320px, calc(100% - 48px));
+  margin: 0 auto;
 }
 .standalone-page {
   display: grid;
