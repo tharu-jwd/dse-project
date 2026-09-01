@@ -101,6 +101,41 @@ A student with no enrollment bank (or with
 fuzzy-only behaviour that existed before this feature — enrollment is
 additive, never a prerequisite.
 
+### 3. What each command actually does (client-side)
+
+`resolve_command` only ever decides *which command id* was spoken, with
+what confidence — it has no idea what that id should do on whatever
+page the student is on. The backend's COMMAND-mode WebSocket
+(`app/api/routes/streaming.py`) just forwards an `outcome: "execute"`
+decision as `{"type": "command", "command": "<id>"}` with zero
+server-side effect; every page listening via `useVoiceCommands`
+(`frontend/src/hooks/useVoiceCommands.js`) maps the six ids to its own
+actions:
+
+| Command | Self-study note (live, mid-dictation) | Transcript Review page | Quiz answer page |
+|---|---|---|---|
+| `delete` | deletes the last line, server-side | — | — |
+| `stop` | ends the recording session | — | — |
+| `save` | — | saves the draft (no-ops with "Nothing to save" if nothing changed) | — |
+| `next` | — | — | advances a question (only if the current one is answered) |
+| `previous` | — | — | goes back a question |
+| `submit` | — | **opens the finalize confirmation dialog** — never finalizes by itself | **opens the submit confirmation dialog** — only once every required question is answered; never submits by itself |
+
+`delete`/`stop` are the only two commands with a real server-side effect,
+and only inside a live NOTE session (see `_ACTIONABLE_NOTE_COMMANDS` in
+`streaming.py`) — everywhere else, including `delete`/`stop` themselves
+outside of live note-taking, a recognized command is just handed to the
+page, which decides what it means there.
+
+**`submit` is deliberately never a one-step action anywhere.** Saying it
+opens the same confirmation dialog (`ConfirmDialog`) the mouse-driven
+"Finalize"/"Review & submit" button opens — the student still has to
+confirm the dialog themselves, exactly like a destructive fuzzy/embedding
+match still requires the higher `*_destructive_threshold` bar rather than
+a normal one. This is intentional, not a missing feature: an
+irreversible action (finalizing a transcript, submitting a quiz) should
+never fire off a single misheard "submit" with no chance to back out.
+
 ## Re-running after a model change
 
 Every stored embedding is stamped with `voice_embedding_model_version`

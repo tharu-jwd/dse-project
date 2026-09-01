@@ -926,7 +926,7 @@ textarea:focus-visible {
 .field input,
 .field textarea,
 .library-tools input,
-select {
+.library-tools select {
   width: 100%;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -935,13 +935,11 @@ select {
   transition:
     border 0.15s,
     box-shadow 0.15s;
-
-  margin:15px;
 }
 .field input:focus,
 .field textarea:focus,
 .library-tools input:focus,
-select:focus {
+.library-tools select:focus {
   border-color: var(--teal);
   outline: 0;
   box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.18);
@@ -2039,11 +2037,13 @@ select:focus {
 .library-tools {
   display: flex;
   flex-wrap: wrap;
+  align-items: stretch;
   gap: 10px;
   margin-bottom: 18px;
 }
 .library-tools .search-field {
   flex: 3 1 260px;
+  display: flex;
 }
 .library-tools select {
   flex: 1 1 160px;
@@ -2054,14 +2054,15 @@ select:focus {
 }
 .search-field .icon {
   position: absolute;
-  top: 12px;
+  top: 50%;
   left: 13px;
-  bottom: 12px;
+  transform: translateY(-50%);
   color: #a79bc0;
 }
 .search-field input {
   padding-left: 41px;
 }
+.library-tools input,
 .library-tools select {
   height: 45px;
 }
