@@ -32,6 +32,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
+import ctranslate2
 import numpy as np
 import torch
 from faster_whisper import WhisperModel
@@ -225,6 +226,15 @@ def embed_audio(
 
     features = model.feature_extractor(trimmed)
     encoder_output = model.encode(features)
+
+    # StorageView has no numpy buffer/array protocol for GPU-resident
+    # memory - np.array() on a CUDA StorageView silently collapses to a
+    # 0-dimensional object wrapper instead of raising, so this must be
+    # copied to host memory first whenever the model is running on GPU
+    # (StreamingTranscriber picks CUDA automatically when available).
+    if encoder_output.device != "cpu":
+        encoder_output = encoder_output.to_device(ctranslate2.Device.cpu)
+
     hidden_states = np.array(encoder_output)[0]  # (time, dim), batch dim dropped
 
     return l2_normalize(mean_pool(hidden_states))

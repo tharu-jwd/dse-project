@@ -7,8 +7,9 @@ import Icon from '../components/Icon'
 import TranscriptEditor from '../components/TranscriptEditor'
 import TranscriptionStatus from '../components/TranscriptionStatus'
 import useTranscriptionJob from '../components/useTranscriptionJob'
+import useVoiceCommands from '../hooks/useVoiceCommands'
+import VoiceMeter from '../components/VoiceMeter'
 import { useAccessibility } from '../contexts/AccessibilityContext'
-import { useVoiceCommandHandler, useVoiceCommandHint } from '../contexts/VoiceCommandContext'
 import {
   Alert,
   ConfirmDialog,
@@ -103,42 +104,39 @@ export function QuizAnswerPage() {
     setCommandFeedback(message)
     window.setTimeout(() => setCommandFeedback(''), 2200)
   }
-  useVoiceCommandHandler(
-    submitted
-      ? null
-      : (command) => {
-          if (!quiz) return
-          if (command === 'next') {
-            if (
-              current < quiz.questions.length - 1 &&
-              Boolean(answers[quiz.questions[current].id])
-            ) {
-              setCurrent((value) => value + 1)
-              setWorkingTranscript(answers[quiz.questions[current + 1]?.id] || null)
-              reset()
-            } else {
-              showCommandFeedback('Answer this question before moving on')
-            }
-          } else if (command === 'previous') {
-            if (current > 0) {
-              setCurrent((value) => value - 1)
-              setWorkingTranscript(answers[quiz.questions[current - 1]?.id] || null)
-              reset()
-            } else {
-              showCommandFeedback('Already on the first question')
-            }
-          } else if (command === 'submit') {
-            const isLast = current === quiz.questions.length - 1
-            const allDone = quiz.questions.filter((q) => q.required).every((q) => answers[q.id])
-            if (isLast && allDone) {
-              setConfirm(true)
-            } else {
-              showCommandFeedback('Complete every required question first')
-            }
-          }
-        },
-  )
-  useVoiceCommandHint(submitted ? null : 'Say "next", "previous" or "submit"')
+  const voice = useVoiceCommands({
+    onCommand: (command) => {
+      if (!quiz || submitted) return
+      if (command === 'next') {
+        if (current < quiz.questions.length - 1 && Boolean(answers[quiz.questions[current].id])) {
+          setCurrent((value) => value + 1)
+          setWorkingTranscript(answers[quiz.questions[current + 1]?.id] || null)
+          reset()
+        } else {
+          showCommandFeedback('Answer this question before moving on')
+        }
+      } else if (command === 'previous') {
+        if (current > 0) {
+          setCurrent((value) => value - 1)
+          setWorkingTranscript(answers[quiz.questions[current - 1]?.id] || null)
+          reset()
+        } else {
+          showCommandFeedback('Already on the first question')
+        }
+      } else if (command === 'submit') {
+        const isLast = current === quiz.questions.length - 1
+        const allDone = quiz.questions.filter((q) => q.required).every((q) => answers[q.id])
+        if (isLast && allDone) {
+          setConfirm(true)
+        } else {
+          showCommandFeedback('Complete every required question first')
+        }
+      }
+    },
+  })
+  useEffect(() => {
+    if (interactionMode !== 'command' && voice.isListening) voice.stop()
+  }, [interactionMode]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     api
       .getQuiz(id)
@@ -288,12 +286,30 @@ export function QuizAnswerPage() {
               </p>
             </>
           )}
+          {interactionMode === 'command' && voice.error && <Alert>{voice.error}</Alert>}
           {interactionMode === 'command' && commandFeedback && (
             <p className="command-feedback command-feedback--advisory" role="status">
               <Icon name="alert" size={14} /> {commandFeedback}
             </p>
           )}
           <div className="quiz-navigation">
+            {interactionMode === 'command' && (
+              <div className="voice-command-toggle">
+                <button
+                  type="button"
+                  className={`button button--icon ${voice.isListening ? 'is-recording' : ''}`}
+                  onClick={voice.isListening ? voice.stop : voice.start}
+                  disabled={voice.status === 'connecting' || voice.status === 'stopping'}
+                  aria-label={voice.isListening ? 'Stop voice commands' : 'Listen for voice commands'}
+                  title={voice.isListening ? 'Stop voice commands' : 'Say "next", "previous" or "submit"'}
+                >
+                  <Icon name={voice.isListening ? 'stop' : 'mic'} size={17} />
+                </button>
+                {voice.isListening && (
+                  <VoiceMeter registerBar={voice.registerBar} active={voice.voiceDetected} compact />
+                )}
+              </div>
+            )}
             <button
               className="button button--secondary"
               disabled={current === 0}
