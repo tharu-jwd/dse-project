@@ -417,6 +417,104 @@ textarea:focus-visible {
 .toast .icon-button {
   margin-left: auto;
 }
+/* Fixed-corner "the mic is on" indicator - stacked above the toast's
+   corner (not the same spot) since a toast can pop in at any time while
+   this stays up for the whole listening session. */
+.voice-status-badge {
+  position: fixed;
+  right: 24px;
+  bottom: 96px;
+  z-index: 150;
+  display: flex;
+  max-width: 280px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px 10px 14px;
+  border: 1px solid rgba(167, 139, 250, 0.4);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.45);
+  color: var(--navy);
+}
+.voice-status-badge__icon {
+  display: grid;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--teal-soft);
+  color: var(--teal);
+}
+.voice-status-badge--listening .voice-status-badge__icon {
+  color: #fff;
+  background: var(--teal);
+  animation: voice-badge-pulse 1.6s ease-in-out infinite;
+}
+.voice-status-badge--connecting .voice-status-badge__icon,
+.voice-status-badge--stopping .voice-status-badge__icon {
+  animation: voice-badge-pulse 0.9s ease-in-out infinite;
+}
+.voice-status-badge--error .voice-status-badge__icon {
+  color: var(--danger);
+  background: rgba(255, 180, 171, 0.16);
+}
+@keyframes voice-badge-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(167, 139, 250, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgba(167, 139, 250, 0);
+  }
+}
+.voice-status-badge__text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.voice-status-badge__text strong {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.voice-status-badge__text small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.voice-status-badge .voice-meter {
+  height: 22px;
+  margin-bottom: 0;
+}
+.voice-status-badge__toggle {
+  display: grid;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--navy);
+  cursor: pointer;
+}
+.voice-status-badge__toggle:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+@media (max-width: 640px) {
+  .voice-status-badge {
+    right: 14px;
+    bottom: 84px;
+    max-width: none;
+  }
+  .voice-status-badge__text small {
+    display: none;
+  }
+}
 .empty-state {
   max-width: 500px;
   margin: 55px auto;

@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useVoiceCommand, VoiceCommandProvider } from '../contexts/VoiceCommandContext'
 import AccessibilityControls from './AccessibilityControls'
 import Icon from './Icon'
+import VoiceStatusBadge from './VoiceStatusBadge'
 
 const studentNav = [
   ['dashboard', 'Dashboard', '/dashboard'],
@@ -20,7 +22,16 @@ const teacherNav = [
 ]
 
 export default function AppShell() {
+  return (
+    <VoiceCommandProvider>
+      <AppShellContent />
+    </VoiceCommandProvider>
+  )
+}
+
+function AppShellContent() {
   const { user, logout } = useAuth()
+  const { voice, hint } = useVoiceCommand()
   const navigate = useNavigate()
   const location = useLocation()
   const [open, setOpen] = useState(false)
@@ -47,6 +58,7 @@ export default function AppShell() {
   }
   return (
     <div className="app-shell">
+      <VoiceStatusBadge voice={voice} hint={hint} />
       <a className="skip-link" href="#main-content">
         Skip to main content
       </a>

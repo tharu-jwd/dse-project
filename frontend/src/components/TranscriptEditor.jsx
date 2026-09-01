@@ -2,10 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { api, downloadBlob } from '../api'
 import { useAccessibility } from '../contexts/AccessibilityContext'
 import { useToast } from '../contexts/ToastContext'
-import useVoiceCommands from '../hooks/useVoiceCommands'
+import { useVoiceCommandHandler, useVoiceCommandHint } from '../contexts/VoiceCommandContext'
 import Icon from './Icon'
 import { Alert, ConfirmDialog, StatusBadge } from './UI'
-import VoiceMeter from './VoiceMeter'
 
 const formatTime = (seconds) =>
   `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`
@@ -54,7 +53,7 @@ export default function TranscriptEditor({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [confirmFinalize, setConfirmFinalize] = useState(false)
-  const { confidenceThreshold, interactionMode, updatePreference } = useAccessibility()
+  const { confidenceThreshold, updatePreference } = useAccessibility()
   const { showToast } = useToast()
   const player = useRef(null)
   const [playbackUrl, setPlaybackURL] = useState('')
@@ -73,25 +72,30 @@ export default function TranscriptEditor({
     feedbackTimeoutRef.current = window.setTimeout(() => setCommandFeedback(''), 2200)
   }
   useEffect(() => () => window.clearTimeout(feedbackTimeoutRef.current), [])
-  const voice = useVoiceCommands({
-    onCommand: (command) => {
-      if (transcript.status === 'FINALIZED') return
-      if (command === 'save') {
-        if (!dirty) {
-          showCommandFeedback('Nothing to save')
-          return
-        }
-        showCommandFeedback('Saving…')
-        save()
-      } else if (command === 'submit') {
-        showCommandFeedback('Opening finalize confirmation…')
-        setConfirmFinalize(true)
-      }
-    },
-  })
-  useEffect(() => {
-    if (interactionMode !== 'command' && voice.isListening) voice.stop()
-  }, [interactionMode]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Compact mode is the per-question answer review nested inside a quiz
+  // page - that page already owns the shared voice session's command
+  // handler (next/previous/submit), so this instance registers nothing
+  // rather than fighting it for the same handler slot. See
+  // VoiceCommandContext for why there's only ever one session app-wide.
+  useVoiceCommandHandler(
+    compact
+      ? null
+      : (command) => {
+          if (transcript.status === 'FINALIZED') return
+          if (command === 'save') {
+            if (!dirty) {
+              showCommandFeedback('Nothing to save')
+              return
+            }
+            showCommandFeedback('Saving…')
+            save()
+          } else if (command === 'submit') {
+            showCommandFeedback('Opening finalize confirmation…')
+            setConfirmFinalize(true)
+          }
+        },
+  )
+  useVoiceCommandHint(compact ? null : 'Say "save" or "submit"')
   useEffect(() => setTranscript(initialTranscript), [initialTranscript])
   useEffect(() => {
     let active = true
@@ -294,23 +298,6 @@ export default function TranscriptEditor({
             </div>
           </div>
           <div className="editor-toolbar__actions">
-            {interactionMode === 'command' && transcript.status !== 'FINALIZED' && (
-              <div className="voice-command-toggle">
-                <button
-                  type="button"
-                  className={`button button--icon ${voice.isListening ? 'is-recording' : ''}`}
-                  onClick={voice.isListening ? voice.stop : voice.start}
-                  disabled={voice.status === 'connecting' || voice.status === 'stopping'}
-                  aria-label={voice.isListening ? 'Stop voice commands' : 'Listen for voice commands'}
-                  title={voice.isListening ? 'Stop voice commands' : 'Say "save" or "submit"'}
-                >
-                  <Icon name={voice.isListening ? 'stop' : 'mic'} size={17} />
-                </button>
-                {voice.isListening && (
-                  <VoiceMeter registerBar={voice.registerBar} active={voice.voiceDetected} compact />
-                )}
-              </div>
-            )}
             {!compact && (
               <div className="export-toggle" role="group" aria-label="Export format">
                 {exportFormats.map((format) => (
@@ -358,7 +345,6 @@ export default function TranscriptEditor({
           {error} {dirty && 'Your unsaved edits have been preserved.'}
         </Alert>
       )}
-      {voice.error && <Alert>{voice.error}</Alert>}
       {commandFeedback && (
         <p className="command-feedback command-feedback--success" role="status">
           <Icon name="check" size={14} /> {commandFeedback}

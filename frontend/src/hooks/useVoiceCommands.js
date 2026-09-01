@@ -112,7 +112,20 @@ export default function useVoiceCommands({ onCommand, onCommandMaybe } = {}) {
     stopMeterLoop()
   }
 
-  useEffect(() => () => cleanupAudio(), [])
+  useEffect(
+    () => () => {
+      cleanupAudio()
+      // Auto-start (Command Mode) means this session very often outlives
+      // its page - a route change unmounts the component mid-listen far
+      // more often than a manual start/stop ever would. Without an
+      // explicit close here the socket (and the server's per-user session
+      // slot) leaks until the browser eventually tears it down on its own,
+      // which can starve the next page's auto-start.
+      const socket = wsRef.current
+      if (socket && socket.readyState <= WebSocket.OPEN) socket.close()
+    },
+    [],
+  )
 
   const stop = () => {
     setStatus('stopping')
