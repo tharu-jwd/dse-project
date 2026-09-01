@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { api } from '../api'
 import settingsBackground from '../assets/3.jpg'
 import AccessibilityControls from '../components/AccessibilityControls'
 import Icon from '../components/Icon'
@@ -7,10 +9,37 @@ import { useAccessibility } from '../contexts/AccessibilityContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 
+const LANGUAGE_LABELS = { si: 'Sinhala', en: 'English' }
+
 export function SettingsPage() {
   const { confidenceThreshold, interactionMode, updatePreference } = useAccessibility()
   const { user } = useAuth()
   const { showToast } = useToast()
+
+  const [commandLanguage, setCommandLanguage] = useState(null)
+  const [switchingLanguage, setSwitchingLanguage] = useState(false)
+
+  useEffect(() => {
+    if (user.role !== 'STUDENT') return
+    api
+      .getVoiceEnrollmentStatus()
+      .then((data) => setCommandLanguage(data.activeLanguage))
+      .catch(() => {})
+  }, [user.role])
+
+  const chooseCommandLanguage = async (language) => {
+    if (language === commandLanguage) return
+    setSwitchingLanguage(true)
+    try {
+      const result = await api.setActiveCommandLanguage(language)
+      setCommandLanguage(result.activeLanguage)
+      showToast(`${LANGUAGE_LABELS[language]} is now your voice command language.`)
+    } catch (cause) {
+      showToast(cause.message || 'Could not switch the command language.', 'error')
+    } finally {
+      setSwitchingLanguage(false)
+    }
+  }
   return (
     <div
       className="page page--narrow has-bg-image"
@@ -87,15 +116,78 @@ export function SettingsPage() {
               </span>
             </button>
           </div>
-          <p className="muted" style={{ fontSize: '0.85rem', marginTop: 16, marginBottom: 16 }}>
+          {interactionMode === 'command' && (
+            <div className="voice-setup-options" style={{ marginTop: 16 }}>
+              {(['si', 'en']).map((lng) => (
+                <button
+                  key={lng}
+                  type="button"
+                  role="radio"
+                  aria-checked={commandLanguage === lng}
+                  className="voice-setup-option"
+                  disabled={switchingLanguage || commandLanguage === null}
+                  style={
+                    commandLanguage === lng
+                      ? { borderColor: 'var(--teal)', background: 'var(--teal-soft)' }
+                      : undefined
+                  }
+                  onClick={() => chooseCommandLanguage(lng)}
+                >
+                  <span className="voice-setup-option__icon">
+                    <Icon name={commandLanguage === lng ? 'check' : 'mic'} size={17} />
+                  </span>
+                  <span>
+                    <strong>{LANGUAGE_LABELS[lng]}</strong>
+                    <small>
+                      {commandLanguage === null
+                        ? 'Loading…'
+                        : commandLanguage === lng
+                          ? 'Active for your voice commands'
+                          : 'Switch to this language'}
+                    </small>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+          <p className="muted" style={{ fontSize: '0.85rem', marginTop: 16 }}>
             While taking a self-study note, say a command like "delete" or "stop" to control the
-            app hands-free - this always works, in either mode. Enrolling your voice makes
-            recognition more reliable for commands - optional, and normal typing/dictation is
-            unaffected either way.
+            app hands-free - this always works, in either mode.
+            {interactionMode === 'command' &&
+              " Haven't recorded your voice yet? Set up samples for a language below."}
           </p>
-          <Link className="button button--secondary" to="/settings/voice-commands">
-            <Icon name="mic" size={17} /> Set up voice commands
-          </Link>
+        </section>
+      )}
+      {user.role === 'STUDENT' && (
+        <section className="settings-card">
+          <h2>Voice command setup</h2>
+          <p className="muted" style={{ fontSize: '0.85rem', marginBottom: 16 }}>
+            Record yourself saying each command a few times. SinhaSpeech turns each recording into
+            a voice fingerprint and stores it securely against your account, so it can recognize
+            commands by how you say them, not just the words - a second check alongside
+            word-matching, useful if your speech is transcribed inconsistently. This is optional:
+            voice commands already work from the words alone without enrolling.
+          </p>
+          <div className="voice-setup-options">
+            <Link className="voice-setup-option" to="/settings/voice-commands?language=si">
+              <span className="voice-setup-option__icon">
+                <Icon name="mic" size={17} />
+              </span>
+              <span>
+                <strong>Sinhala</strong>
+                <small>Record, compare and manage your Sinhala command samples.</small>
+              </span>
+            </Link>
+            <Link className="voice-setup-option" to="/settings/voice-commands?language=en">
+              <span className="voice-setup-option__icon">
+                <Icon name="mic" size={17} />
+              </span>
+              <span>
+                <strong>English</strong>
+                <small>Record, compare and manage your English command samples.</small>
+              </span>
+            </Link>
+          </div>
         </section>
       )}
       <button

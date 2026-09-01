@@ -107,6 +107,7 @@ h1 {
   font-size: clamp(2rem, 3vw, 2.75rem);
   line-height: 1.12;
   letter-spacing: -0.035em;
+  margin-left: 15px;
 }
 h2 {
   margin-bottom: 0.5rem;
@@ -402,6 +403,13 @@ textarea:focus-visible {
   background: rgba(74, 222, 128, 0.16);
   color: var(--success);
 }
+.toast--error {
+  border-color: rgba(255, 180, 171, 0.4);
+}
+.toast--error > span {
+  background: rgba(255, 180, 171, 0.16);
+  color: var(--danger);
+}
 .toast .icon-button {
   margin-left: auto;
 }
@@ -632,7 +640,7 @@ textarea:focus-visible {
   display: flex;
   align-items: center;
   gap: 20px;
-  padding: 18px 40px;
+  padding: 22px 40px;
   border-bottom: 1px solid var(--border);
   background: rgba(23, 15, 40, 0.82);
   backdrop-filter: blur(10px);
@@ -728,8 +736,14 @@ textarea:focus-visible {
 
 /* Page layout */
 .page {
-  width: min(1180px, calc(100% - 64px));
-  margin: 0 auto;
+  /* No max-width cap - the background image/box fills the full
+     available width all the way to the right edge, not just a capped
+     1180px island. Only a small fixed left gutter so content isn't
+     touching the sidebar. This is the ONE place page spacing is set -
+     don't add margin-left to individual elements inside a page, they'll
+     drift out of alignment with everything else the moment this changes. */
+  width: calc(100% - 15px);
+  /* margin: 0 0 0 15px; */
   padding: 52px 0 70px;
 }
 .page--narrow {
@@ -759,6 +773,7 @@ textarea:focus-visible {
   max-width: 710px;
   margin-bottom: 0;
   font-size: 0.98rem;
+  margin-left: 15px;
 }
 .page-header__actions {
   display: flex;
@@ -772,6 +787,7 @@ textarea:focus-visible {
   font-weight: 750;
   letter-spacing: 0.13em;
   text-transform: uppercase;
+  margin-left: 15px;
 }
 .eyebrow--light {
   color: #c4b5fd;
@@ -787,7 +803,7 @@ textarea:focus-visible {
   margin-bottom: 17px;
 }
 .section-heading h2 {
-  margin: 3px 0 0;
+  margin: 3px 15px 0;
 }
 .section-heading p {
   margin: 3px 0 0;
@@ -919,6 +935,8 @@ select {
   transition:
     border 0.15s,
     box-shadow 0.15s;
+
+  margin:15px;
 }
 .field input:focus,
 .field textarea:focus,
@@ -1047,6 +1065,7 @@ select:focus {
   border-radius: 0 0 64px 64px;
   background: linear-gradient(135deg, rgba(46, 38, 64, 0.75), rgba(31, 23, 49, 0.75));
   backdrop-filter: blur(6px);
+  margin : 15px;
 }
 .hero-banner__icon {
   position: absolute;
@@ -1111,11 +1130,14 @@ select:focus {
     transform 0.18s,
     box-shadow 0.18s,
     border 0.18s;
+  margin : 15px;
 }
 .quick-card:hover {
   transform: translateY(-4px) scale(1.02);
   border-color: var(--teal);
   box-shadow: var(--shadow);
+  margin : 15px;
+ 
 }
 .quick-card__icon {
   display: grid;
@@ -1169,6 +1191,7 @@ select:focus {
   border-radius: 24px;
   background: rgba(31, 23, 49, 0.65);
   backdrop-filter: blur(6px);
+  margin: 15px;
 }
 .stat-card__icon {
   display: grid;
@@ -1213,6 +1236,7 @@ select:focus {
   border-radius: 32px;
   background: rgba(31, 23, 49, 0.65);
   backdrop-filter: blur(6px);
+  margin: 15px;
 }
 .recent-list {
   display: grid;
@@ -1274,6 +1298,7 @@ select:focus {
   border: 1px solid rgba(167, 139, 250, 0.35);
   border-radius: 18px;
   background: var(--teal-soft);
+  margin: 15px;
 }
 .tip-card > span {
   display: grid;
@@ -1362,9 +1387,11 @@ select:focus {
   border-radius: 32px;
   background: rgba(35, 27, 53, 0.6);
   backdrop-filter: blur(8px);
+  margin-left: 20px;
+  margin-right: 20px;
 }
 .glass-card--tight {
-  padding: 22px;
+  padding: 25px;
   border-radius: 24px;
 }
 .glass-card h3 {
@@ -2029,6 +2056,7 @@ select:focus {
   position: absolute;
   top: 12px;
   left: 13px;
+  bottom: 12px;
   color: #a79bc0;
 }
 .search-field input {
@@ -2641,6 +2669,60 @@ select:focus {
 }
 .mode-toggle__option.active small {
   color: var(--teal);
+}
+.voice-setup-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.voice-setup-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  text-decoration: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.voice-setup-option:hover:not(:disabled) {
+  border-color: var(--teal);
+  background: var(--teal-soft);
+}
+.voice-setup-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+.voice-setup-option__icon {
+  display: grid;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--teal-soft);
+  color: var(--teal);
+}
+.voice-setup-option span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.voice-setup-option strong {
+  font-size: 0.86rem;
+}
+.voice-setup-option small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.4;
 }
 .font-demo--large {
   font-size: 1.2rem;
@@ -3288,6 +3370,7 @@ select:focus {
   .hero-banner {
     padding: 32px 26px;
     border-radius: 0 0 32px 32px;
+    
   }
   .upload-grid {
     grid-template-columns: 1fr;

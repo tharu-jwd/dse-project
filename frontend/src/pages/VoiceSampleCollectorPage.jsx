@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import Icon from '../components/Icon'
 import { Alert, PageHeader } from '../components/UI'
@@ -11,6 +12,8 @@ import { Alert, PageHeader } from '../components/UI'
  * enrollment UI (that depends on what this data shows).
  */
 export default function VoiceSampleCollectorPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const lang = searchParams.get('lang') === 'en' ? 'en' : 'si'
   const [commands, setCommands] = useState(null)
   const [error, setError] = useState('')
   const [activeId, setActiveId] = useState(null)
@@ -23,12 +26,13 @@ export default function VoiceSampleCollectorPage() {
   const intervalRef = useRef(null)
 
   const load = () => {
+    setCommands(null)
     api
-      .getVoiceSampleProgress()
+      .getVoiceSampleProgress(lang)
       .then((data) => setCommands(data.commands))
       .catch((cause) => setError(cause.message))
   }
-  useEffect(load, [])
+  useEffect(load, [lang])
   useEffect(
     () => () => {
       window.clearInterval(intervalRef.current)
@@ -54,7 +58,7 @@ export default function VoiceSampleCollectorPage() {
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' })
         setRecording(false)
         try {
-          const result = await api.uploadVoiceSample(commandId, blob)
+          const result = await api.uploadVoiceSample(commandId, blob, lang)
           setCommands((prev) =>
             prev.map((command) =>
               command.id === commandId ? { ...command, count: result.counts[commandId] } : command,
@@ -81,7 +85,7 @@ export default function VoiceSampleCollectorPage() {
   const reRecord = async (commandId) => {
     setError('')
     try {
-      const result = await api.deleteVoiceSamples(commandId)
+      const result = await api.deleteVoiceSamples(commandId, lang)
       setCommands((prev) =>
         prev.map((command) =>
           command.id === commandId ? { ...command, count: result.counts[commandId] } : command,
@@ -97,8 +101,28 @@ export default function VoiceSampleCollectorPage() {
       <PageHeader
         eyebrow="Dev tool · not the real enrollment UI"
         title="Collect voice-command samples"
-        description="Say each phrase 3-5 times, in a few different sessions if you can. These get saved as {command}_{n}.wav on the server for scripts/validate_command_embeddings.py."
+        description={
+          lang === 'en'
+            ? 'Say your chosen English word for each command 3-5 times, in a few different sessions if you can. Saved separately from the Sinhala set, as {command}_{n}.wav under storage/voice_samples_en/.'
+            : 'Say each phrase 3-5 times, in a few different sessions if you can. These get saved as {command}_{n}.wav on the server for scripts/validate_command_embeddings.py.'
+        }
       />
+      <div className="view-toggle" role="group" aria-label="Sample language" style={{ marginBottom: 18 }}>
+        <button
+          type="button"
+          aria-pressed={lang === 'si'}
+          onClick={() => setSearchParams(lang === 'si' ? {} : { lang: 'si' })}
+        >
+          Sinhala (current)
+        </button>
+        <button
+          type="button"
+          aria-pressed={lang === 'en'}
+          onClick={() => setSearchParams({ lang: 'en' })}
+        >
+          English (trial)
+        </button>
+      </div>
       {error && <Alert>{error}</Alert>}
       {commands === null ? (
         <p className="muted">Loading…</p>
@@ -111,9 +135,10 @@ export default function VoiceSampleCollectorPage() {
                   <Icon name="mic" />
                 </div>
                 <div>
-                  <strong>{command.phrase}</strong>
+                  <strong>{lang === 'en' ? command.id : command.phrase}</strong>
                   <small>
-                    {command.id} · {command.count} sample{command.count === 1 ? '' : 's'}
+                    {lang === 'en' ? 'your English word for this command' : command.id} ·{' '}
+                    {command.count} sample{command.count === 1 ? '' : 's'}
                   </small>
                 </div>
               </div>
