@@ -31,7 +31,15 @@ def _stub_match_command(strong=None, borderline=None):
     """threshold=None is the "strong" call (uses settings' real default);
     an explicit threshold is always the borderline call in this module."""
 
-    def fake(transcript, *, avg_logprob=None, threshold=None, destructive_threshold=None, logprob_floor=None):
+    def fake(
+        transcript,
+        *,
+        avg_logprob=None,
+        threshold=None,
+        destructive_threshold=None,
+        logprob_floor=None,
+        language="si",
+    ):
         return strong if threshold is None else borderline
 
     return fake

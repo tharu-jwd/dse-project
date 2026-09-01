@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import time
 from uuid import UUID
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
@@ -84,6 +85,10 @@ async def stream_transcription(websocket: WebSocket) -> None:
       server -> {"type": "partial", "text": str, "segment": int}
       server -> {"type": "final", "text": str, "start": float, "end": float, "segment": int}
         (NOTE mode only - COMMAND mode never persists or reports dictated text)
+      server -> {"type": "listening"}
+        (COMMAND mode only - sent the instant VAD detects speech starting,
+        before any transcription, so the client can show feedback with no
+        perceptible delay)
       server -> {"type": "command", "command": str}
       server -> {"type": "command_maybe", "fuzzy_command": str|null, "embedding_command": str|null}
       server -> {"type": "session_end", "transcript_id": str|null}
@@ -108,6 +113,16 @@ async def stream_transcription(websocket: WebSocket) -> None:
     A student with no enrollment bank (or with embedding matching
     switched off globally) gets exactly the fuzzy-only behaviour in both
     modes - see resolve_command's fallback.
+
+    NOTE mode stays tick-driven: the whole buffer is re-transcribed
+    every `streaming_window_interval_seconds` so partial previews can be
+    shown mid-utterance, which is the point of dictation. COMMAND mode
+    has no preview to show, so it is event-driven instead - VAD runs on
+    every incoming chunk (see `_process_command_chunk`) and a single
+    transcription fires the moment speech ends, rather than waiting for
+    the next tick and re-transcribing 2-3x along the way. Any executed
+    command (either mode) is debounced - see `_send_command` - so a
+    student repeating themselves doesn't trigger the action twice.
     """
 
     if not settings.streaming_enabled:
@@ -163,12 +178,17 @@ async def _run_session(websocket: WebSocket, user: User) -> None:
             create_live_transcript, user, title, TRANSCRIPT_TYPE_BY_MODE["NOTE"]
         )
 
+    # Which phrase set this student's commands are matched against - a
+    # database setting (see User.command_language), never a code change.
+    # Loaded once per session, same as the bank below.
+    language = user.command_language
+
     # Loaded once per session, not per utterance - small (a handful of
     # commands x a handful of samples x one float vector each) and never
     # changes mid-session. Empty for a student who hasn't enrolled, which
     # is exactly what makes resolve_command's fallback kick in below.
     bank = (
-        await asyncio.to_thread(voice_enrollment.load_bank, user.user_id)
+        await asyncio.to_thread(voice_enrollment.load_bank, user.user_id, language)
         if settings.voice_command_embedding_matching_enabled
         else {}
     )
@@ -178,11 +198,31 @@ async def _run_session(websocket: WebSocket, user: User) -> None:
         overlap_seconds=settings.streaming_overlap_seconds,
         memory_ceiling_seconds=settings.streaming_memory_ceiling_seconds,
     )
-    state = {"segment_order": 0, "bank": bank, "mode": mode}
+    state = {
+        "segment_order": 0,
+        "bank": bank,
+        "mode": mode,
+        "language": language,
+        # COMMAND mode only: has a "listening" ack already been sent for
+        # the utterance currently in the buffer (reset once it's
+        # finalized), and when + which command was last executed, for
+        # debouncing a rapid repeat - see _process_command_chunk and
+        # _send_command.
+        "listening_sent": False,
+        "last_command": None,
+    }
 
-    ticker = asyncio.create_task(
-        _window_ticker(websocket, buffer, state, transcript_id)
+    # NOTE mode keeps the tick loop exactly as before, for partial
+    # previews. COMMAND mode has nothing to preview, so it runs
+    # event-driven instead, straight off the receive loop below - no
+    # ticker task for it at all.
+    ticker = (
+        asyncio.create_task(_window_ticker(websocket, buffer, state, transcript_id))
+        if mode == "NOTE"
+        else None
     )
+    vad = get_vad()
+    transcriber = get_streaming_transcriber()
 
     try:
         while True:
@@ -194,6 +234,26 @@ async def _run_session(websocket: WebSocket, user: User) -> None:
             data = message.get("bytes")
             if data is not None:
                 buffer.append(data)
+
+                if mode == "COMMAND":
+                    try:
+                        await _process_command_chunk(
+                            websocket, buffer, state, transcript_id, vad, transcriber
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Command-mode inference failed; continuing session."
+                        )
+                        try:
+                            await websocket.send_json(
+                                {
+                                    "type": "error",
+                                    "message": "Transcription failed for this window.",
+                                }
+                            )
+                        except RuntimeError:
+                            break
+
                 continue
 
             text = message.get("text")
@@ -209,11 +269,12 @@ async def _run_session(websocket: WebSocket, user: User) -> None:
     except WebSocketDisconnect:
         pass
     finally:
-        ticker.cancel()
-        try:
-            await ticker
-        except asyncio.CancelledError:
-            pass
+        if ticker is not None:
+            ticker.cancel()
+            try:
+                await ticker
+            except asyncio.CancelledError:
+                pass
 
         await _finalize_remaining_buffer(websocket, buffer, state, transcript_id)
         # A NOTE transcript is left in DRAFT status so the user can
@@ -325,6 +386,66 @@ async def _process_window(
         )
 
 
+async def _process_command_chunk(
+    websocket: WebSocket,
+    buffer: StreamingBuffer,
+    state: dict,
+    transcript_id: UUID | None,
+    vad,
+    transcriber,
+) -> None:
+    """COMMAND mode's event-driven trigger: called once per incoming
+    chunk instead of on a fixed-interval tick.
+
+    VAD is cheap (a few ms) so it runs on every chunk. Speech starting
+    sends an instant "listening" ack, before any transcription - this is
+    what actually removes the perceived latency. Speech ending (a pause
+    of `streaming_command_vad_silence_ms`) triggers exactly one
+    transcription of the whole utterance, then reuses the same
+    finalize/resolve/dispatch path dictation's tick loop uses (see
+    `_emit_final`) - resolve_command, match_command and best_match are
+    untouched by this change, only how often and when they get called.
+    """
+
+    if buffer.is_empty:
+        return
+
+    audio = buffer.as_float32()
+    vad_result = await asyncio.to_thread(vad.analyze, audio)
+
+    if not vad_result.has_speech:
+        # Whisper hallucinates on silence - skip inference entirely, but
+        # the 15s cap is still a hard safety net even with no speech in
+        # the buffer (e.g. a stuck-open mic picking up only noise).
+        if buffer.exceeded_max_buffer():
+            buffer.force_cut()
+        return
+
+    if not state["listening_sent"]:
+        state["listening_sent"] = True
+        try:
+            await websocket.send_json({"type": "listening"})
+        except RuntimeError:
+            return
+
+    is_pause = (
+        vad_result.trailing_silence_seconds * 1000
+        >= settings.streaming_command_vad_silence_ms
+    )
+    should_force = buffer.exceeded_max_buffer()
+
+    if not (is_pause or should_force):
+        return
+
+    state["listening_sent"] = False
+    result = await transcriber.transcribe(
+        audio, mode="command", command_language=state["language"]
+    )
+    await _emit_final(
+        websocket, buffer, state, transcript_id, result.text, result.avg_logprob, audio
+    )
+
+
 async def _emit_final(
     websocket: WebSocket,
     buffer: StreamingBuffer,
@@ -361,7 +482,11 @@ async def _resolve_and_dispatch(
             embedding = None
 
     decision = resolve_command(
-        segment.text, avg_logprob=avg_logprob, embedding=embedding, bank=bank
+        segment.text,
+        avg_logprob=avg_logprob,
+        embedding=embedding,
+        bank=bank,
+        language=state["language"],
     )
 
     if state["mode"] == "COMMAND":
@@ -369,13 +494,13 @@ async def _resolve_and_dispatch(
         # recognized command is just forwarded, the client owns what it
         # means on whatever page it's listening from.
         if decision.outcome == "execute":
-            await _send_command(websocket, decision.command_id)
+            await _send_command(websocket, state, decision.command_id)
         elif decision.outcome == "confirm":
             await _send_command_maybe(websocket, decision)
         return
 
     if decision.outcome == "execute" and decision.command_id in _ACTIONABLE_NOTE_COMMANDS:
-        await _handle_note_command(websocket, transcript_id, decision.command_id)
+        await _handle_note_command(websocket, state, transcript_id, decision.command_id)
         return
 
     if decision.outcome == "confirm":
@@ -387,17 +512,39 @@ async def _resolve_and_dispatch(
 
 
 async def _handle_note_command(
-    websocket: WebSocket, transcript_id: UUID | None, command_id: str
+    websocket: WebSocket, state: dict, transcript_id: UUID | None, command_id: str
 ) -> None:
     """Act on a recognized voice command instead of persisting it as note text."""
 
     if command_id == "delete" and transcript_id is not None:
         await asyncio.to_thread(delete_last_segment, transcript_id)
 
-    await _send_command(websocket, command_id)
+    await _send_command(websocket, state, command_id)
 
 
-async def _send_command(websocket: WebSocket, command_id: str) -> None:
+async def _send_command(websocket: WebSocket, state: dict, command_id: str) -> None:
+    """Send an executed command to the client - debounced so a student
+    repeating themselves within `voice_command_debounce_seconds` (they
+    aren't sure they were heard) doesn't execute the action twice, e.g.
+    advancing two quiz questions off one spoken "next"."""
+
+    now = time.monotonic()
+    last = state.get("last_command")
+
+    if (
+        last is not None
+        and last[0] == command_id
+        and (now - last[1]) < settings.voice_command_debounce_seconds
+    ):
+        logger.debug(
+            "Debounced repeat of command %r within %.1fs.",
+            command_id,
+            settings.voice_command_debounce_seconds,
+        )
+        return
+
+    state["last_command"] = (command_id, now)
+
     try:
         await websocket.send_json({"type": "command", "command": command_id})
     except RuntimeError:
@@ -468,7 +615,11 @@ async def _finalize_remaining_buffer(
             return
 
         transcriber = get_streaming_transcriber()
-        result = await transcriber.transcribe(audio)
+        result = await transcriber.transcribe(
+            audio,
+            mode="command" if state["mode"] == "COMMAND" else "dictation",
+            command_language=state["language"],
+        )
     except Exception:
         logger.exception(
             "Failed to finalize trailing buffer for transcript %s.", transcript_id

@@ -42,6 +42,7 @@ class CommandEnrollment(Base):
         UniqueConstraint(
             "user_id",
             "command_id",
+            "language",
             "sample_index",
             name="uq_command_enrollments_slot",
         ),
@@ -52,6 +53,10 @@ class CommandEnrollment(Base):
         CheckConstraint(
             "embedding_dim > 0",
             name="ck_command_enrollments_embedding_dim",
+        ),
+        CheckConstraint(
+            "language IN ('si', 'en')",
+            name="ck_command_enrollments_language",
         ),
     )
 
@@ -71,6 +76,14 @@ class CommandEnrollment(Base):
         index=True,
     )
     command_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    # Which phrase set this sample was recorded against ('si' or 'en').
+    # A command_id is reused across languages (e.g. "delete" exists in
+    # both COMMANDS_SI and COMMANDS_EN with a different phrase each), so
+    # this - not a code change - is what keeps a Sinhala "delete" sample
+    # from ever being compared against an English "delete" utterance.
+    # Switching a student's active language never deletes the other
+    # language's samples; load_bank only reads the currently active one.
+    language: Mapped[str] = mapped_column(String(2), nullable=False, server_default="si")
     sample_index: Mapped[int] = mapped_column(Integer, nullable=False)
     embedding: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     embedding_dim: Mapped[int] = mapped_column(Integer, nullable=False)

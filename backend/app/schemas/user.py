@@ -13,6 +13,10 @@ class UserResponse(BaseModel):
     name: str
     email: EmailStr
     role: UserRole
+    command_language: Literal["si", "en"] = Field(
+        validation_alias=AliasChoices("command_language", "commandLanguage"),
+        serialization_alias="commandLanguage",
+    )
 
     model_config= ConfigDict(
         from_attributes=True,

@@ -2,12 +2,13 @@
 the speaker-embedding match (app.streaming.embeddings) into one decision
 for a finalized command-mode utterance.
 
-This is the one module allowed to depend on both: `commands.py` stays
-exactly as it was before this feature existed (per the original task -
-"commands.py stays as-is", never modified for this work), and
-`embeddings.py` stays ignorant of the command vocabulary (per the later
-"implement this independent from the commands" instruction). Everything
-that needs both signals at once lives here instead.
+This is the one module allowed to depend on both: `commands.py` only
+ever changed here to add a `language` parameter selecting which of its
+two fixed phrase sets to fuzzy-match against - the vocabulary itself
+still isn't touched by anything in this module. `embeddings.py` stays
+ignorant of the command vocabulary entirely (per "implement this
+independent from the commands"). Everything that needs both signals at
+once lives here instead.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ from typing import Literal
 import numpy as np
 
 from app.core.config import settings
-from app.streaming.commands import COMMANDS, match_command
+from app.streaming.commands import COMMANDS_BY_LANGUAGE, match_command
 from app.streaming.embeddings import best_match
 
 
@@ -27,7 +28,16 @@ logger = logging.getLogger(__name__)
 
 Outcome = Literal["execute", "confirm", "none"]
 
-_DESTRUCTIVE_IDS = frozenset(command.id for command in COMMANDS if command.destructive)
+# A command id's destructive-ness is a property of the action, not its
+# wording - "delete" is destructive whether the spoken phrase is Sinhala
+# or English - so this is computed once across every language's list
+# rather than needing a per-language copy.
+_DESTRUCTIVE_IDS = frozenset(
+    command.id
+    for commands in COMMANDS_BY_LANGUAGE.values()
+    for command in commands
+    if command.destructive
+)
 
 
 @dataclass(frozen=True)
@@ -70,6 +80,7 @@ def resolve_command(
     avg_logprob: float | None,
     embedding: np.ndarray | None,
     bank: dict[str, list[np.ndarray]],
+    language: str = "si",
 ) -> CommandDecision:
     """Decide what to do about one finalized command-mode utterance.
 
@@ -95,7 +106,7 @@ def resolve_command(
     enhancement, never a requirement.
     """
 
-    strong_fuzzy = match_command(transcript, avg_logprob=avg_logprob)
+    strong_fuzzy = match_command(transcript, avg_logprob=avg_logprob, language=language)
     fuzzy_id = strong_fuzzy.command.id if strong_fuzzy else None
     fuzzy_score = strong_fuzzy.score if strong_fuzzy else None
 
@@ -132,7 +143,9 @@ def resolve_command(
             "execute", embedding_id, fuzzy_id, fuzzy_score, embedding_id, embedding_score, False
         )
     else:
-        decision = _resolve_borderline(transcript, avg_logprob, embedding, bank, fuzzy_score, embedding_score)
+        decision = _resolve_borderline(
+            transcript, avg_logprob, embedding, bank, fuzzy_score, embedding_score, language
+        )
 
     _log(transcript, decision)
     return decision
@@ -145,6 +158,7 @@ def _resolve_borderline(
     bank: dict[str, list[np.ndarray]],
     fuzzy_score: float | None,
     embedding_score: float | None,
+    language: str,
 ) -> CommandDecision:
     """Neither signal was strong enough to execute on its own. Distinguish
     "maybe said a command, unsure" (confirm) from "just ordinary
@@ -160,6 +174,7 @@ def _resolve_borderline(
         avg_logprob=avg_logprob,
         threshold=settings.voice_command_fuzzy_borderline_floor,
         destructive_threshold=settings.voice_command_fuzzy_borderline_floor,
+        language=language,
     )
     loose_embedding = (
         best_match(embedding, bank, threshold=settings.voice_embedding_borderline_floor)

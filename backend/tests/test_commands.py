@@ -2,7 +2,15 @@ import unicodedata
 
 from rapidfuzz import fuzz
 
-from app.streaming.commands import COMMANDS, match_command, skeleton
+from app.streaming.commands import (
+    COMMANDS,
+    COMMANDS_EN,
+    COMMANDS_SI,
+    get_commands,
+    hotwords_for,
+    match_command,
+    skeleton,
+)
 
 
 def _command(command_id: str):
@@ -131,3 +139,56 @@ def test_low_asr_confidence_does_not_reject_a_strong_match():
 def test_empty_transcript_does_not_match():
     assert match_command("") is None
     assert match_command("   ") is None
+
+
+# --- Two languages, chosen without touching the fuzzy-matching logic ---
+
+
+def test_commands_default_is_the_sinhala_set():
+    assert COMMANDS is COMMANDS_SI
+
+
+def test_get_commands_returns_the_right_set_per_language():
+    assert get_commands("si") == COMMANDS_SI
+    assert get_commands("en") == COMMANDS_EN
+
+
+def test_get_commands_falls_back_to_sinhala_for_an_unknown_language():
+    assert get_commands("fr") == COMMANDS_SI
+
+
+def test_same_ids_exist_in_both_languages():
+    """resolve_command, the frontend's command mapping and
+    _ACTIONABLE_NOTE_COMMANDS all key off the id, never the phrase - the
+    two phrase sets must stay id-for-id identical."""
+
+    assert {c.id for c in COMMANDS_SI} == {c.id for c in COMMANDS_EN}
+
+
+def test_destructive_flag_matches_across_languages():
+    destructive_si = {c.id for c in COMMANDS_SI if c.destructive}
+    destructive_en = {c.id for c in COMMANDS_EN if c.destructive}
+    assert destructive_si == destructive_en == {"submit", "delete"}
+
+
+def test_match_command_defaults_to_sinhala():
+    result = match_command("ඊළඟට")
+    assert result is not None
+    assert result.command.id == "next"
+    # The same text is meaningless in the English set - no accidental match.
+    assert match_command("ඊළඟට", language="en") is None
+
+
+def test_match_command_can_match_english_phrases():
+    result = match_command("next", language="en")
+    assert result is not None
+    assert result.command.id == "next"
+    # And the English word doesn't fuzzy-match anything in Sinhala either.
+    assert match_command("next", language="si") is None
+
+
+def test_hotwords_for_returns_the_right_language():
+    assert hotwords_for("si") == " ".join(c.phrase for c in COMMANDS_SI)
+    assert hotwords_for("en") == " ".join(c.phrase for c in COMMANDS_EN)
+    assert "next" in hotwords_for("en")
+    assert "next" not in hotwords_for("si")

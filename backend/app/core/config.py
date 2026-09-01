@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     streaming_overlap_seconds: float = 1.0
     streaming_vad_silence_ms: int = 500
     streaming_memory_ceiling_seconds: float = 60.0
+    # COMMAND mode is event-driven (VAD checked on every incoming chunk,
+    # no tick loop) and can afford to react to a much shorter pause than
+    # dictation - a command is one short phrase, not a sentence someone
+    # might pause mid-thought while composing.
+    streaming_command_vad_silence_ms: int = 300
 
     # Voice commands: fuzzy-matched against a fixed phrase vocabulary in
     # COMMAND streaming mode only. Never applied to NOTE/dictation mode.
@@ -110,6 +115,12 @@ class Settings(BaseSettings):
     # prompt.
     voice_command_fuzzy_borderline_floor: float = 60.0
     voice_embedding_borderline_floor: float = 0.74
+
+    # A student unsure whether they were heard will often repeat a
+    # command; without this, a repeated "next" would advance two
+    # questions instead of one. Applies to any executed command
+    # (COMMAND mode and NOTE mode's delete/stop alike).
+    voice_command_debounce_seconds: float = 2.0
 
     @property
     def cors_origins_list(self) -> list[str]:

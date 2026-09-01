@@ -109,3 +109,106 @@ def test_load_bank_skips_samples_from_a_different_model_version(db_user, monkeyp
     bank = voice_enrollment.load_bank(db_user)
 
     assert bank == {}
+
+
+# --- Two languages, kept independent without any code change ------------
+
+
+def test_sinhala_and_english_samples_for_the_same_id_never_collide(db_user):
+    """Recording "delete" in both languages must produce two separate
+    banks, not one clobbering the other - same command id, same user,
+    different language."""
+
+    voice_enrollment.submit_sample(db_user, "delete", _vector(1.0, 0.0, 0.0), language="si")
+    voice_enrollment.submit_sample(db_user, "delete", _vector(0.0, 1.0, 0.0), language="en")
+
+    si_bank = voice_enrollment.load_bank(db_user, language="si")
+    en_bank = voice_enrollment.load_bank(db_user, language="en")
+
+    assert len(si_bank["delete"]) == 1
+    assert len(en_bank["delete"]) == 1
+    assert not np.array_equal(si_bank["delete"][0], en_bank["delete"][0])
+
+
+def test_progress_is_scoped_to_one_language(db_user):
+    voice_enrollment.submit_sample(db_user, "save", _vector(1.0, 0.0), language="si")
+
+    si_progress = next(p for p in voice_enrollment.get_progress(db_user, "si") if p.command_id == "save")
+    en_progress = next(p for p in voice_enrollment.get_progress(db_user, "en") if p.command_id == "save")
+
+    assert si_progress.collected == 1
+    assert en_progress.collected == 0
+
+
+def test_deleting_one_languages_samples_leaves_the_other_untouched(db_user):
+    """The independence the whole feature is built for: delete + re-record
+    for one language must never touch the other language's enrollment,
+    and neither operation requires editing commands.py or any code."""
+
+    voice_enrollment.submit_sample(db_user, "next", _vector(1.0, 0.0), language="si")
+    voice_enrollment.submit_sample(db_user, "next", _vector(0.0, 1.0), language="en")
+
+    voice_enrollment.delete_samples(db_user, "next", language="en")
+
+    si_progress = next(p for p in voice_enrollment.get_progress(db_user, "si") if p.command_id == "next")
+    en_progress = next(p for p in voice_enrollment.get_progress(db_user, "en") if p.command_id == "next")
+    assert si_progress.collected == 1
+    assert en_progress.collected == 0
+
+
+def test_unknown_command_id_for_a_language_is_rejected(db_user):
+    # "delete" is valid, but only for si/en - an unrecognized language
+    # code has no commands at all to validate against.
+    with pytest.raises(voice_enrollment.UnknownCommandError):
+        voice_enrollment.submit_sample(db_user, "delete", _vector(1.0, 0.0), language="fr")
+
+
+# --- Practice / compare -----------------------------------------------
+
+
+def test_practice_reports_similarity_against_own_enrolled_samples(db_user):
+    voice_enrollment.submit_sample(db_user, "stop", _vector(1.0, 0.0, 0.0))
+    voice_enrollment.submit_sample(db_user, "stop", _vector(0.99, 0.01, 0.0))
+
+    result = voice_enrollment.practice_command(db_user, "stop", _vector(0.98, 0.02, 0.0))
+
+    assert result.command_id == "stop"
+    assert result.enrolled_sample_count == 2
+    assert result.own_similarity == pytest.approx(
+        max(
+            manhattan_similarity(_vector(0.98, 0.02, 0.0), _vector(1.0, 0.0, 0.0)),
+            manhattan_similarity(_vector(0.98, 0.02, 0.0), _vector(0.99, 0.01, 0.0)),
+        ),
+        abs=1e-4,
+    )
+    assert result.passes_threshold == (
+        result.own_similarity >= voice_enrollment.settings.voice_embedding_similarity_threshold
+    )
+
+
+def test_practice_with_no_enrolled_samples_reports_nothing_to_compare(db_user):
+    result = voice_enrollment.practice_command(db_user, "submit", _vector(1.0, 0.0))
+
+    assert result.enrolled_sample_count == 0
+    assert result.own_similarity is None
+    assert result.passes_threshold is False
+
+
+def test_practice_flags_a_closer_match_to_a_different_enrolled_command(db_user):
+    """The whole point of the comparison tool: catch an attempt that
+    actually sounds more like a *different* enrolled command than the
+    one it was meant for."""
+
+    voice_enrollment.submit_sample(db_user, "next", _vector(1.0, 0.0, 0.0))
+    voice_enrollment.submit_sample(db_user, "previous", _vector(0.0, 1.0, 0.0))
+
+    # Attempted as "next" but sounds exactly like the enrolled "previous".
+    result = voice_enrollment.practice_command(db_user, "next", _vector(0.0, 1.0, 0.0))
+
+    assert result.closest_other_command_id == "previous"
+    assert result.closest_other_similarity == pytest.approx(1.0, abs=1e-4)
+
+
+def test_practice_rejects_unknown_command_id(db_user):
+    with pytest.raises(voice_enrollment.UnknownCommandError):
+        voice_enrollment.practice_command(db_user, "not_a_real_command", _vector(1.0, 0.0))

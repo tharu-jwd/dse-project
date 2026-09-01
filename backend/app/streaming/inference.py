@@ -14,7 +14,7 @@ import numpy as np
 from faster_whisper import WhisperModel
 
 from app.core.config import settings
-from app.streaming.commands import HOTWORDS
+from app.streaming.commands import hotwords_for
 from app.streaming.embeddings import embed_audio
 
 
@@ -32,6 +32,7 @@ def build_transcribe_kwargs(
     *,
     hotwords_supported: bool,
     hotwords_enabled: bool = True,
+    language: str = "si",
 ) -> dict:
     """Decoding-bias kwargs for `WhisperModel.transcribe`.
 
@@ -43,7 +44,8 @@ def build_transcribe_kwargs(
     if mode != "command" or not hotwords_enabled:
         return {}
 
-    return {"hotwords": HOTWORDS} if hotwords_supported else {"initial_prompt": HOTWORDS}
+    hotwords = hotwords_for(language)
+    return {"hotwords": hotwords} if hotwords_supported else {"initial_prompt": hotwords}
 
 
 class StreamingTranscriber:
@@ -81,6 +83,7 @@ class StreamingTranscriber:
         audio: np.ndarray,
         *,
         mode: TranscriptionMode = "dictation",
+        command_language: str = "si",
     ) -> TranscriptionResult:
         if audio.size == 0:
             return TranscriptionResult(text="", avg_logprob=0.0)
@@ -89,6 +92,7 @@ class StreamingTranscriber:
             mode,
             hotwords_supported=self._hotwords_supported,
             hotwords_enabled=settings.voice_command_hotwords_enabled,
+            language=command_language,
         )
 
         async with self._gpu_gate:

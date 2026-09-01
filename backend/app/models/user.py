@@ -25,6 +25,10 @@ class User(Base):
             "role IN ('STUDENT', 'TEACHER')",
             name="ck_users_role",
         ),
+        CheckConstraint(
+            "command_language IN ('si', 'en')",
+            name="ck_users_command_language",
+        ),
     )
 
     user_id: Mapped[uuid.UUID] = mapped_column(
@@ -52,7 +56,17 @@ class User(Base):
         default=True,
         server_default=text("true"),
         nullable=False,
-    )    
+    )
+    # Which voice-command phrase set (app.streaming.commands) is active
+    # for this student - a data setting, not a code one, so switching it
+    # never needs a deploy. See app.services.voice_enrollment for how
+    # this is kept independent of any particular enrollment bank.
+    command_language: Mapped[str] = mapped_column(
+        String(2),
+        default="si",
+        server_default=text("'si'"),
+        nullable=False,
+    )
 
     media_files: Mapped[list[MediaFile]] = relationship(
         back_populates="owner",

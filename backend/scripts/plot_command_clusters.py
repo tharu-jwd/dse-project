@@ -83,7 +83,7 @@ def main() -> None:
     ax.set_xlabel(f"PC1 ({var[0]*100:.1f}% variance)", fontsize=10, color="#52514e")
     ax.set_ylabel(f"PC2 ({var[1]*100:.1f}% variance)", fontsize=10, color="#52514e")
     ax.set_title(
-        "Voice-command embedding clusters (31 real clips, 6 commands)",
+        f"Voice-command embedding clusters ({len(points)} real clips, {len(ORDER)} commands)",
         fontsize=13,
         fontweight="bold",
         color="#0b0b0b",

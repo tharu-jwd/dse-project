@@ -4,6 +4,13 @@ vocabulary so students who cannot type can control the app by speaking.
 Only used in COMMAND streaming mode. Dictation mode must never import or
 apply anything from this module - normal speech must not be biased toward
 the command vocabulary (see `StreamingTranscriber.transcribe`).
+
+Two phrase sets exist (Sinhala and English) - which one is "live" for a
+given student is a per-user database setting (`User.command_language`),
+never a code change. The wording of a phrase set itself still lives here
+in code; what's data-driven is which set is active and that student's
+enrolled samples for it (see app.services.voice_enrollment) - deleting
+and re-recording a command's samples never touches this file.
 """
 
 import logging
@@ -27,8 +34,11 @@ class VoiceCommand:
 
 # Starter vocabulary - extend as more actions in the app become voice-
 # controllable. Each phrase should be the shortest, most natural way a
-# student would say the action out loud.
-COMMANDS: tuple[VoiceCommand, ...] = (
+# student would say the action out loud. Command *ids* are shared across
+# languages on purpose (resolve_command, the frontend's command mapping,
+# and _ACTIONABLE_NOTE_COMMANDS all key off the id, never the phrase) -
+# only the spoken phrase changes per language.
+COMMANDS_SI: tuple[VoiceCommand, ...] = (
     VoiceCommand(id="next", phrase="ඊළඟට"),
     VoiceCommand(id="previous", phrase="ආපසු"),
     VoiceCommand(id="stop", phrase="නවත්වන්න"),
@@ -37,9 +47,41 @@ COMMANDS: tuple[VoiceCommand, ...] = (
     VoiceCommand(id="delete", phrase="මකන්න", destructive=True),
 )
 
-# Space-joined phrase list handed to faster-whisper's decoding bias
-# (`hotwords`/`initial_prompt`) in command mode. See inference.py.
-HOTWORDS = " ".join(command.phrase for command in COMMANDS)
+# Validated against 36 real recordings (see command_embedding_similarities_en.csv) -
+# "stop" scored weakest on every similarity metric there and is the
+# first candidate to reword if English false-matches show up in practice.
+COMMANDS_EN: tuple[VoiceCommand, ...] = (
+    VoiceCommand(id="next", phrase="next"),
+    VoiceCommand(id="previous", phrase="previous"),
+    VoiceCommand(id="stop", phrase="stop"),
+    VoiceCommand(id="save", phrase="save"),
+    VoiceCommand(id="submit", phrase="submit", destructive=True),
+    VoiceCommand(id="delete", phrase="delete", destructive=True),
+)
+
+COMMANDS_BY_LANGUAGE: dict[str, tuple[VoiceCommand, ...]] = {
+    "si": COMMANDS_SI,
+    "en": COMMANDS_EN,
+}
+
+# Backward-compatible default - existing call sites/tests that don't pass
+# a language keep getting exactly the Sinhala set they always have.
+COMMANDS = COMMANDS_SI
+
+
+def get_commands(language: str) -> tuple[VoiceCommand, ...]:
+    return COMMANDS_BY_LANGUAGE.get(language, COMMANDS_SI)
+
+
+def hotwords_for(language: str) -> str:
+    """Space-joined phrase list handed to faster-whisper's decoding bias
+    (`hotwords`/`initial_prompt`) in command mode. See inference.py."""
+
+    return " ".join(command.phrase for command in get_commands(language))
+
+
+# Backward-compatible default, same reasoning as COMMANDS above.
+HOTWORDS = hotwords_for("si")
 
 
 def skeleton(text: str) -> str:
@@ -59,7 +101,13 @@ def skeleton(text: str) -> str:
     return "".join(without_diacritics.split())
 
 
-_SKELETON_BY_COMMAND_ID = {command.id: skeleton(command.phrase) for command in COMMANDS}
+# Keyed per-language, not just per command id - "delete" means a
+# different phrase (and skeleton) in each language, so a single shared
+# id->skeleton map would silently compare the wrong language's shape.
+_SKELETON_BY_LANGUAGE: dict[str, dict[str, str]] = {
+    language: {command.id: skeleton(command.phrase) for command in commands}
+    for language, commands in COMMANDS_BY_LANGUAGE.items()
+}
 
 
 @dataclass(frozen=True)
@@ -75,6 +123,7 @@ def match_command(
     threshold: float | None = None,
     destructive_threshold: float | None = None,
     logprob_floor: float | None = None,
+    language: str = "si",
 ) -> CommandMatch | None:
     """Fuzzy-match a transcript against the known command vocabulary.
 
@@ -93,13 +142,15 @@ def match_command(
         settings.voice_command_logprob_floor if logprob_floor is None else logprob_floor
     )
 
+    commands = get_commands(language)
+    skeletons = _SKELETON_BY_LANGUAGE.get(language, _SKELETON_BY_LANGUAGE["si"])
     query = skeleton(transcript)
     best_command: VoiceCommand | None = None
     best_score = 0.0
 
     if query:
-        for command in COMMANDS:
-            score = fuzz.ratio(query, _SKELETON_BY_COMMAND_ID[command.id])
+        for command in commands:
+            score = fuzz.ratio(query, skeletons[command.id])
             if score > best_score:
                 best_score = score
                 best_command = command
