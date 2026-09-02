@@ -6,9 +6,11 @@ venv/
 
 # Model/dataset caches (downloaded separately, not part of the repo)
 /models/
+backend/app/models/whisper-sinhala1-ct2/
 *.pt
 *.safetensors
 *.ckpt
+*.bin
 
 # Runtime artifacts
 *.log
