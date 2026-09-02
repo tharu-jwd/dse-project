@@ -1,21 +1,28 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { api, downloadBlob } from '../api'
 import { useAccessibility } from '../contexts/AccessibilityContext'
 import { useToast } from '../contexts/ToastContext'
+import useVoiceCommands from '../hooks/useVoiceCommands'
 import Icon from './Icon'
 import { Alert, ConfirmDialog, StatusBadge } from './UI'
+import VoiceMeter from './VoiceMeter'
 
 const formatTime = (seconds) =>
   `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`
 
 export function ConfidenceText({ segment, threshold }) {
-  if (!segment.words?.length)
+  if (!segment.words?.length) {
+    // A confidence of exactly 0 with no per-word data means no score was
+    // ever recorded for this segment (e.g. live/note recordings) rather than
+    // a genuinely bad transcription, so it should not be flagged as low.
+    const flagged = segment.confidence > 0 && segment.confidence < threshold
     return (
-      <span className={segment.confidence < threshold ? 'low-confidence' : ''}>
+      <span className={flagged ? 'low-confidence' : ''}>
         {segment.text}
-        {segment.confidence < threshold && <span className="sr-only"> (low confidence)</span>}
+        {flagged && <span className="sr-only"> (low confidence)</span>}
       </span>
     )
+  }
   return (
     <>
       {segment.words.map((word, index) => (
@@ -47,11 +54,44 @@ export default function TranscriptEditor({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [confirmFinalize, setConfirmFinalize] = useState(false)
-  const { confidenceThreshold, updatePreference } = useAccessibility()
+  const { confidenceThreshold, interactionMode, updatePreference } = useAccessibility()
   const { showToast } = useToast()
   const player = useRef(null)
   const [playbackUrl, setPlaybackURL] = useState('')
   const [mediaError, setMediaError] = useState('')
+  const [searchWord, setSearchWord] = useState('')
+  const [replaceWord, setReplaceWord] = useState('')
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const [lastFormat, setLastFormat] = useState('')
+  const [commandFeedback, setCommandFeedback] = useState('')
+  const feedbackTimeoutRef = useRef(null)
+  const showCommandFeedback = (message) => {
+    window.clearTimeout(feedbackTimeoutRef.current)
+    setCommandFeedback(message)
+    feedbackTimeoutRef.current = window.setTimeout(() => setCommandFeedback(''), 2200)
+  }
+  useEffect(() => () => window.clearTimeout(feedbackTimeoutRef.current), [])
+  const voice = useVoiceCommands({
+    onCommand: (command) => {
+      if (transcript.status === 'FINALIZED') return
+      if (command === 'save') {
+        if (!dirty) {
+          showCommandFeedback('Nothing to save')
+          return
+        }
+        showCommandFeedback('Saving…')
+        save()
+      } else if (command === 'submit') {
+        showCommandFeedback('Opening finalize confirmation…')
+        setConfirmFinalize(true)
+      }
+    },
+  })
+  useEffect(() => {
+    if (interactionMode !== 'command' && voice.isListening) voice.stop()
+  }, [interactionMode]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => setTranscript(initialTranscript), [initialTranscript])
   useEffect(() => {
     let active = true
@@ -100,6 +140,31 @@ export default function TranscriptEditor({
         }
       }
   }, [transcript.mediaUrl])
+  useEffect(() => {
+    setIsPlaying(false)
+    setCurrentTime(0)
+    setDuration(0)
+  }, [playbackUrl])
+  useEffect(() => {
+    const media = player.current
+    if (!media) return
+    const onTime = () => setCurrentTime(media.currentTime)
+    const onLoaded = () => setDuration(media.duration || 0)
+    const onPlay = () => setIsPlaying(true)
+    const onPause = () => setIsPlaying(false)
+    media.addEventListener('timeupdate', onTime)
+    media.addEventListener('loadedmetadata', onLoaded)
+    media.addEventListener('play', onPlay)
+    media.addEventListener('pause', onPause)
+    media.addEventListener('ended', onPause)
+    return () => {
+      media.removeEventListener('timeupdate', onTime)
+      media.removeEventListener('loadedmetadata', onLoaded)
+      media.removeEventListener('play', onPlay)
+      media.removeEventListener('pause', onPause)
+      media.removeEventListener('ended', onPause)
+    }
+  }, [playbackUrl])
 
   const editSegment = (id, text) => {
     setTranscript((current) => ({
@@ -157,6 +222,7 @@ export default function TranscriptEditor({
         blob,
         `${transcript.title.replace(/[^a-zA-Z0-9\u0D80-\u0DFF]+/g, '-')}.${format}`,
       )
+      setLastFormat(format)
       showToast(`${format.toUpperCase()} export downloaded.`)
     } catch (cause) {
       setError(cause.message)
@@ -168,7 +234,41 @@ export default function TranscriptEditor({
       player.current.play().catch(() => {})
     }
   }
+  const togglePlay = () => {
+    if (!player.current) return
+    if (player.current.paused) player.current.play().catch(() => {})
+    else player.current.pause()
+  }
+  const scrub = (seconds) => {
+    if (player.current) player.current.currentTime = seconds
+    setCurrentTime(seconds)
+  }
   const exportFormats = transcript.type === 'LECTURE' ? ['txt', 'docx', 'pdf'] : ['txt', 'docx']
+  const stats = useMemo(() => {
+    const words = transcript.segments.reduce(
+      (sum, segment) => sum + segment.text.trim().split(/\s+/).filter(Boolean).length,
+      0,
+    )
+    const lastSegment = transcript.segments[transcript.segments.length - 1]
+    const seconds = lastSegment ? lastSegment.startTime : 0
+    return {
+      words,
+      duration: formatTime(seconds),
+      readingMinutes: Math.max(1, Math.round(words / 200)),
+    }
+  }, [transcript.segments])
+  const executeReplace = () => {
+    if (!searchWord.trim()) return
+    const pattern = new RegExp(searchWord.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
+    setTranscript((current) => ({
+      ...current,
+      segments: current.segments.map((segment) => ({
+        ...segment,
+        text: segment.text.replace(pattern, replaceWord),
+      })),
+    }))
+    setDirty(true)
+  }
 
   return (
     <div className={`transcript-editor ${compact ? 'transcript-editor--compact' : ''}`}>
@@ -194,6 +294,39 @@ export default function TranscriptEditor({
             </div>
           </div>
           <div className="editor-toolbar__actions">
+            {interactionMode === 'command' && transcript.status !== 'FINALIZED' && (
+              <div className="voice-command-toggle">
+                <button
+                  type="button"
+                  className={`button button--icon ${voice.isListening ? 'is-recording' : ''}`}
+                  onClick={voice.isListening ? voice.stop : voice.start}
+                  disabled={voice.status === 'connecting' || voice.status === 'stopping'}
+                  aria-label={voice.isListening ? 'Stop voice commands' : 'Listen for voice commands'}
+                  title={voice.isListening ? 'Stop voice commands' : 'Say "save" or "submit"'}
+                >
+                  <Icon name={voice.isListening ? 'stop' : 'mic'} size={17} />
+                </button>
+                {voice.isListening && (
+                  <VoiceMeter registerBar={voice.registerBar} active={voice.voiceDetected} compact />
+                )}
+              </div>
+            )}
+            {!compact && (
+              <div className="export-toggle" role="group" aria-label="Export format">
+                {exportFormats.map((format) => (
+                  <button
+                    type="button"
+                    key={format}
+                    className={format === lastFormat ? 'active' : ''}
+                    onClick={() => exportFile(format)}
+                    disabled={dirty}
+                    title={dirty ? 'Save changes before exporting' : `Export ${format.toUpperCase()}`}
+                  >
+                    {format.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            )}
             <button
               type="button"
               className="button button--secondary"
@@ -205,7 +338,7 @@ export default function TranscriptEditor({
               ) : (
                 <Icon name="check" size={17} />
               )}{' '}
-              Save changes
+              Save draft
             </button>
             {transcript.status !== 'FINALIZED' && (
               <button
@@ -225,37 +358,196 @@ export default function TranscriptEditor({
           {error} {dirty && 'Your unsaved edits have been preserved.'}
         </Alert>
       )}
-      <div className="editor-layout">
-        <aside className="media-panel">
-          <div className="media-preview">
-            {playbackUrl ? (
-              transcript.mediaType?.startsWith('video/') ? (
-                <video ref={player} controls src={playbackUrl} />
+      {voice.error && <Alert>{voice.error}</Alert>}
+      {commandFeedback && (
+        <p className="command-feedback command-feedback--success" role="status">
+          <Icon name="check" size={14} /> {commandFeedback}
+        </p>
+      )}
+      {!compact && (
+        <div className={`player-bar ${!playbackUrl ? 'player-bar--empty' : ''}`}>
+          {playbackUrl ? (
+            <>
+              {transcript.mediaType?.startsWith('video/') ? (
+                <video
+                  ref={player}
+                  src={playbackUrl}
+                  className="player-bar__video"
+                  onClick={togglePlay}
+                />
               ) : (
-                <audio ref={player} controls src={playbackUrl} />
-              )
-            ) : (
-              <div className="media-placeholder">
-                <span className="sound-bars" aria-hidden="true">
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((item) => (
-                    <i key={item} />
-                  ))}
-                </span>
-                    <Icon name={mediaError ? 'alert' : 'play'} size={22} />
-
-                    <small>
-                      {mediaError ||
-                        (transcript.mediaUrl
-                          ? 'Loading recording…'
-                          : 'No recording is attached')}
-                    </small>
+                <audio ref={player} src={playbackUrl} style={{ display: 'none' }} />
+              )}
+              <button
+                type="button"
+                className="player-bar__play"
+                onClick={togglePlay}
+                aria-label={isPlaying ? 'Pause' : 'Play'}
+              >
+                <Icon name={isPlaying ? 'stop' : 'play'} size={18} />
+              </button>
+              <div className="player-bar__track">
+                <div
+                  className="player-bar__fill"
+                  style={{ width: duration ? `${(currentTime / duration) * 100}%` : '0%' }}
+                />
+                <input
+                  type="range"
+                  min={0}
+                  max={duration || 0}
+                  step={0.1}
+                  value={currentTime}
+                  onChange={(e) => scrub(Number(e.target.value))}
+                  aria-label="Seek recording"
+                />
               </div>
-            )}
-          </div>
+              <span className="player-bar__time">
+                {formatTime(currentTime)} / {formatTime(duration)}
+              </span>
+            </>
+          ) : (
+            <>
+              <Icon name={mediaError ? 'alert' : 'play'} size={18} />
+              <span className="player-bar__message">
+                {mediaError ||
+                  (transcript.mediaUrl ? 'Loading recording…' : 'No recording is attached')}
+              </span>
+            </>
+          )}
+        </div>
+      )}
+      <div className="editor-layout">
+        <section className="segments" aria-label="Transcript segments">
+          {transcript.segments.map((segment, index) => {
+            const isLow = segment.confidence > 0 && segment.confidence < confidenceThreshold
+            return (
+              <article className={`segment ${isLow ? 'segment--review' : ''}`} key={segment.id}>
+                <div className="segment__gutter">
+                  <button
+                    type="button"
+                    className="timestamp"
+                    onClick={() => seek(segment.startTime)}
+                    aria-label={`Play from ${formatTime(segment.startTime)}`}
+                    title={`Play from ${formatTime(segment.startTime)}`}
+                  >
+                    {formatTime(segment.startTime)}
+                  </button>
+                  {isLow && (
+                    <span
+                      className="confidence-flag"
+                      title={`${Math.round(segment.confidence * 100)}% confidence — needs review`}
+                    >
+                      <Icon name="alert" size={13} />
+                      <span className="sr-only">
+                        {Math.round(segment.confidence * 100)}% confidence, needs review
+                      </span>
+                    </span>
+                  )}
+                  <span className="sr-only">Segment {index + 1}</span>
+                </div>
+                <div className="segment__body">
+                  <div className="confidence-preview" lang="si">
+                    <ConfidenceText segment={segment} threshold={confidenceThreshold} />
+                  </div>
+                  <label htmlFor={`segment-${segment.id}`} className="sr-only">
+                    Edit segment {index + 1}
+                  </label>
+                  <textarea
+                    id={`segment-${segment.id}`}
+                    lang="si"
+                    value={segment.text}
+                    onChange={(e) => editSegment(segment.id, e.target.value)}
+                    disabled={transcript.status === 'FINALIZED'}
+                    rows={Math.max(2, Math.ceil(segment.text.length / 55))}
+                  />
+                </div>
+              </article>
+            )
+          })}
+        </section>
+        <aside className="media-panel">
+          {!compact && (
+            <div className="stats-card">
+              <h3>
+                <Icon name="file" size={15} /> Transcript data
+              </h3>
+              <div className="stats-card__grid">
+                <div>
+                  <p>Words</p>
+                  <p>{stats.words.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p>Duration</p>
+                  <p>{stats.duration}</p>
+                </div>
+              </div>
+              <div className="stats-card__reading">
+                <span>Reading time</span>
+                <strong>~{stats.readingMinutes} min</strong>
+              </div>
+            </div>
+          )}
+          {compact && (
+            <div className="media-preview">
+              {playbackUrl ? (
+                transcript.mediaType?.startsWith('video/') ? (
+                  <video ref={player} controls src={playbackUrl} />
+                ) : (
+                  <audio ref={player} controls src={playbackUrl} />
+                )
+              ) : (
+                <div className="media-placeholder">
+                  <span className="sound-bars" aria-hidden="true">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((item) => (
+                      <i key={item} />
+                    ))}
+                  </span>
+                  <Icon name={mediaError ? 'alert' : 'play'} size={22} />
+                  <small>
+                    {mediaError ||
+                      (transcript.mediaUrl ? 'Loading recording…' : 'No recording is attached')}
+                  </small>
+                </div>
+              )}
+            </div>
+          )}
+          {!compact && (
+            <div className="search-replace">
+              <h3>
+                <Icon name="search" size={15} /> Smart search
+              </h3>
+              <label htmlFor="search-word">Search word</label>
+              <input
+                id="search-word"
+                value={searchWord}
+                onChange={(e) => setSearchWord(e.target.value)}
+                placeholder="e.g. baryon"
+                disabled={transcript.status === 'FINALIZED'}
+              />
+              <label htmlFor="replace-word">Replace with</label>
+              <input
+                id="replace-word"
+                value={replaceWord}
+                onChange={(e) => setReplaceWord(e.target.value)}
+                placeholder="e.g. proton"
+                disabled={transcript.status === 'FINALIZED'}
+              />
+              <button
+                type="button"
+                className="button button--primary button--full"
+                onClick={executeReplace}
+                disabled={!searchWord.trim() || transcript.status === 'FINALIZED'}
+              >
+                Execute replace
+              </button>
+            </div>
+          )}
           <div className="confidence-control">
+            <h3>
+              <Icon name="alert" size={15} /> Confidence threshold
+            </h3>
             <label htmlFor={`threshold-${transcript.id}`}>
               <span>
-                <strong>Confidence threshold</strong>
                 <small>Flag words below {Math.round(confidenceThreshold * 100)}%</small>
               </span>
               <output>{Math.round(confidenceThreshold * 100)}%</output>
@@ -276,67 +568,7 @@ export default function TranscriptEditor({
               Needs review
             </p>
           </div>
-          {!compact && (
-            <div className="export-box">
-              <strong>Export transcript</strong>
-              <div>
-                {exportFormats.map((format) => (
-                  <button
-                    type="button"
-                    key={format}
-                    className="button button--secondary button--small"
-                    onClick={() => exportFile(format)}
-                    disabled={dirty}
-                    title={dirty ? 'Save changes before exporting' : ''}
-                  >
-                    <Icon name="download" size={15} />
-                    {format.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </aside>
-        <section className="segments" aria-label="Transcript segments">
-          {transcript.segments.map((segment, index) => (
-            <article
-              className={`segment ${segment.confidence < confidenceThreshold ? 'segment--review' : ''}`}
-              key={segment.id}
-            >
-              <div className="segment__top">
-                <button
-                  type="button"
-                  className="timestamp"
-                  onClick={() => seek(segment.startTime)}
-                  aria-label={`Play from ${formatTime(segment.startTime)}`}
-                >
-                  <Icon name="play" size={13} /> {formatTime(segment.startTime)}
-                </button>
-                <span>Segment {index + 1}</span>
-                <span
-                  className={`confidence-score ${segment.confidence < confidenceThreshold ? 'is-low' : ''}`}
-                >
-                  {segment.confidence < confidenceThreshold && <Icon name="alert" size={14} />}{' '}
-                  {Math.round(segment.confidence * 100)}% confidence
-                </span>
-              </div>
-              <div className="confidence-preview" lang="si">
-                <ConfidenceText segment={segment} threshold={confidenceThreshold} />
-              </div>
-              <label htmlFor={`segment-${segment.id}`}>
-                Edit segment <span className="sr-only">{index + 1}</span>
-              </label>
-              <textarea
-                id={`segment-${segment.id}`}
-                lang="si"
-                value={segment.text}
-                onChange={(e) => editSegment(segment.id, e.target.value)}
-                disabled={transcript.status === 'FINALIZED'}
-                rows={Math.max(2, Math.ceil(segment.text.length / 55))}
-              />
-            </article>
-          ))}
-        </section>
       </div>
       {compact && (
         <div className="compact-editor-actions">

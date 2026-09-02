@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from app.models.media import MediaFile
     from app.models.quiz import Quiz, QuizSubmission
     from app.models.transcription import ExportRecord, Transcript, TranscriptionJob
+    from app.models.voice_enrollment import CommandEnrollment
 
 
 class User(Base):
@@ -23,6 +24,10 @@ class User(Base):
         CheckConstraint(
             "role IN ('STUDENT', 'TEACHER')",
             name="ck_users_role",
+        ),
+        CheckConstraint(
+            "command_language IN ('si', 'en')",
+            name="ck_users_command_language",
         ),
     )
 
@@ -51,7 +56,17 @@ class User(Base):
         default=True,
         server_default=text("true"),
         nullable=False,
-    )    
+    )
+    # Which voice-command phrase set (app.streaming.commands) is active
+    # for this student - a data setting, not a code one, so switching it
+    # never needs a deploy. See app.services.voice_enrollment for how
+    # this is kept independent of any particular enrollment bank.
+    command_language: Mapped[str] = mapped_column(
+        String(2),
+        default="si",
+        server_default=text("'si'"),
+        nullable=False,
+    )
 
     media_files: Mapped[list[MediaFile]] = relationship(
         back_populates="owner",
@@ -75,4 +90,8 @@ class User(Base):
     )
     export_records: Mapped[list[ExportRecord]] = relationship(
         back_populates="requester",
+    )
+    command_enrollments: Mapped[list[CommandEnrollment]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
     )

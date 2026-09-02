@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
+import quizBackground from '../assets/4.jpg'
 import AudioRecorder from '../components/AudioRecorder'
 import Icon from '../components/Icon'
 import TranscriptEditor from '../components/TranscriptEditor'
 import TranscriptionStatus from '../components/TranscriptionStatus'
 import useTranscriptionJob from '../components/useTranscriptionJob'
+import useVoiceCommands from '../hooks/useVoiceCommands'
+import VoiceMeter from '../components/VoiceMeter'
+import { useAccessibility } from '../contexts/AccessibilityContext'
 import {
   Alert,
   ConfirmDialog,
@@ -26,7 +30,7 @@ export function QuizListPage() {
       .catch((cause) => setError(cause.message))
   }, [])
   return (
-    <div className="page">
+    <div className="page has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>
       <PageHeader
         eyebrow="Speak your answer"
         title="My quizzes"
@@ -94,6 +98,45 @@ export function QuizAnswerPage() {
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const { job, start, reset } = useTranscriptionJob()
+  const { interactionMode } = useAccessibility()
+  const [commandFeedback, setCommandFeedback] = useState('')
+  const showCommandFeedback = (message) => {
+    setCommandFeedback(message)
+    window.setTimeout(() => setCommandFeedback(''), 2200)
+  }
+  const voice = useVoiceCommands({
+    onCommand: (command) => {
+      if (!quiz || submitted) return
+      if (command === 'next') {
+        if (current < quiz.questions.length - 1 && Boolean(answers[quiz.questions[current].id])) {
+          setCurrent((value) => value + 1)
+          setWorkingTranscript(answers[quiz.questions[current + 1]?.id] || null)
+          reset()
+        } else {
+          showCommandFeedback('Answer this question before moving on')
+        }
+      } else if (command === 'previous') {
+        if (current > 0) {
+          setCurrent((value) => value - 1)
+          setWorkingTranscript(answers[quiz.questions[current - 1]?.id] || null)
+          reset()
+        } else {
+          showCommandFeedback('Already on the first question')
+        }
+      } else if (command === 'submit') {
+        const isLast = current === quiz.questions.length - 1
+        const allDone = quiz.questions.filter((q) => q.required).every((q) => answers[q.id])
+        if (isLast && allDone) {
+          setConfirm(true)
+        } else {
+          showCommandFeedback('Complete every required question first')
+        }
+      }
+    },
+  })
+  useEffect(() => {
+    if (interactionMode !== 'command' && voice.isListening) voice.stop()
+  }, [interactionMode]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     api
       .getQuiz(id)
@@ -112,19 +155,19 @@ export function QuizAnswerPage() {
   }, [job])
   if (error)
     return (
-      <div className="page page--narrow">
+      <div className="page page--narrow has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>
         <Alert>{error}</Alert>
       </div>
     )
   if (!quiz)
     return (
-      <div className="page">
+      <div className="page has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>
         <Loading label="Opening quiz…" />
       </div>
     )
   if (submitted)
     return (
-      <div className="page page--narrow">
+      <div className="page page--narrow has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>
         <div className="success-state">
           <span>
             <Icon name="check" size={34} />
@@ -177,14 +220,16 @@ export function QuizAnswerPage() {
     }
   }
   return (
-    <div className="page">
-      <button className="back-link" onClick={() => navigate('/quizzes')}>
-        ← Exit quiz
-      </button>
+    <div className="page has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>
       <PageHeader
         eyebrow={`Question ${current + 1} of ${quiz.questions.length}`}
         title={quiz.title}
         description={quiz.description}
+        back={
+          <button className="back-link" onClick={() => navigate('/quizzes')}>
+            ← Exit quiz
+          </button>
+        }
         actions={
           <span className="question-count">
             <strong>{completeCount}</strong> / {quiz.questions.length} answered
@@ -241,7 +286,30 @@ export function QuizAnswerPage() {
               </p>
             </>
           )}
+          {interactionMode === 'command' && voice.error && <Alert>{voice.error}</Alert>}
+          {interactionMode === 'command' && commandFeedback && (
+            <p className="command-feedback command-feedback--advisory" role="status">
+              <Icon name="alert" size={14} /> {commandFeedback}
+            </p>
+          )}
           <div className="quiz-navigation">
+            {interactionMode === 'command' && (
+              <div className="voice-command-toggle">
+                <button
+                  type="button"
+                  className={`button button--icon ${voice.isListening ? 'is-recording' : ''}`}
+                  onClick={voice.isListening ? voice.stop : voice.start}
+                  disabled={voice.status === 'connecting' || voice.status === 'stopping'}
+                  aria-label={voice.isListening ? 'Stop voice commands' : 'Listen for voice commands'}
+                  title={voice.isListening ? 'Stop voice commands' : 'Say "next", "previous" or "submit"'}
+                >
+                  <Icon name={voice.isListening ? 'stop' : 'mic'} size={17} />
+                </button>
+                {voice.isListening && (
+                  <VoiceMeter registerBar={voice.registerBar} active={voice.voiceDetected} compact />
+                )}
+              </div>
+            )}
             <button
               className="button button--secondary"
               disabled={current === 0}

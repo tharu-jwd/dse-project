@@ -25,6 +25,11 @@ export default function FileUpload({
   audioOnly = false,
   error: externalError,
   id = 'media-file',
+  icon = 'upload',
+  iconImage,
+  floatingIcon = false,
+  heading,
+  tagline,
 }) {
   const inputRef = useRef(null)
   const [dragging, setDragging] = useState(false)
@@ -84,9 +89,15 @@ export default function FileUpload({
           onChange={(e) => choose(e.target.files[0])}
           aria-describedby={`${id}-hint ${id}-error`}
         />
-        <div className="dropzone__icon">
-          <Icon name="upload" size={25} />
+        <div className={`dropzone__icon ${floatingIcon ? 'dropzone__icon--floating' : ''}`}>
+          {iconImage ? (
+            <img src={iconImage} alt="" className="dropzone__icon-image" />
+          ) : (
+            <Icon name={icon} size={icon === 'rocket' ? 40 : 25} />
+          )}
         </div>
+        {heading && <strong className="dropzone__heading">{heading}</strong>}
+        {tagline && <p className="dropzone__tagline">{tagline}</p>}
         <label htmlFor={id}>
           <strong>Choose a file</strong> or drag and drop
         </label>

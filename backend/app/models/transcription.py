@@ -39,6 +39,10 @@ class Transcript(Base):
             "status IN ('DRAFT', 'FINALIZED')",
             name="ck_transcripts_status",
         ),
+        CheckConstraint(
+            "source IS NULL OR source IN ('UPLOAD', 'LIVE')",
+            name="ck_transcripts_source",
+        ),
     )
 
     transcript_id: Mapped[uuid.UUID] = mapped_column(
@@ -66,6 +70,10 @@ class Transcript(Base):
         server_default=text("'DRAFT'"),
         nullable=False,
         index=True,
+    )
+    source: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

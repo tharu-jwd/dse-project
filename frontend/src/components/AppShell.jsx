@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import AccessibilityControls from './AccessibilityControls'
 import Icon from './Icon'
@@ -22,11 +22,28 @@ const teacherNav = [
 export default function AppShell() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
   const nav = user.role === 'TEACHER' ? teacherNav : studentNav
   const signOut = async () => {
     await logout()
     navigate('/login', { replace: true })
+  }
+  const activeLabel =
+    nav.find(([, , to]) => location.pathname.startsWith(to))?.[1] ||
+    (location.pathname.startsWith('/settings')
+      ? 'Settings'
+      : location.pathname.startsWith('/help')
+        ? 'Quick start & help'
+        : location.pathname.startsWith('/teacher/submissions')
+          ? 'Review submissions'
+          : location.pathname.startsWith('/notes')
+            ? 'Self-study notes'
+            : 'SinhaSpeech')
+  const submitSearch = (event) => {
+    event.preventDefault()
+    if (search.trim()) navigate(`/transcripts?q=${encodeURIComponent(search.trim())}`)
   }
   return (
     <div className="app-shell">
@@ -98,10 +115,57 @@ export default function AppShell() {
               <Icon name="logout" />
             </button>
           </div>
+          <NavLink className="new-adventure" to="/lectures/new" onClick={() => setOpen(false)}>
+            <Icon name="rocket" size={18} />
+            <span>New adventure</span>
+          </NavLink>
         </div>
       </aside>
       <main id="main-content" className="main-content" tabIndex="-1">
+        <header className="topbar">
+          <h2>{activeLabel}</h2>
+          <form className="topbar__search" role="search" onSubmit={submitSearch}>
+            <Icon name="search" size={18} />
+            <label className="sr-only" htmlFor="topbar-search">
+              Search your transcripts
+            </label>
+            <input
+              id="topbar-search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search your transcripts…"
+              type="search"
+            />
+          </form>
+          <div className="topbar__actions">
+            <button className="icon-button topbar__bell" aria-label="Notifications" type="button">
+              <Icon name="bell" size={19} />
+            </button>
+            <NavLink className="avatar avatar--header" to="/settings" title="Account settings">
+              {user.name
+                .split(' ')
+                .map((part) => part[0])
+                .slice(0, 2)
+                .join('')}
+            </NavLink>
+          </div>
+        </header>
         <Outlet />
+        <footer className="app-footer">
+          <div className="app-footer__links">
+            <a href="#" onClick={(e) => e.preventDefault()}>
+              Accessibility statement
+            </a>
+            <a href="#" onClick={(e) => e.preventDefault()}>
+              Privacy policy
+            </a>
+            <a href="#" onClick={(e) => e.preventDefault()}>
+              Terms of service
+            </a>
+            <NavLink to="/help">Help center</NavLink>
+          </div>
+          <p>© {new Date().getFullYear()} SinhaSpeech Accessibility.</p>
+        </footer>
       </main>
     </div>
   )

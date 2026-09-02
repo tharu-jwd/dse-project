@@ -52,8 +52,16 @@ async function request(path, options = {}) {
     const data = await response.json().catch(() => ({}))
     throw new Error(data.message || 'The request could not be completed.')
   }
+  // A 204 (or any empty body) still often carries a JSON content-type
+  // header with nothing to parse - e.g. DELETE /transcripts/{id} - so
+  // response.json() on it throws "unexpected end of data" even though
+  // the request succeeded. Treat "no body" as success with no payload
+  // before ever trying to parse it as JSON.
+  if (response.status === 204) return null
   const contentType = response.headers.get('content-type') || ''
-  return contentType.includes('application/json') ? response.json() : response.blob()
+  if (!contentType.includes('application/json')) return response.blob()
+  const text = await response.text()
+  return text ? JSON.parse(text) : null
 }
 
 
@@ -172,6 +180,16 @@ export const api = {
     if (!USE_MOCK_API) return request(`/transcripts/${id}/finalize`, { method: 'POST' })
     return api.updateTranscript(id, { status: 'FINALIZED' })
   },
+  async deleteTranscript(id) {
+    if (!USE_MOCK_API) {
+      await request(`/transcripts/${id}`, { method: 'DELETE' })
+      return
+    }
+    await pause(400)
+    const index = transcripts.findIndex((t) => t.id === id)
+    if (index < 0) throw new Error('Transcript was not found.')
+    transcripts.splice(index, 1)
+  },
   async exportTranscript(id, format) {
     if (!USE_MOCK_API) return request(`/transcripts/${id}/export?format=${format}`)
     await pause(400)
@@ -238,6 +256,53 @@ export const api = {
     const item = submissions.find((s) => s.id === id)
     Object.assign(item, review, { status: 'REVIEWED' })
     return clone(item)
+  },
+  // Dev-only: step-1 data collection for the voice-command embedding work.
+  // Always hits the real backend - there is no mock-mode story for this,
+  // it doesn't belong in the product's mock dataset.
+  async getVoiceSampleProgress(lang = 'si') {
+    return request(`/voice-samples?lang=${lang}`)
+  },
+  async uploadVoiceSample(commandId, blob, lang = 'si') {
+    const formData = new FormData()
+    formData.append('file', blob, `${commandId}.webm`)
+    return request(`/voice-samples/${commandId}?lang=${lang}`, { method: 'POST', body: formData })
+  },
+  async deleteVoiceSamples(commandId, lang = 'si') {
+    return request(`/voice-samples/${commandId}?lang=${lang}`, { method: 'DELETE' })
+  },
+
+  // Real per-student voice-command enrollment. Always hits the real
+  // backend (no mock story - it needs an actual embedding model behind
+  // it), same as the dev collection tool above. Every call is scoped to
+  // a language ('si' | 'en') - enrollment samples for the two never mix.
+  async getVoiceEnrollmentStatus(language = 'si') {
+    return request(`/voice-enrollment?language=${language}`)
+  },
+  async submitVoiceEnrollmentSample(commandId, blob, language = 'si') {
+    const formData = new FormData()
+    formData.append('file', blob, `${commandId}.webm`)
+    return request(`/voice-enrollment/${commandId}/samples?language=${language}`, {
+      method: 'POST',
+      body: formData,
+    })
+  },
+  async deleteVoiceEnrollmentSamples(commandId, language = 'si') {
+    return request(`/voice-enrollment/${commandId}?language=${language}`, { method: 'DELETE' })
+  },
+  async practiceVoiceCommand(commandId, blob, language = 'si') {
+    const formData = new FormData()
+    formData.append('file', blob, `${commandId}.webm`)
+    return request(`/voice-enrollment/${commandId}/practice?language=${language}`, {
+      method: 'POST',
+      body: formData,
+    })
+  },
+  async setActiveCommandLanguage(language) {
+    return request('/voice-enrollment/active-language', {
+      method: 'PATCH',
+      body: JSON.stringify({ language }),
+    })
   },
 }
 

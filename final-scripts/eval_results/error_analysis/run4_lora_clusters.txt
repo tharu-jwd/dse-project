@@ -1,0 +1,108 @@
+=== run4_lora: 8910 wrong samples grouped into 8 clusters ===
+(clusters are by textual similarity of reference+prediction, not meaning -- 
+ use them to spot repeated failure patterns, e.g. same speaker/topic/word)
+
+--- cluster 0 (1436 samples, avg WER 0.44, top n-grams: ් , ක්, ක් , ත්, ත් ,  න,  එ, එක) ---
+  WER=2.00  ref:  ඩී.එස්.සේනානායක,
+              pred: ඩීයෙක් සේනානායක
+  WER=2.00  ref:  එනම්ඉතිරිය
+              pred: එනම් ඉතිරිය
+  WER=1.74  ref:  හැබැයි හැමෝටම අපි අපි මුලින් කියලා තියෙනව තමන්ගේ business එක සහ එ වැඩේ face එක තමන් වෙන්නේ කියලා කියල
+              pred: හැබැයි හැමෝට අපි අපි අපි අපි අපි අපි අපි අපි අපි අපි අපි අපි අපි අපි අපි අපි අපි අපි අපි අපි අපි අපි අපි අපි අපි අපි අපි අපි අපි අපි අපි අපි අපි අප
+  WER=1.50  ref:  එබදු ඉරණමකට
+              pred: එබඳු ඉර නමකට
+  WER=1.50  ref:  ඔහු එකපාරටම
+              pred: ඔහු එක පාරට ම
+  ... and 1431 more in this cluster (see run4_lora_errors_by_severity.csv)
+
+--- cluster 1 (1345 samples, avg WER 0.42, top n-grams: න්න, ්න, න්, න්න , ්න , න , ෙන, ් ) ---
+  WER=1.67  ref:  සම්මාවාචා දන්දෙන්න ඕන
+              pred: සම්මා වාචා දන් දෙන්න ඕනා.
+  WER=1.50  ref:  පටන් ගන්නකොට
+              pred: මටත් ගන්න කොට
+  WER=1.50  ref:  උන්නැහේ හිතන්නේ
+              pred: උන්න එහෙ හිතන්නෙ
+  WER=1.50  ref:  මොකට බයවෙන්නද.
+              pred: මොකට බය වෙන්න ද
+  WER=1.50  ref:  තියෙන්නේ කුදිරමලේ.
+              pred: තියෙන්නෙ කුදිර මලේ.
+  ... and 1340 more in this cluster (see run4_lora_errors_by_severity.csv)
+
+--- cluster 2 (447 samples, avg WER 0.40, top n-grams: ප්‍, ප්‍ර, ප්,  ප්,  ප්‍, ‍ර, ්‍ර, ්‍) ---
+  WER=1.50  ref:  ඇතිකරගත් ප්‍රශ්නයකි.
+              pred: ඇති කරගත් ප්‍රක්ෂණයකි.
+  WER=1.50  ref:  ප්‍රඥාගෝචර නැ.
+              pred: ප්‍රඥා ගෝචර නෑ.
+  WER=1.00  ref:  ප්‍රජාතන්ත්‍රවාදී පාලනයක් උදෙසා
+              pred: එචාර්යවන්ත වාදී පාලනයක් දෙසක්
+  WER=1.00  ref:  අටපිරිකරෙහි ඇති ප්‍රයෝජනයන්ය.
+              pred: අට පිරිකෙරී ඇති ප්‍රයෝජනඥ
+  WER=1.00  ref:  ප්‍රේමකීර්ති යළිත් වරක්
+              pred: පෙම් ගීති අයුත්වරක්
+  ... and 442 more in this cluster (see run4_lora_errors_by_severity.csv)
+
+--- cluster 3 (3220 samples, avg WER 0.46, top n-grams:  ස, ය ,  ව,  ම, ේ ,  ප, ට , ා ) ---
+  WER=7.60  ref:  බෝම්බයක් හදලා දාලා පෙන්නන්න කියපන්
+              pred: මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම ම�
+  WER=3.00  ref:  තුන්වැදෑරුම්ය.
+              pred: තුන් වැදෑරුම් ය.
+  WER=3.00  ref:  ඩී.එස්.සේනානායක,
+              pred: ඩිඑස් එන නායක
+  WER=2.00  ref:  කදාවළලු,
+              pred: කඳා වළලු.
+  WER=2.00  ref:  බ්‍රැන්ඩික්ස් කණ්ඩායම
+              pred: බ්‍රැන්ඩ්ට්ස් කන්න අය ම
+  ... and 3215 more in this cluster (see run4_lora_errors_by_severity.csv)
+
+--- cluster 4 (151 samples, avg WER 0.40, top n-grams: වහන්, න්සේ, වහන, හන්ස, න්ස, වහ, ්සේ, හන්) ---
+  WER=1.00  ref:  භික්‍ෂූන්වහන්සේ දැකීම්
+              pred: භික්ෂූන් වහන්සේ දැකීම්
+  WER=1.00  ref:  බේරා ගැනීමට උත්සුක වූ උන්වහන්සේට
+              pred: භේරාගනය පුත්සුක වූන් වහන්සේට
+  WER=1.00  ref:  ක්රිස්තුස්වහන්සේගේ දෙවෙනි පෑමිනීමයි
+              pred: ක්‍රිස්තූත් වහන්සේගේ දෙවෙනි පැමිණීමයි.
+  WER=1.00  ref:  උන්වන්සේගේ බලයෙන්
+              pred: උන්වහන්සේගේ බලවෙන්
+  WER=1.00  ref:  උන් වහන්සේගේ ශරීරයෙහි පිහිටි
+              pred: උන්වහන්සේගේ ශරීරයේ හිපි හිටි
+  ... and 146 more in this cluster (see run4_lora_errors_by_severity.csv)
+
+--- cluster 5 (448 samples, avg WER 0.41, top n-grams: කි, ීම, කිර, රීම, ිරීම, ැකි, ිරී, ැක) ---
+  WER=2.00  ref:  එළකිරි ජයවේවා!
+              pred: එළ කිරි ජය වේවා
+  WER=1.50  ref:  මෙය සිදුකිරීමට
+              pred: මේ සිදු කිරීමට
+  WER=1.00  ref:  තනතුරු ලබාගැනීමේ
+              pred: තනතුරු ලබා ගැනීමේ
+  WER=1.00  ref:  එහෙම තෝරාගැනීමක්
+              pred: එහෙම තෝරා ගැනීමක්
+  WER=1.00  ref:  ගස තේරීමෙදී
+              pred: ගස තේරීමේ දී
+  ... and 443 more in this cluster (see run4_lora_errors_by_severity.csv)
+
+--- cluster 6 (1348 samples, avg WER 0.43, top n-grams: ් , න් , න්, ෙන, ින, ින්, ින් , ෙන් ) ---
+  WER=2.00  ref:  ආයුබෝවන්
+              pred: රාජු බෝවන්
+  WER=1.67  ref:  ඒකනායක මහතා ක්‍රමක්‍රයෙන්
+              pred: ඒක නායක මහත්තා කම කමයෙන්
+  WER=1.67  ref:  හෙලාදැකීමෙනුත් වැලකී සිටින්නෙක්මි
+              pred: හෙළා දැකීමෙනුත් වැළකී සිටින්නෙක් මේ
+  WER=1.50  ref:  මුළුතැන්ගේ දෙසින්
+              pred: මුල් තැන්ගේ දෙසේ
+  WER=1.50  ref:  එහෙම ඉගෙනගෙන
+              pred: එහෙමියි ඉගෙන වෙන
+  ... and 1343 more in this cluster (see run4_lora_errors_by_severity.csv)
+
+--- cluster 7 (515 samples, avg WER 0.41, top n-grams:  කිය, කිය,  කි, කි, ිය,  ක, කියල, ියල) ---
+  WER=1.50  ref:  හැරුන කියමුකෝ
+              pred: හැරුණ කිය මොකෝ
+  WER=1.50  ref:  තිබුනනම් කියල
+              pred: තිබුණ නම් කියලා.
+  WER=1.33  ref:  එයා එයාටම කියාගත්තේ
+              pred: එයා එයාට ම කියා ගත්තේ
+  WER=1.33  ref:  සුන්දරලිංගම් මහාලිංගම් කියලා.
+              pred: සොන්දර ලිංගම් මහා ළිංගම් කියලා
+  WER=1.25  ref:  මට්න් ඊට්න් ක්‍රෝට්න් කියලලු.
+              pred: මටින් ඊටින් ක්‍රෝටින් කියල ලු
+  ... and 510 more in this cluster (see run4_lora_errors_by_severity.csv)
+

@@ -1,3 +1,6 @@
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException, status, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -9,9 +12,28 @@ from app.db.session import engine
 from app.api.router import api_router
 
 
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    if settings.streaming_enabled:
+        # Load once at process startup, never per WebSocket session.
+        from app.streaming.inference import get_streaming_transcriber
+        from app.streaming.vad import get_vad
+
+        logger.info("Streaming enabled: loading faster-whisper and VAD models...")
+        get_streaming_transcriber()
+        get_vad()
+        logger.info("Streaming models loaded.")
+
+    yield
+
+
 app = FastAPI(
     title="SinhaSpeech API",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(

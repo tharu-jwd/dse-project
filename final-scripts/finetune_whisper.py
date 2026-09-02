@@ -43,8 +43,8 @@ local copy) before running this script.
 Usage (on a RunPod GPU pod, or any machine with a GPU -- run from inside
 final-scripts/, with data/stratified/ already populated):
     python3 finetune_whisper.py \\
-        --output-dir /workspace/whisper-small-sinhala/run6-lr3e-5-bs32 \\
-        --run-name run6-lr3e-5-bs32 \\
+        --output-dir /workspace/whisper-small-sinhala/run5-lr3e-5-bs32 \\
+        --run-name run5-lr3e-5-bs32 \\
         --wandb-project whisper \\
         --learning-rate 3e-5 \\
         --per-device-train-batch-size 32 \\
@@ -128,7 +128,7 @@ def make_compute_metrics(processor):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--model-name", default="openai/whisper-small")
-    parser.add_argument("--output-dir", default="whisper-small-sinhala")
+    parser.add_argument("--output-dir", default="whisper-small-sinhala/run5")
     parser.add_argument("--run-name", default=None,
                          help="W&B run name; defaults to the --output-dir basename")
     parser.add_argument("--num-train-epochs", type=float, default=3.0)

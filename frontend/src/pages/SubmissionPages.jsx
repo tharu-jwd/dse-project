@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
+import submissionsBackground from '../assets/5.png'
 import Icon from '../components/Icon'
 import { Alert, EmptyState, Loading, PageHeader, StatusBadge } from '../components/UI'
 import { useToast } from '../contexts/ToastContext'
@@ -15,7 +16,7 @@ export function SubmissionsPage() {
       .catch((cause) => setError(cause.message))
   }, [])
   return (
-    <div className="page">
+    <div className="page has-bg-image" style={{ backgroundImage: `url(${submissionsBackground})` }}>
       <PageHeader
         eyebrow="Teacher workspace"
         title="Review submissions"
@@ -125,26 +126,28 @@ export function SubmissionReviewPage() {
   }
   if (error && !item)
     return (
-      <div className="page page--narrow">
+      <div className="page page--narrow has-bg-image" style={{ backgroundImage: `url(${submissionsBackground})` }}>
         <Alert>{error}</Alert>
       </div>
     )
   if (!item)
     return (
-      <div className="page">
+      <div className="page has-bg-image" style={{ backgroundImage: `url(${submissionsBackground})` }}>
         <Loading label="Opening submission…" />
       </div>
     )
   return (
-    <div className="page page--narrow">
-      <button className="back-link" onClick={() => navigate('/teacher/submissions')}>
-        ← Back to submissions
-      </button>
+    <div className="page page--narrow has-bg-image" style={{ backgroundImage: `url(${submissionsBackground})` }}>
       <PageHeader
         eyebrow="Submission review"
         title={item.studentName}
         description={`${item.quizTitle} · Submitted ${new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(item.submittedAt))}`}
         actions={<StatusBadge status={item.status} />}
+        back={
+          <button className="back-link" onClick={() => navigate('/teacher/submissions')}>
+            ← Back to submissions
+          </button>
+        }
       />
       {error && <Alert>{error}</Alert>}
       <section className="answers-review">

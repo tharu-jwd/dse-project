@@ -1,11 +1,11 @@
 from typing import Annotated, Callable
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, WebSocket, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.core.security import TokenValidationError, decode_access_token
-from app.db.session import get_db
+from app.db.session import SessionLocal, get_db
 from app.models.user import User
 
 
@@ -48,6 +48,37 @@ CurrentUserDependency = Annotated[
     User,
     Depends(get_current_user),
 ]
+
+def get_current_user_ws(
+        websocket: WebSocket,
+) -> User | None:
+    """Authenticate a WebSocket connection.
+
+    Browsers cannot set an Authorization header on a WebSocket handshake,
+    so the access token is passed as a `token` query parameter instead.
+    Returns None (rather than raising) so the caller can close the
+    connection with code 1008 per the streaming protocol.
+    """
+
+    token = websocket.query_params.get("token")
+
+    if not token:
+        return None
+
+    try:
+        payload = decode_access_token(token)
+    except TokenValidationError:
+        return None
+
+    with SessionLocal() as db:
+        user = db.get(User, payload.sub)
+
+        if user is None or not user.is_active:
+            return None
+
+        db.expunge(user)
+        return user
+
 
 def require_roles(
         *allowed_roles: str,

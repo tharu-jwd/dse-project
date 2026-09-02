@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { USE_MOCK_API } from '../api'
+import loginBackground from '../assets/4.jpg'
 import { Logo } from '../components/AppShell'
 import Icon from '../components/Icon'
 import { Alert } from '../components/UI'
@@ -40,7 +41,10 @@ export default function LoginPage() {
   const fillDemo = (role) => setForm({ email: `${role}@sinhaspeech.lk`, password: 'demo123' })
   return (
     <main className="login-page">
-      <section className="login-intro">
+      <section
+        className="login-intro has-bg-image"
+        style={{ backgroundImage: `url(${loginBackground})` }}
+      >
         <Logo />
         <div className="login-intro__content">
           <span className="eyebrow eyebrow--light">Sinhala speech accessibility</span>

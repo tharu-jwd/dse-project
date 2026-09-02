@@ -102,6 +102,26 @@ const paths = {
   ),
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
   close: <path d="M6 6l12 12M18 6 6 18" />,
+  rocket: (
+    <>
+      <path d="M12 2c2.5 2 4 5.5 4 9 0 2-1 4-1 4l-3 3-3-3s-1-2-1-4c0-3.5 1.5-7 4-9z" />
+      <path d="M9 15l-3 1 1-3M15 15l3 1-1-3" />
+      <circle cx="12" cy="9" r="1.5" />
+    </>
+  ),
+  bell: (
+    <>
+      <path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6" />
+      <path d="M10 20a2 2 0 0 0 4 0" />
+    </>
+  ),
+  more: (
+    <>
+      <circle cx="12" cy="5" r="1.4" />
+      <circle cx="12" cy="12" r="1.4" />
+      <circle cx="12" cy="19" r="1.4" />
+    </>
+  ),
 }
 
 export default function Icon({ name, size = 20, className = '' }) {
