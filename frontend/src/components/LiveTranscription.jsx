@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { API_BASE_URL } from '../api'
+import { api, API_BASE_URL } from '../api'
 import Icon from './Icon'
 import { Alert } from './UI'
 
@@ -30,6 +30,16 @@ function wsUrl(path) {
   return `${API_BASE_URL.replace(/^http/, 'ws')}${path}`
 }
 
+// dangerouslySetInnerHTML needs its input pre-escaped - a transcribed word
+// is never expected to contain markup, but user-editable text shouldn't
+// ever be trusted to skip this regardless of the source.
+function escapeHtml(text) {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
 /**
  * Live note-taking: streams mic audio to the streaming WebSocket and
  * renders partial (grey) and final (black) transcript text as it arrives.
@@ -40,13 +50,15 @@ const VOICE_THRESHOLD = 0.02
 export default function LiveTranscription({ title, onSessionEnd, disabled = false }) {
   const [status, setStatus] = useState('idle') // idle | connecting | recording | stopping | error
   const [error, setError] = useState('')
-  const [finals, setFinals] = useState([]) // [{ segment, text }]
+  const [finals, setFinals] = useState([]) // [{ segment, segmentId, text, dirty }]
   const [partial, setPartial] = useState('')
   const [seconds, setSeconds] = useState(0)
   const [voiceDetected, setVoiceDetected] = useState(false)
   const [commandFeedback, setCommandFeedback] = useState('')
   const [commandFeedbackTone, setCommandFeedbackTone] = useState('success')
+  const [saveState, setSaveState] = useState('idle') // idle | saving | saved | error
 
+  const transcriptIdRef = useRef(null)
   const wsRef = useRef(null)
   const audioCtxRef = useRef(null)
   const streamRef = useRef(null)
@@ -211,7 +223,11 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
       if (message.type === 'partial') {
         setPartial(message.text)
       } else if (message.type === 'final') {
-        setFinals((prev) => [...prev, { segment: message.segment, text: message.text }])
+        transcriptIdRef.current = message.transcript_id
+        setFinals((prev) => [
+          ...prev,
+          { segment: message.segment, segmentId: message.segment_id, text: message.text, dirty: false },
+        ])
         setPartial('')
       } else if (message.type === 'command') {
         setPartial('')
@@ -242,7 +258,12 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
         endedRef.current = true
         cleanupAudio()
         setStatus('idle')
-        onSessionEnd(message.transcript_id)
+        // Don't hand off to the review screen with edits still sitting
+        // unsaved in local state - flush them first (saveEdits reads
+        // `finals` fresh via its functional setState, so this is safe to
+        // fire from inside the same event that just finished the last
+        // setFinals() call for this session).
+        saveEdits().finally(() => onSessionEnd(message.transcript_id))
       } else if (message.type === 'error') {
         setError(message.message)
       }
@@ -274,10 +295,64 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
     }
   }
 
+  const saveEdits = async () => {
+    const transcriptId = transcriptIdRef.current
+    const changed = finals.filter((item) => item.dirty && item.segmentId)
+    if (!transcriptId || !changed.length) return
+
+    setSaveState('saving')
+    try {
+      await api.updateTranscript(transcriptId, {
+        segments: changed.map((item) => ({ id: item.segmentId, text: item.text })),
+      })
+      setFinals((prev) =>
+        prev.map((item) => (item.dirty ? { ...item, dirty: false } : item)),
+      )
+      setSaveState('saved')
+    } catch (cause) {
+      setSaveState('error')
+      setError(cause.message || 'Your edits could not be saved.')
+    }
+  }
+
+  // Fires on leaving a segment span the student just clicked into and
+  // edited. Deliberately doesn't go through saveEdits (which reads
+  // `finals` from this render's closure) - a contentEditable span
+  // only commits to React state here, on blur, never on every keystroke
+  // (that would fight the browser's own cursor position on each render),
+  // so at blur time React state may not have caught up yet. The DOM's own
+  // textContent is the actual source of truth for what the student typed.
+  const handleSegmentBlur = async (item, event) => {
+    const text = event.currentTarget.textContent
+    if (text === item.text) return
+
+    const transcriptId = transcriptIdRef.current
+    setFinals((prev) =>
+      prev.map((entry) => (entry.segment === item.segment ? { ...entry, text, dirty: true } : entry)),
+    )
+
+    if (!transcriptId || !item.segmentId) return
+
+    setSaveState('saving')
+    try {
+      await api.updateTranscript(transcriptId, {
+        segments: [{ id: item.segmentId, text }],
+      })
+      setFinals((prev) =>
+        prev.map((entry) => (entry.segment === item.segment ? { ...entry, dirty: false } : entry)),
+      )
+      setSaveState('saved')
+    } catch (cause) {
+      setSaveState('error')
+      setError(cause.message || 'Your edits could not be saved.')
+    }
+  }
+
   const time = (value) =>
     `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`
 
   const isRecording = status === 'recording' || status === 'stopping'
+  const hasUnsavedEdits = finals.some((item) => item.dirty)
 
   return (
     <div className="note-workspace">
@@ -311,7 +386,33 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
           {commandFeedback}
         </p>
       )}
-      <div className="note-page" aria-live="polite">
+      {finals.length > 0 && (
+        <div className="note-save-bar">
+          <span className="note-save-bar__status" role="status" aria-live="polite">
+            {saveState === 'saving'
+              ? 'Saving edits…'
+              : hasUnsavedEdits
+                ? 'Unsaved edits'
+                : saveState === 'saved'
+                  ? 'All edits saved'
+                  : 'Click anywhere in the text to edit it'}
+          </span>
+          <button
+            type="button"
+            className="button button--secondary button--small"
+            onClick={saveEdits}
+            disabled={!hasUnsavedEdits || saveState === 'saving'}
+          >
+            {saveState === 'saving' ? (
+              <span className="spinner spinner--small" />
+            ) : (
+              <Icon name="check" size={15} />
+            )}{' '}
+            Save edits
+          </button>
+        </div>
+      )}
+      <div className="note-page note-page--editable" aria-live="polite">
         {finals.length === 0 && !partial ? (
           <p className="note-page__placeholder">
             {isRecording
@@ -319,10 +420,22 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
               : 'Your note will appear here as you speak. Press the microphone above to begin.'}
           </p>
         ) : (
-          <p>
+          <p className="note-page__paragraph" lang="si">
             {finals.map((item) => (
-              <span key={item.segment} className="live-transcript__final">
-                {item.text}{' '}
+              <span key={item.segment}>
+                <span
+                  className={`note-page__segment ${item.dirty ? 'is-dirty' : ''}`}
+                  contentEditable
+                  suppressContentEditableWarning
+                  role="textbox"
+                  aria-multiline="false"
+                  aria-label={`Note line ${item.segment + 1}, editable`}
+                  onBlur={(e) => handleSegmentBlur(item, e)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') e.preventDefault()
+                  }}
+                  dangerouslySetInnerHTML={{ __html: escapeHtml(item.text) }}
+                />{' '}
               </span>
             ))}
             {partial && <span className="live-transcript__partial">{partial}</span>}

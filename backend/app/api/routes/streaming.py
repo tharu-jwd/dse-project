@@ -84,8 +84,12 @@ async def stream_transcription(websocket: WebSocket) -> None:
       client -> binary frames of 16kHz mono 16-bit PCM
       client -> {"type": "stop"}
       server -> {"type": "partial", "text": str, "segment": int}
-      server -> {"type": "final", "text": str, "start": float, "end": float, "segment": int}
-        (NOTE mode only - COMMAND mode never persists or reports dictated text)
+      server -> {"type": "final", "text": str, "start": float, "end": float, "segment": int,
+                 "segment_id": str, "transcript_id": str}
+        (NOTE mode only - COMMAND mode never persists or reports dictated text.
+        segment_id/transcript_id are the real database ids, included so the
+        client can PATCH /transcripts/{transcript_id} to edit this exact
+        line without waiting for session_end.)
       server -> {"type": "listening"}
         (COMMAND mode only - sent the instant VAD detects speech starting,
         before any transcription, so the client can show feedback with no
@@ -579,7 +583,7 @@ async def _persist_and_send_final(
     order = state["segment_order"]
     state["segment_order"] = order + 1
 
-    await asyncio.to_thread(
+    segment_id = await asyncio.to_thread(
         add_final_segment,
         transcript_id,
         order,
@@ -596,6 +600,8 @@ async def _persist_and_send_final(
                 "start": segment.start,
                 "end": segment.end,
                 "segment": order,
+                "segment_id": str(segment_id),
+                "transcript_id": str(transcript_id),
             }
         )
     except RuntimeError:

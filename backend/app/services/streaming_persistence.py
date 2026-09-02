@@ -36,22 +36,31 @@ def add_final_segment(
     start: float,
     end: float,
     confidence: float = 0.0,
-) -> None:
-    """Persist one final segment immediately - never buffer until session end."""
+) -> UUID:
+    """Persist one final segment immediately - never buffer until session end.
+
+    Returns the new row's id so the caller can hand it to the client (see
+    streaming.py's "final" message) - without it the client has no way to
+    PATCH /transcripts/{id} for this specific line later, since that
+    endpoint identifies segments by their real database id, not the
+    in-session `segment_order` the streaming protocol uses.
+    """
 
     with SessionLocal.begin() as db:
-        db.add(
-            TranscriptSegment(
-                transcript_id=transcript_id,
-                segment_order=segment_order,
-                generated_text=text,
-                edited_text=None,
-                start_time=start,
-                end_time=max(end, start),
-                confidence=max(0.0, min(1.0, confidence)),
-                word_metadata=None,
-            )
+        segment = TranscriptSegment(
+            transcript_id=transcript_id,
+            segment_order=segment_order,
+            generated_text=text,
+            edited_text=None,
+            start_time=start,
+            end_time=max(end, start),
+            confidence=max(0.0, min(1.0, confidence)),
+            word_metadata=None,
         )
+        db.add(segment)
+        db.flush()
+
+        return segment.segment_id
 
 
 def delete_last_segment(transcript_id: UUID) -> int | None:

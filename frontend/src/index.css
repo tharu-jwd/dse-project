@@ -1871,6 +1871,47 @@ textarea:focus-visible {
   color: var(--muted);
   font-style: italic;
 }
+.note-page--editable {
+  display: block;
+}
+.note-page__paragraph {
+  margin: 0;
+}
+.note-page__segment {
+  display: inline;
+  border-radius: 4px;
+  padding: 1px 3px;
+  margin: -1px -3px;
+  color: var(--text, #eaddff);
+  cursor: text;
+  transition: background 0.15s;
+}
+.note-page__segment:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.note-page__segment:focus {
+  background: rgba(255, 255, 255, 0.07);
+  outline: 2px solid var(--teal);
+  outline-offset: 1px;
+}
+.note-page__segment.is-dirty {
+  box-shadow: inset 0 -2px 0 var(--warning);
+}
+.note-save-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 16px;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  background: rgba(35, 27, 53, 0.5);
+}
+.note-save-bar__status {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
 .command-feedback {
   display: flex;
   align-items: center;
