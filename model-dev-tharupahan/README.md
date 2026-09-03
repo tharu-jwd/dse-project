@@ -23,6 +23,7 @@ ignored by Git.
 Prediction scoring and error-analysis rules are in
 [EVALUATION.md](EVALUATION.md).
 Training, resume, and cost-gate commands are in [TRAINING.md](TRAINING.md).
+The versioned Sinhala transcription rules are in [TEXT_POLICY.md](TEXT_POLICY.md).
 
 ## Audit existing splits
 

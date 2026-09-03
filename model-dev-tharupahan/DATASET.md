@@ -122,6 +122,17 @@ The output is an atomic, resumable correction overlay keyed by stable sample
 ID. Raw source rows are never edited. Back up the adjudication file during a
 long review campaign.
 
+After every gold candidate has a decision, lock a new immutable version. This
+command fails on missing candidates, unknown IDs, invalid accepted transcripts,
+or an existing non-empty output directory:
+
+```bash
+PYTHONPATH=src python scripts/finalize_dataset.py \
+  --manifest data/versions/v1/manifest.parquet \
+  --adjudications reports/review/gold-v1-adjudications.jsonl \
+  --output-dir data/versions/v2
+```
+
 ## Verified findings (2026-09-03 snapshots)
 
 - Official OpenSLR-52 contains 185,293 rows and 224.50 hours. Two clips exceed
