@@ -137,6 +137,15 @@ PYTHONPATH=src python scripts/finalize_dataset.py \
   --output-dir data/versions/v2
 ```
 
+For optional GPT spelling/format suggestions, export ID-aligned UTF-8 TSV
+batches. Suggestions are never applied as ground truth without audio review:
+
+```bash
+PYTHONPATH=src python scripts/export_transcripts_for_gpt.py \
+  --queue reports/review/gold-v1-candidates.parquet \
+  --output-dir reports/review/gpt-suggestions/input
+```
+
 ## Verified findings (2026-09-03 snapshots)
 
 - Official OpenSLR-52 contains 185,293 rows and 224.50 hours. Two clips exceed
