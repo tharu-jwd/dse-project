@@ -48,7 +48,7 @@ def main() -> None:
 
     st.title("Sinhala ASR Ground-Truth Review")
     st.progress(reviewed / len(queue), text=f"{reviewed} / {len(queue)} reviewed")
-    show_reviewed = st.sidebar.checkbox("Include reviewed samples", value=False)
+    view = st.sidebar.radio("Review status", ("Unreviewed", "Reviewed", "All"))
     categories = sorted(
         str(value)
         for value in queue.get("review_category", pd.Series(dtype=str))
@@ -63,16 +63,51 @@ def main() -> None:
         visible = visible[
             visible["review_category"].astype(str).isin(selected_categories)
         ]
-    if not show_reviewed:
+    reviewed_ids = set(records)
+    if view == "Unreviewed":
         visible = visible[~visible["sample_id"].astype(str).isin(records)]
+    elif view == "Reviewed":
+        visible = visible[visible["sample_id"].astype(str).isin(reviewed_ids)]
     if visible.empty:
         st.success("No samples remain in this view.")
         return
 
     options = visible.index.tolist()
-    index = st.number_input(
-        "Queue position", min_value=0, max_value=len(options) - 1, value=0, step=1
+    position_key = f"queue-position-{view}"
+    if position_key not in st.session_state:
+        st.session_state[position_key] = 0
+    st.session_state[position_key] = min(
+        st.session_state[position_key], len(options) - 1
     )
+
+    def move_position(delta: int) -> None:
+        st.session_state[position_key] += delta
+
+    previous_column, position_column, next_column = st.columns([1, 3, 1])
+    with previous_column:
+        st.button(
+            "← Previous",
+            disabled=st.session_state[position_key] == 0,
+            use_container_width=True,
+            on_click=move_position,
+            args=(-1,),
+        )
+    with position_column:
+        index = st.number_input(
+            "Queue position",
+            min_value=0,
+            max_value=len(options) - 1,
+            step=1,
+            key=position_key,
+        )
+    with next_column:
+        st.button(
+            "Next →",
+            disabled=st.session_state[position_key] >= len(options) - 1,
+            use_container_width=True,
+            on_click=move_position,
+            args=(1,),
+        )
     row = visible.loc[options[int(index)]]
     sample_id = str(row["sample_id"])
     previous = records.get(sample_id, {})
