@@ -298,6 +298,9 @@ actual cloud cost.
 - [x] Build the local adjudication UI and self-contained review queues
 - [ ] Review and lock gold validation/test sets
 - [x] Generate deterministic speaker-disjoint v1 candidate splits
+- [x] Implement strict/canonical metrics, error labels, subgroups, and confidence intervals
+- [x] Pass local Whisper train/evaluate/save/resume and prediction/report smoke tests
+- [x] Enforce configuration-based cloud cost and test-set access gates
 - [ ] Evaluation and detailed error reports
 - [ ] Configuration-driven training
 - [ ] Local smoke and checkpoint-resume tests

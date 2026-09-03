@@ -10,7 +10,13 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from sinhala_asr.review.store import DECISIONS, load_adjudications, load_queue, reviewed_count, save_adjudication
+from sinhala_asr.review.store import (
+    DECISIONS,
+    load_adjudications,
+    load_queue,
+    reviewed_count,
+    save_adjudication,
+)
 
 
 def parse_paths() -> tuple[Path, Path]:
@@ -43,11 +49,20 @@ def main() -> None:
     st.title("Sinhala ASR Ground-Truth Review")
     st.progress(reviewed / len(queue), text=f"{reviewed} / {len(queue)} reviewed")
     show_reviewed = st.sidebar.checkbox("Include reviewed samples", value=False)
-    categories = sorted(str(value) for value in queue.get("review_category", pd.Series(dtype=str)).dropna().unique())
-    selected_categories = st.sidebar.multiselect("Categories", categories, default=categories)
+    categories = sorted(
+        str(value)
+        for value in queue.get("review_category", pd.Series(dtype=str))
+        .dropna()
+        .unique()
+    )
+    selected_categories = st.sidebar.multiselect(
+        "Categories", categories, default=categories
+    )
     visible = queue
     if categories and selected_categories:
-        visible = visible[visible["review_category"].astype(str).isin(selected_categories)]
+        visible = visible[
+            visible["review_category"].astype(str).isin(selected_categories)
+        ]
     if not show_reviewed:
         visible = visible[~visible["sample_id"].astype(str).isin(records)]
     if visible.empty:
@@ -55,7 +70,9 @@ def main() -> None:
         return
 
     options = visible.index.tolist()
-    index = st.number_input("Queue position", min_value=0, max_value=len(options) - 1, value=0, step=1)
+    index = st.number_input(
+        "Queue position", min_value=0, max_value=len(options) - 1, value=0, step=1
+    )
     row = visible.loc[options[int(index)]]
     sample_id = str(row["sample_id"])
     previous = records.get(sample_id, {})
@@ -67,7 +84,9 @@ def main() -> None:
             st.error("This queue row has no playable audio payload or path.")
         else:
             st.audio(audio)
-        st.text_area("Original transcript", str(row["text_original"]), disabled=True, height=120)
+        st.text_area(
+            "Original transcript", str(row["text_original"]), disabled=True, height=120
+        )
         corrected = st.text_area(
             "Verified transcript",
             value=str(previous.get("text_corrected") or row["text_original"]),
@@ -76,7 +95,13 @@ def main() -> None:
         )
     with right:
         st.code(sample_id, language=None)
-        for field in ("source_dataset", "speaker_id", "duration_seconds", "review_category", "validation_flags"):
+        for field in (
+            "source_dataset",
+            "speaker_id",
+            "duration_seconds",
+            "review_category",
+            "validation_flags",
+        ):
             if field in row and pd.notna(row[field]):
                 value = row[field]
                 if field == "validation_flags" and isinstance(value, str):
@@ -85,24 +110,63 @@ def main() -> None:
                     except json.JSONDecodeError:
                         pass
                 st.write(f"**{field}:**", value)
-        decision = st.radio("Decision", DECISIONS, index=DECISIONS.index(previous.get("decision", "correct")))
-        notes = st.text_area("Notes", value=str(previous.get("notes") or ""), key=f"notes-{sample_id}")
-        if st.button("Save and continue", type="primary", use_container_width=True):
-            if decision == "edited" and corrected.strip() == str(row["text_original"]).strip():
+        decision = st.radio(
+            "Decision",
+            DECISIONS,
+            index=DECISIONS.index(previous.get("decision", "correct")),
+        )
+        notes = st.text_area(
+            "Notes", value=str(previous.get("notes") or ""), key=f"notes-{sample_id}"
+        )
+
+        def persist(selected_decision: str) -> None:
+            if (
+                selected_decision == "edited"
+                and corrected.strip() == str(row["text_original"]).strip()
+            ):
                 st.error("An edited decision requires a changed transcript.")
-            else:
-                save_adjudication(
-                    output_path,
-                    {
-                        "sample_id": sample_id,
-                        "decision": decision,
-                        "text_original": str(row["text_original"]),
-                        "text_corrected": corrected.strip(),
-                        "notes": notes.strip(),
-                        "queue_path": str(queue_path),
-                    },
-                )
-                st.rerun()
+                return
+            save_adjudication(
+                output_path,
+                {
+                    "sample_id": sample_id,
+                    "decision": selected_decision,
+                    "text_original": str(row["text_original"]),
+                    "text_corrected": corrected.strip(),
+                    "notes": notes.strip(),
+                    "queue_path": str(queue_path),
+                },
+            )
+            st.rerun()
+
+        st.caption(
+            "Quick decisions: 1 correct · 2 edited · 3 bad audio · 4 mismatch · 5 duplicate · 6 uncertain"
+        )
+        labels = {
+            "correct": "Correct",
+            "edited": "Edited",
+            "bad_audio": "Bad audio",
+            "mismatch": "Mismatch",
+            "duplicate": "Duplicate",
+            "uncertain": "Uncertain",
+        }
+        columns = st.columns(3)
+        for position, selected_decision in enumerate(DECISIONS, start=1):
+            with columns[(position - 1) % 3]:
+                if st.button(
+                    labels[selected_decision],
+                    key=f"quick-{selected_decision}-{sample_id}",
+                    shortcut=str(position),
+                    use_container_width=True,
+                ):
+                    persist(selected_decision)
+        if st.button(
+            "Save selected and continue",
+            type="primary",
+            shortcut="Enter",
+            use_container_width=True,
+        ):
+            persist(decision)
 
 
 if __name__ == "__main__":
