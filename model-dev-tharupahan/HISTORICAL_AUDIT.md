@@ -28,8 +28,11 @@ Evidence labels used below:
 
 The authoritative data location supplied by the project owner is
 `gs://singen/whisper/finalData/`. It has not yet been inventoried because this
-environment is not authenticated to the private bucket. The local historical
-data and results therefore cannot yet be proven identical to the bucket.
+environment is authenticated but Google Cloud rejects bucket access because the
+owning project's billing account is delinquent. The local historical data and
+results therefore cannot yet be proven identical to the bucket. Independently
+downloadable upstream sources will be audited first; bucket files will later be
+treated as team-processed comparison artifacts.
 
 ## Run inventory
 
@@ -75,8 +78,8 @@ subgroups are healthy.
 
 The committed documentation describes approximately 149,926 OpenSLR rows and
 4,902 collection rows, with an 80/10/10 split. The split code stratifies by
-source dataset, not by speaker. Until the cloud inventory and manifest audit
-complete, the following remain unknown:
+source dataset, not by speaker. Until upstream data is audited and the team's
+cloud artifacts become available for comparison, the following remain unknown:
 
 - whether any speaker or audio content crosses splits
 - whether the bucket exactly matches the committed split files
@@ -167,5 +170,7 @@ comparison checkpoint and possible continuation candidate. It does not replace
 a clean baseline, and its standalone-English regression makes it unsuitable as
 the only starting point.
 
-The next blocking evidence task is authenticating read-only access to the GCS
-bucket, inventorying its objects and metadata, then running the manifest audit.
+The next evidence task is downloading and fingerprinting the independently
+available upstream datasets, then running the manifest audit. Restored GCS
+billing remains necessary to compare the team's processed files and recover any
+verified corrections, but it does not block the upstream audit.

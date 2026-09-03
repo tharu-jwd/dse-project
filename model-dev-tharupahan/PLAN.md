@@ -47,79 +47,21 @@ history, contradictions, evaluation policy, and experiment rationale.
 7. Generated datasets, checkpoints, predictions, and reports are not committed
    unless they are deliberately selected compact reference artifacts.
 
-## Evidence from the historical runs
-
-The historical best full fine-tune has 17.36% WER under the repository's
-current normalizer. Its error profile shows that aggregate WER mixes several
-different problems:
-
-- Raw exact-match rate: 53.77%
-- Current normalized exact-match rate: 60.42%
-- Exact-match rate after additionally ignoring whitespace: 76.54%
-- Sinhala-only WER: 16.58% over 15,258 samples
-- Code-switched WER: 29.77% over 225 samples
-- WER for 1-2 word samples: 13.90%
-- WER for 3-5 word samples: 14.88%
-- WER for 6-10 word samples: 19.14%
-- WER for 11-20 word samples: 20.30%
-- WER for 21+ word samples: 35.04%
-
-Frequent counted errors include compound-word spacing, particles joined to or
-split from words, colloquial/formal variants, and spelling variants. Genuine
-failures also include Sinhala grapheme confusions, names, numbers, code-switched
-English, deletions, and occasional repetition loops.
-
-Historical prediction exports lack sample ID, source, speaker, audio hash,
-duration, and other metadata, so they cannot support source- or speaker-level
-diagnosis. The new pipeline must retain these fields.
-
-## Target structure
-
-```text
-model-dev-tharupahan/
-├── PLAN.md
-├── README.md
-├── pyproject.toml
-├── configs/
-│   ├── data/
-│   ├── training/
-│   └── evaluation/
-├── src/sinhala_asr/
-│   ├── data/
-│   │   ├── ingest.py
-│   │   ├── validate.py
-│   │   ├── normalize.py
-│   │   ├── deduplicate.py
-│   │   ├── split.py
-│   │   └── manifest.py
-│   ├── training/
-│   │   ├── dataset.py
-│   │   ├── collator.py
-│   │   ├── augment.py
-│   │   └── trainer.py
-│   ├── evaluation/
-│   │   ├── inference.py
-│   │   ├── metrics.py
-│   │   ├── error_analysis.py
-│   │   └── reports.py
-│   └── text/
-│       └── sinhala_normalizer.py
-├── scripts/
-│   ├── prepare_data.py
-│   ├── train.py
-│   ├── evaluate.py
-│   └── analyze_errors.py
-├── tests/
-├── data/          # ignored
-├── checkpoints/   # ignored
-├── reports/       # generated outputs ignored by default
-└── runs/          # resolved run records ignored by default
-```
-
-The exact module split may be simplified when implementation shows that two
-modules do not have genuinely separate responsibilities.
+Historical metrics, run contradictions, and inherited operational lessons live
+only in `HISTORICAL_AUDIT.md`; do not duplicate them here. Keep implementation
+under `src/sinhala_asr/`, entry points under `scripts/`, tests under `tests/`,
+and generated data, reports, runs, and checkpoints in ignored directories.
 
 ## Phase 1: dataset audit and manifest
+
+Reconstruct the corpus from independently downloadable upstream sources first:
+official OpenSLR-52 plus the public YouTube Sinhala and BizBrains datasets.
+Download Linga only for provenance comparison because it appears to overlap
+OpenSLR substantially and must not be counted as independent speech. Preserve
+each upstream snapshot unchanged with its source URL, revision, license, file
+checksums, and download date. Use the team's GCS `finalData` later as a
+comparison artifact to recover and verify useful corrections—not as assumed
+ground truth or as a prerequisite for beginning the audit.
 
 Build a deterministic manifest containing at least:
 
@@ -145,13 +87,19 @@ conditions—not row count. The audit must report total and retained hours,
 duration quantiles, speaker coverage where identities exist, source/domain
 coverage, Sinhala-only/code-switched counts, and estimated transcript error
 rates. The historical claim of approximately 154,828 rows is not accepted as a
-training-capacity measurement until it is reproduced from the cloud data.
+training-capacity measurement until source snapshots are fingerprinted and
+their retained speech hours are calculated.
 
-Perform a reviewed, stratified listening audit before freezing the data. Sample
-at least 100 rows from each applicable category: random OpenSLR, random
+Perform a reviewed, stratified listening audit before freezing the data. The
+local review UI must play audio, show original/canonical text and audit flags,
+support keyboard-driven correct/edit/bad-audio/mismatch/duplicate/uncertain
+decisions, save progress continuously, and export a versioned adjudication
+table without modifying raw sources.
+
+Review at least 100 rows from each applicable category: random OpenSLR, random
 collection sources, automatically flagged anomalies, duplicate/near-duplicate
-candidates, and code-switched speech. A row may satisfy more than one category;
-record every reviewed decision in a durable adjudication table.
+candidates, and code-switched speech. A row may satisfy more than one category.
+Use this sample to estimate error rates, not as the sole training corpus.
 
 Exit with failure when invariants are violated. Never silently discard a row;
 write its reason to an exclusions manifest.
@@ -161,6 +109,13 @@ identifiers can be recovered. Also retain a collection-domain robustness test,
 a standalone English-retention set, and explicit Sinhala-only and code-switched
 evaluation slices. If speaker identity is unavailable, document that limitation
 and group by the strongest defensible recording/session identifier instead.
+
+Before training, the native-Sinhala reviewer must lock a gold evaluation set of
+approximately 1,000–2,000 diverse clips, divided into validation and test. Both
+parts are excluded from training. Validation may select recipes and checkpoints;
+test remains unopened until a candidate is frozen. Store corrections as overlays
+and publish immutable dataset versions (`v1`, `v2`, and so on), never by
+overwriting upstream data.
 
 ## Phase 2: Sinhala text policy
 
@@ -244,6 +199,24 @@ or capacity when it plateaus.
 Change one experimental factor at a time. Use validation data and early stopping
 for selection; evaluate the test set only after freezing a candidate.
 
+### Human-in-the-loop improvement cycle
+
+Do not require manual verification of the full training corpus. Train initially
+on automatically high-confidence data plus reviewed corrections. After each
+baseline, rank training candidates for review using high loss, low confidence,
+checkpoint disagreement, repeated error patterns, transcript/audio mismatch
+signals, and underrepresented speakers or domains. The reviewer then corrects a
+meaningful batch—normally 300–1,000 samples, a completed error category, or at
+least one verified hour—before another GPU run.
+
+For controlled comparisons, restart every candidate from the same official
+Whisper-small checkpoint. For final staged adaptation, continuation from the
+winning checkpoint is allowed at a lower learning rate, but mix prior training
+data with new corrections to reduce overfitting and forgetting. Periodically
+retrain from the official checkpoint on the complete latest dataset version to
+detect bias accumulated through repeated continuation. Never fine-tune on the
+gold validation or test rows.
+
 ## Phase 5: GPU and cloud cost gates
 
 Initial compute allowance: five included Camber GPU hours plus at most USD 10
@@ -289,9 +262,12 @@ remaining allowance, the job must not advance automatically.
 - Run one full winner
 - Attempt a larger model only when the measured expected benefit justifies cost
 
-Use cloud object storage for durable data and checkpoints. Do not use a stopped
-GPU volume as long-term storage. Record the instance type and displayed hourly
-price at run start, and terminate compute automatically after success or error.
+Keep immutable source snapshots and canonical outputs on the local machine with
+checksums and a separate backup. Upload only the required frozen dataset version
+to a training provider, and download run records, predictions, and important
+checkpoints before terminating it. Do not use a stopped GPU volume as long-term
+storage. Record the instance type and displayed hourly price at run start, and
+terminate compute automatically after success or error.
 
 ## Completion criteria
 
@@ -315,8 +291,12 @@ actual cloud cost.
 - [x] Historical run and error-profile review
 - [x] Clean-project scope and architecture recorded
 - [x] Package scaffold and development tooling
-- [x] Dataset manifest and initial audit
+- [x] Dataset manifest and audit tooling
 - [x] Conservative Sinhala normalization v1 and tests
+- [ ] Download and fingerprint upstream source datasets
+- [ ] Run the audit on actual audio/transcript data
+- [ ] Build the local adjudication UI
+- [ ] Review and lock gold validation/test sets
 - [ ] Leakage-resistant split generation
 - [ ] Evaluation and detailed error reports
 - [ ] Configuration-driven training
