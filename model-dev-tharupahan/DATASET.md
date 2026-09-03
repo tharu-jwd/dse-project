@@ -159,3 +159,9 @@ The generated evidence is in `reports/dataset-audit/*` and
 `465c3303c4cb646ef16b520af477c47964ee0d5de2d4e30369c3f50f291ce632`.
 The deterministic v1 split fingerprint is
 `410fe5eddffb7d597398fa46c07beaf1d77c6e3a986aaa92fecb48ebaac86e83`.
+
+Boundary-silence analysis of the 2,000 v1 gold candidates uses 20 ms frames at
+-40 dBFS. Median leading/trailing silence is 1.34/0.98 seconds; 1,815 clips have
+over 40% combined boundary silence. This is not a reviewer rejection criterion.
+Raw clips remain immutable; conservative trimming with retained margins must be
+evaluated as an explicit preprocessing ablation.
