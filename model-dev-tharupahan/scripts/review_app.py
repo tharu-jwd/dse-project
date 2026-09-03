@@ -201,7 +201,7 @@ def main() -> None:
                 },
             )
 
-        decision = st.radio(
+        st.radio(
             "Decision",
             REVIEW_DECISIONS,
             index=(
@@ -259,13 +259,6 @@ def main() -> None:
                     use_container_width=True,
                 ):
                     persist(selected_decision)
-        if st.button(
-            "Save selected and continue",
-            type="primary",
-            shortcut="Enter",
-            use_container_width=True,
-        ):
-            persist(decision)
 
 
 if __name__ == "__main__":
