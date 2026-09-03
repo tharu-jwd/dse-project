@@ -11,8 +11,8 @@ model-development/
 ├── evaluation/     # Evaluation programs and committed reference results
 ├── experiments/    # Experiment tracker and run metadata
 ├── scripts/        # Dataset preparation and quality-control utilities
-├── notebooks/      # Exploratory preprocessing notebooks
-├── observation/    # Early data exploration and collection utilities
+├── notebooks/      # Audio and transcript preprocessing notebooks
+├── research/       # Early data exploration notebooks and collection utilities
 ├── data/           # Local datasets (large Parquet files are ignored)
 ├── checkpoints/    # Local model artifacts (ignored except .gitkeep)
 ├── docs/           # Guides, strategy, dataset notes, and design reviews

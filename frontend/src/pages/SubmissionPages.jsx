@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
-import submissionsBackground from '../assets/5.png'
+import submissionsBackground from '../assets/library-background.png'
 import Icon from '../components/Icon'
 import { Alert, EmptyState, Loading, PageHeader, StatusBadge } from '../components/UI'
 import { useToast } from '../contexts/ToastContext'

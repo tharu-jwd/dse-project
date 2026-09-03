@@ -144,6 +144,8 @@ alembic revision --autogenerate -m "describe the change"
 ```text
 backend/
 ├── alembic/             Database migrations
+├── artifacts/           Committed voice-command analysis summaries
+├── docs/                Backend feature documentation
 ├── app/
 │   ├── api/             Routes and request dependencies
 │   ├── core/            Configuration and JWT/password security
@@ -155,3 +157,5 @@ backend/
 └── scripts/             Seeders and transcription worker
 ```
 
+See [Voice command enrollment](docs/voice-enrollment.md) for enrollment,
+embedding validation, runtime matching, and A/B testing.

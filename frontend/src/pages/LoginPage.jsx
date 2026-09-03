@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { USE_MOCK_API } from '../api'
-import loginBackground from '../assets/4.jpg'
+import loginBackground from '../assets/general-background.jpg'
 import { Logo } from '../components/AppShell'
 import Icon from '../components/Icon'
 import { Alert } from '../components/UI'

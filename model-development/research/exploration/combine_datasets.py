@@ -26,7 +26,7 @@ from tqdm.auto import tqdm
 
 BASE_DIR = Path(__file__).parent
 
-# Rows confirmed bad in youtubeData.ipynb section 8: duplicate "not suitable for
+# Rows confirmed bad in youtube.ipynb section 8: duplicate "not suitable for
 # transcription" placeholders (258, 1807, 3555), a duplicate audio/transcript pair
 # (2095, keeping 1497), and the one clip Silero VAD found no speech in at all (3306).
 YOUTUBE_DROP_IDS = [258, 1807, 3555, 2095, 3306]

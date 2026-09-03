@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
-import settingsBackground from '../assets/3.jpg'
+import settingsBackground from '../assets/settings-background.jpg'
 import AccessibilityControls from '../components/AccessibilityControls'
 import Icon from '../components/Icon'
 import { PageHeader } from '../components/UI'

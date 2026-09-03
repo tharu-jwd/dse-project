@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
-import quizBackground from '../assets/4.jpg'
+import quizBackground from '../assets/general-background.jpg'
 import AudioRecorder from '../components/AudioRecorder'
 import Icon from '../components/Icon'
 import TranscriptEditor from '../components/TranscriptEditor'

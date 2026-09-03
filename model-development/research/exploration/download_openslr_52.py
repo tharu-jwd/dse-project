@@ -8,9 +8,11 @@ Dataset info: https://openslr.org/52/
 - Total size ~15GB
 
 Usage:
-    python download_openslr_52.py
-    python download_openslr_52.py --output-dir /path/to/save --skip-extract
-    python download_openslr_52.py --shards 0 1 2   # download only specific shards
+    python3 model-development/research/exploration/download_openslr_52.py
+    python3 model-development/research/exploration/download_openslr_52.py \
+        --output-dir /path/to/save --skip-extract
+    python3 model-development/research/exploration/download_openslr_52.py \
+        --shards 0 1 2
 """
 
 import os
@@ -21,7 +23,7 @@ import urllib.request
 import urllib.error
 
 BASE_URL = "https://openslr.trmal.net/resources/52/"
-ALL_SHARDS = list("012345-6789abcdef")
+ALL_SHARDS = list("0123456789abcdef")
 TRANSCRIPT_FILE = "utt_spk_text.tsv"
 
 

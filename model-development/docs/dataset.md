@@ -29,7 +29,7 @@ OpenSLR-52 Sinhala, cleaned end to end:
 YouTube + BizBrains + Linga, combined and cleaned:
 
 1. Combined, audio-trimmed, and transcript-cleaned
-   (see `dse-project/model-development/notebooks/`)
+   (see `model-development/notebooks/`)
 2. Deduplicated against OpenSLR by audio content hash — rows whose audio was a
    byte-for-byte duplicate of an OpenSLR recording were dropped (~67% of the
    pre-dedup 15,002 rows; the same clip surfaced under two source labels)
@@ -95,7 +95,7 @@ in sync. Flags let you change the ratios — see the script's `--help`.
 ## Caveat: collection QA is not finished
 
 `final_collection_qa.parquet` reflects only what's been reviewed so far in
-`dse-project/model-development/notebooks/transcriptPreprocess/review_flagged_collection_rows.ipynb`
+`model-development/notebooks/transcript-preprocessing/review_flagged_collection_rows.ipynb`
 (candidates in `data/processed/collection_qa_flagged_candidates.csv`, 268
 total, most not yet reviewed). OpenSLR's QA is complete. As more collection
 rows get reviewed, re-apply the log and re-run the split script above.

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import notFoundBackground from '../assets/4.jpg'
+import notFoundBackground from '../assets/general-background.jpg'
 import { EmptyState } from '../components/UI'
 
 export default function NotFoundPage() {
