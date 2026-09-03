@@ -167,10 +167,41 @@ export function SubmissionReviewPage() {
           <article key={answer.questionId}>
             <span>{t('submissions.questionN', index + 1)}</span>
             <h3 lang="si">{answer.question}</h3>
-            <div className="answer-transcript">
-              <Icon name="file" size={18} />
-              <p lang="si">{answer.transcript}</p>
-            </div>
+            {answer.type === 'MCQ' ? (
+              <>
+                <div className="mcq-review-options">
+                  {(answer.options || []).map((option, optIndex) => {
+                    const isSelected = option.id === answer.selectedOptionId
+                    const classes = ['mcq-review-option']
+                    if (isSelected) classes.push('mcq-review-option--selected')
+                    if (option.isCorrect) classes.push('mcq-review-option--correct')
+                    if (isSelected && !option.isCorrect)
+                      classes.push('mcq-review-option--incorrect-selection')
+                    return (
+                      <div className={classes.join(' ')} key={option.id}>
+                        <span>{optIndex + 1}.</span>
+                        <span lang="si">{option.text}</span>
+                        {isSelected && <em>{t('submissions.mcqStudentSelected')}</em>}
+                        {option.isCorrect && <strong>{t('submissions.mcqCorrectAnswer')}</strong>}
+                      </div>
+                    )
+                  })}
+                </div>
+                <p
+                  className={`mcq-review-result ${
+                    answer.isCorrect ? 'mcq-review-result--correct' : 'mcq-review-result--incorrect'
+                  }`}
+                >
+                  <Icon name={answer.isCorrect ? 'check' : 'alert'} size={15} />{' '}
+                  {answer.isCorrect ? t('submissions.mcqCorrect') : t('submissions.mcqIncorrect')}
+                </p>
+              </>
+            ) : (
+              <div className="answer-transcript">
+                <Icon name="file" size={18} />
+                <p lang="si">{answer.transcript}</p>
+              </div>
+            )}
           </article>
         ))}
       </section>

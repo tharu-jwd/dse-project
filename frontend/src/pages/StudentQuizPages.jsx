@@ -204,6 +204,12 @@ export function QuizAnswerPage() {
     setWorkingTranscript(item)
     if (item.status === 'FINALIZED') setAnswers((value) => ({ ...value, [question.id]: item }))
   }
+  const selectOption = (option) => {
+    setAnswers((value) => ({
+      ...value,
+      [question.id]: { selectedOptionId: option.id },
+    }))
+  }
   const go = (next) => {
     setCurrent(next)
     setWorkingTranscript(answers[quiz.questions[next].id] || null)
@@ -215,7 +221,13 @@ export function QuizAnswerPage() {
     try {
       await api.submitQuiz(
         quiz.id,
-        Object.values(answers).map((item) => ({ transcriptId: item.id })),
+        quiz.questions
+          .filter((q) => answers[q.id])
+          .map((q) =>
+            q.type === 'MCQ'
+              ? { questionId: q.id, selectedOptionId: answers[q.id].selectedOptionId }
+              : { questionId: q.id, transcriptId: answers[q.id].id },
+          ),
       )
       setSubmitted(true)
     } catch (cause) {
@@ -264,30 +276,58 @@ export function QuizAnswerPage() {
             </span>
             <h2 lang="si">{question.text}</h2>
           </div>
-          {answered && !workingTranscript && (
-            <Alert type="success" title={t('quiz.answerReady')}>
-              {t('quiz.questionCompleted')}
-            </Alert>
-          )}
-          {job && !workingTranscript ? (
-            <TranscriptionStatus
-              status={job.status}
-              message={job.message}
-              onRetry={() => reset()}
-            />
-          ) : workingTranscript ? (
-            <TranscriptEditor
-              initialTranscript={workingTranscript}
-              compact
-              onTranscriptChange={changed}
-            />
+          {question.type === 'MCQ' ? (
+            <div className="mcq-options">
+              <p className="field-hint">{t('quiz.mcqHint')}</p>
+              {question.options.map((option, index) => {
+                const isSelected = answers[question.id]?.selectedOptionId === option.id
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={`mcq-option ${isSelected ? 'mcq-option--selected' : ''}`}
+                    onClick={() => selectOption(option)}
+                  >
+                    <span className="mcq-option__number">{index + 1}</span>
+                    <span lang="si">{option.text}</span>
+                    {isSelected && (
+                      <span className="mcq-option__badge">
+                        <Icon name="check" size={14} /> {t('quiz.mcqSelected')}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
           ) : (
             <>
-              <h3>{t('quiz.recordSpokenAnswer')}</h3>
-              <AudioRecorder onUse={record} />
-              <p className="privacy-inline">
-                <Icon name="help" size={15} /> {t('quiz.recordingStoredNotice')}
-              </p>
+              <p className="field-hint">{t('quiz.spokenHint')}</p>
+              {answered && !workingTranscript && (
+                <Alert type="success" title={t('quiz.answerReady')}>
+                  {t('quiz.questionCompleted')}
+                </Alert>
+              )}
+              {job && !workingTranscript ? (
+                <TranscriptionStatus
+                  status={job.status}
+                  message={job.message}
+                  onRetry={() => reset()}
+                />
+              ) : workingTranscript ? (
+                <TranscriptEditor
+                  initialTranscript={workingTranscript}
+                  compact
+                  onTranscriptChange={changed}
+                />
+              ) : (
+                <>
+                  <h3>{t('quiz.recordSpokenAnswer')}</h3>
+                  <AudioRecorder onUse={record} />
+                  <p className="privacy-inline">
+                    <Icon name="help" size={15} /> {t('quiz.recordingStoredNotice')}
+                  </p>
+                </>
+              )}
             </>
           )}
           {interactionMode === 'command' && voice.error && <Alert>{voice.error}</Alert>}

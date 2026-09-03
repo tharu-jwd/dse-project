@@ -106,6 +106,10 @@ class Question(Base):
             "question_order >= 1",
             name="ck_questions_order",
         ),
+        CheckConstraint(
+            "question_type IN ('MCQ', 'SPOKEN')",
+            name="ck_questions_type",
+        ),
     )
 
     question_id: Mapped[uuid.UUID] = mapped_column(
@@ -121,6 +125,12 @@ class Question(Base):
     )
     question_order: Mapped[int] = mapped_column(Integer, nullable=False)
     question_text: Mapped[str] = mapped_column(Text, nullable=False)
+    question_type: Mapped[str] = mapped_column(
+        String(20),
+        default="SPOKEN",
+        server_default=text("'SPOKEN'"),
+        nullable=False,
+    )
     is_required: Mapped[bool] = mapped_column(
         Boolean,
         default=True,
@@ -142,6 +152,51 @@ class Question(Base):
     quiz: Mapped[Quiz] = relationship(back_populates="questions")
     answer_submissions: Mapped[list[AnswerSubmission]] = relationship(
         back_populates="question",
+    )
+    options: Mapped[list[QuestionOption]] = relationship(
+        back_populates="question",
+        cascade="all, delete-orphan",
+        order_by="QuestionOption.option_order",
+    )
+
+
+class QuestionOption(Base):
+    __tablename__ = "question_options"
+    __table_args__ = (
+        UniqueConstraint(
+            "question_id",
+            "option_order",
+            name="uq_question_options_order",
+        ),
+        CheckConstraint(
+            "option_order >= 1 AND option_order <= 4",
+            name="ck_question_options_order",
+        ),
+    )
+
+    option_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    question_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("questions.question_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    option_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    option_text: Mapped[str] = mapped_column(Text, nullable=False)
+    is_correct: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default=text("false"),
+        nullable=False,
+    )
+
+    question: Mapped[Question] = relationship(back_populates="options")
+    answer_submissions: Mapped[list[AnswerSubmission]] = relationship(
+        back_populates="selected_option",
     )
 
 
@@ -265,6 +320,11 @@ class AnswerSubmission(Base):
         ForeignKey("transcripts.transcript_id", ondelete="SET NULL"),
         nullable=True,
     )
+    selected_option_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("question_options.option_id", ondelete="SET NULL"),
+        nullable=True,
+    )
     status: Mapped[str] = mapped_column(
         String(20),
         default="NOT_STARTED",
@@ -290,5 +350,8 @@ class AnswerSubmission(Base):
         back_populates="answer_submissions",
     )
     transcription: Mapped[Transcript | None] = relationship(
+        back_populates="answer_submissions",
+    )
+    selected_option: Mapped[QuestionOption | None] = relationship(
         back_populates="answer_submissions",
     )

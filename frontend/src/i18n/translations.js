@@ -601,6 +601,16 @@ export const translations = {
     si: 'ඔබේ පිළිතුරු ඔබේ ගුරුවරයාට යවනු ලැබේ. ඉදිරිපත් කිරීමෙන් පසු ඒවා සංස්කරණය කළ නොහැක.',
   },
   'quiz.submitQuiz': { en: 'Submit quiz', si: 'ප්‍රශ්නාවලිය ඉදිරිපත් කරන්න' },
+  'quiz.mcqHint': {
+    en: 'Select one option below.',
+    si: 'පහත විකල්පයන්ගෙන් එකක් තෝරන්න.',
+  },
+  'quiz.mcqOption': { en: (n) => `Option ${n}`, si: (n) => `විකල්පය ${n}` },
+  'quiz.mcqSelected': { en: 'Selected', si: 'තෝරාගෙන ඇත' },
+  'quiz.spokenHint': {
+    en: 'You can record your answer or use live transcription.',
+    si: 'ඔබට ඔබේ පිළිතුර පටිගත කළ හැකි හෝ සජීවී පිටපත් කිරීම භාවිතා කළ හැකිය.',
+  },
 
   // Teacher quiz pages
   'teacherQuiz.workspace': { en: 'Teacher workspace', si: 'ගුරු වැඩබිම' },
@@ -669,6 +679,24 @@ export const translations = {
   },
   'teacherQuiz.statusDraft': { en: 'Draft', si: 'කටුව' },
   'teacherQuiz.statusPublished': { en: 'Published', si: 'පළ කළ' },
+  'teacherQuiz.questionType': { en: 'Question type', si: 'ප්‍රශ්න වර්ගය' },
+  'teacherQuiz.typeSpoken': { en: 'Spoken', si: 'කථන' },
+  'teacherQuiz.typeMCQ': { en: 'Multiple choice', si: 'බහුවරණ' },
+  'teacherQuiz.mcqOptions': { en: 'Options', si: 'විකල්ප' },
+  'teacherQuiz.mcqOptionPlaceholder': {
+    en: (n) => `Option ${n} text…`,
+    si: (n) => `විකල්පය ${n} පෙළ…`,
+  },
+  'teacherQuiz.mcqCorrectOption': { en: 'Correct answer', si: 'නිවැරදි පිළිතුර' },
+  'teacherQuiz.mcqMarkCorrect': { en: 'Mark as correct', si: 'නිවැරදි ලෙස සලකුණු කරන්න' },
+  'teacherQuiz.mcqNeedsFourOptions': {
+    en: 'Every multiple-choice question needs exactly 4 non-empty options.',
+    si: 'සෑම බහුවරණ ප්‍රශ්නයකටම හිස් නොවන විකල්ප 4ක් අවශ්‍යයි.',
+  },
+  'teacherQuiz.mcqNeedsCorrectOption': {
+    en: 'Every multiple-choice question needs exactly one correct option marked.',
+    si: 'සෑම බහුවරණ ප්‍රශ්නයකටම නිවැරදි විකල්පයක් සලකුණු කළ යුතුය.',
+  },
 
   // Submission pages
   'submissions.loading': { en: 'Loading submissions…', si: 'ඉදිරිපත් කිරීම් පූරණය වෙමින්…' },
@@ -704,6 +732,10 @@ export const translations = {
   },
   'submissions.saving': { en: 'Saving…', si: 'සුරකිමින්…' },
   'submissions.saveReview': { en: 'Save review', si: 'සමාලෝචනය සුරකින්න' },
+  'submissions.mcqStudentSelected': { en: 'Student selected', si: 'ශිෂ්‍යයා තෝරාගත්තේ' },
+  'submissions.mcqCorrect': { en: 'Correct', si: 'නිවැරදියි' },
+  'submissions.mcqIncorrect': { en: 'Incorrect', si: 'වැරදියි' },
+  'submissions.mcqCorrectAnswer': { en: 'Correct answer', si: 'නිවැරදි පිළිතුර' },
 
   // Voice enrollment page
   'enroll.eyebrow': { en: 'Speak to control the app', si: 'යෙදුම පාලනය කිරීමට කථා කරන්න' },
