@@ -116,6 +116,7 @@ def main() -> None:
     original_text = str(row["text_original"])
     text_key = f"text-{sample_id}"
     notes_key = f"notes-{sample_id}"
+    decision_key = f"decision-{sample_id}"
 
     def save_transcript_edit() -> None:
         changed_text = str(st.session_state.get(text_key) or "").strip()
@@ -174,6 +175,32 @@ def main() -> None:
                     except json.JSONDecodeError:
                         pass
                 st.write(f"**{field}:**", value)
+
+        def save_radio_decision() -> None:
+            selected_decision = str(st.session_state[decision_key])
+            changed_text = str(st.session_state.get(text_key) or "").strip()
+            if selected_decision == "edited" and changed_text == original_text.strip():
+                return
+            effective_decision = (
+                "edited"
+                if selected_decision == "correct"
+                and changed_text != original_text.strip()
+                else selected_decision
+            )
+            save_adjudication(
+                output_path,
+                {
+                    "sample_id": sample_id,
+                    "decision": effective_decision,
+                    "text_original": original_text,
+                    "text_corrected": changed_text,
+                    "notes": str(
+                        st.session_state.get(notes_key) or previous.get("notes") or ""
+                    ).strip(),
+                    "queue_path": str(queue_path),
+                },
+            )
+
         decision = st.radio(
             "Decision",
             REVIEW_DECISIONS,
@@ -182,6 +209,8 @@ def main() -> None:
                 if previous.get("decision") in REVIEW_DECISIONS
                 else REVIEW_DECISIONS.index("uncertain")
             ),
+            key=decision_key,
+            on_change=save_radio_decision,
         )
         notes = st.text_area(
             "Notes", value=str(previous.get("notes") or ""), key=notes_key
