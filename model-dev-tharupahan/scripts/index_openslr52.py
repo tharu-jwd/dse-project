@@ -7,8 +7,25 @@ import argparse
 from pathlib import Path
 
 import pyarrow as pa
-import pyarrow.csv as csv
 import pyarrow.parquet as pq
+
+
+def read_transcripts(path: Path) -> tuple[list[str], list[str], list[str]]:
+    record_ids: list[str] = []
+    speaker_ids: list[str] = []
+    texts: list[str] = []
+    with path.open(encoding="utf-8") as handle:
+        for line_number, line in enumerate(handle, 1):
+            fields = line.rstrip("\n").split("\t", 2)
+            if len(fields) != 3 or not all(fields):
+                raise ValueError(f"invalid OpenSLR TSV row at {path}:{line_number}")
+            record_id, speaker_id, text = fields
+            record_ids.append(record_id)
+            speaker_ids.append(speaker_id)
+            texts.append(text.rstrip("\r"))
+    if len(record_ids) != len(set(record_ids)):
+        raise ValueError("OpenSLR source record IDs are not unique")
+    return record_ids, speaker_ids, texts
 
 
 def main() -> None:
@@ -20,12 +37,7 @@ def main() -> None:
     source = args.source if args.source.is_absolute() else project_root / args.source
     output = args.output if args.output.is_absolute() else project_root / args.output
     transcript_path = source / "utt_spk_text.tsv"
-    table = csv.read_csv(
-        transcript_path,
-        read_options=csv.ReadOptions(column_names=["source_record_id", "speaker_id", "text"]),
-        parse_options=csv.ParseOptions(delimiter="\t"),
-    )
-    ids = table["source_record_id"].to_pylist()
+    ids, speakers, texts = read_transcripts(transcript_path)
     audio_root = source / "asr_sinhala" / "data"
     paths = [(audio_root / value[:2] / f"{value}.flac").resolve() for value in ids]
     missing = [str(path) for path in paths if not path.is_file()]
@@ -35,10 +47,10 @@ def main() -> None:
     canonical = pa.table(
         {
             "audio": pa.array([str(path) for path in paths]),
-            "text": table["text"],
+            "text": pa.array(texts),
             "source_dataset": pa.array(["openslr52"] * len(paths)),
-            "source_record_id": table["source_record_id"],
-            "speaker_id": table["speaker_id"],
+            "source_record_id": pa.array(ids),
+            "speaker_id": pa.array(speakers),
             "upstream_split": pa.array(["unsplit"] * len(paths)),
         }
     )

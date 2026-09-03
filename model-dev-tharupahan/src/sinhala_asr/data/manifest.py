@@ -170,6 +170,14 @@ def build_manifest_rows(
             "silent_audio",
         }
         unique_flags = sorted(set(flags))
+        if "code_switched_latin" in unique_flags:
+            language_class = "code_switched"
+        elif "latin_only" in unique_flags:
+            language_class = "latin_only"
+        elif any("\u0d80" <= char <= "\u0dff" for char in canonical):
+            language_class = "sinhala_only"
+        else:
+            language_class = "other"
         rows.append(
             {
                 "manifest_version": MANIFEST_VERSION,
@@ -196,6 +204,7 @@ def build_manifest_rows(
                 "text_canonical": canonical,
                 "text_metric": metric_text,
                 "is_code_switched": "code_switched_latin" in unique_flags,
+                "language_class": language_class,
                 "validation_flags": json.dumps(unique_flags, ensure_ascii=False),
                 "is_valid": not bool(blocking_flags.intersection(unique_flags)),
                 **metadata,

@@ -44,6 +44,12 @@ def test_transcript_flags_code_switching_and_digits():
     assert "contains_digit" in flags
 
 
+def test_pure_english_is_not_mislabeled_as_code_switched():
+    flags = transcript_flags("English only")
+    assert "latin_only" in flags
+    assert "code_switched_latin" not in flags
+
+
 def test_non_string_transcript_is_rejected():
     with pytest.raises(TypeError):
         canonicalize(None)

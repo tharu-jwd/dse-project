@@ -75,8 +75,12 @@ def transcript_flags(text: object) -> list[str]:
         flags.append("control_or_format_character")
     if any(char == "\u200d" and not _is_valid_zwj(text, i) for i, char in enumerate(text)):
         flags.append("invalid_zwj")
-    if re.search(r"[A-Za-z]", text):
+    has_latin = bool(re.search(r"[A-Za-z]", text))
+    has_sinhala = any("\u0d80" <= char <= "\u0dff" for char in text)
+    if has_latin and has_sinhala:
         flags.append("code_switched_latin")
+    elif has_latin:
+        flags.append("latin_only")
     if any(char.isdigit() for char in text):
         flags.append("contains_digit")
     return flags

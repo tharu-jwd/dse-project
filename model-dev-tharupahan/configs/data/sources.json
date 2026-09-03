@@ -31,8 +31,8 @@
     {
       "id": "linga",
       "role": "provenance-comparison-only",
-      "url": "https://huggingface.co/datasets/Lingalingeswaran/asr-sinhala-dataset_v4",
-      "revision": "0eccec22c52d23193b505c105c939103f456bd7c",
+      "url": "https://huggingface.co/datasets/Lingalingeswaran/asr-sinhala-dataset_json_v1",
+      "revision": "f77a036af65ac01252a7ab3a677b8fbeee3b4cd8",
       "license": null,
       "license_status": "unresolved",
       "local_path": "data/raw/linga",

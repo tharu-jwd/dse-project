@@ -42,6 +42,7 @@ def _cross_split(values: dict[str, set[str]]) -> list[dict[str, Any]]:
 def summarize(rows: list[dict[str, Any]], inputs: list[tuple[str, Path]]) -> dict[str, Any]:
     split_counts = Counter(row["split"] for row in rows)
     source_counts = Counter(row["source_dataset"] for row in rows)
+    language_counts = Counter(row["language_class"] for row in rows)
     flag_counts: Counter[str] = Counter()
     for row in rows:
         flag_counts.update(json.loads(row["validation_flags"]))
@@ -109,6 +110,7 @@ def summarize(rows: list[dict[str, Any]], inputs: list[tuple[str, Path]]) -> dic
         "invalid_rows": invalid_rows,
         "split_counts": dict(sorted(split_counts.items())),
         "source_counts": dict(sorted(source_counts.items())),
+        "language_counts": dict(sorted(language_counts.items())),
         "flag_counts": dict(sorted(flag_counts.items())),
         "duplicate_audio_hashes": duplicate_audio_hashes,
         "duplicate_pcm_audio_hashes": duplicate_pcm_audio_hashes,
@@ -157,6 +159,8 @@ def render_markdown(summary: dict[str, Any]) -> str:
         "",
     ]
     lines.extend(f"- {key}: {value}" for key, value in summary["split_counts"].items())
+    lines.extend(["", "## Language classes", ""])
+    lines.extend(f"- {key}: {value}" for key, value in summary["language_counts"].items())
     lines.extend(["", "## Validation flags", ""])
     if summary["flag_counts"]:
         lines.extend(f"- {key}: {value}" for key, value in summary["flag_counts"].items())

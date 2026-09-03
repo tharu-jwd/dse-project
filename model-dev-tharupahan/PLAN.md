@@ -293,11 +293,11 @@ actual cloud cost.
 - [x] Package scaffold and development tooling
 - [x] Dataset manifest and audit tooling
 - [x] Conservative Sinhala normalization v1 and tests
-- [ ] Download and fingerprint upstream source datasets
-- [ ] Run the audit on actual audio/transcript data
-- [ ] Build the local adjudication UI
+- [x] Download and fingerprint independently available upstream datasets
+- [x] Run source and cross-source audits on actual audio/transcript data
+- [x] Build the local adjudication UI and self-contained review queues
 - [ ] Review and lock gold validation/test sets
-- [ ] Leakage-resistant split generation
+- [x] Generate deterministic speaker-disjoint v1 candidate splits
 - [ ] Evaluation and detailed error reports
 - [ ] Configuration-driven training
 - [ ] Local smoke and checkpoint-resume tests
