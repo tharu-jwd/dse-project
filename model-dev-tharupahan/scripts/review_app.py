@@ -113,6 +113,27 @@ def main() -> None:
     row = visible.loc[options[int(index)]]
     sample_id = str(row["sample_id"])
     previous = records.get(sample_id, {})
+    original_text = str(row["text_original"])
+    text_key = f"text-{sample_id}"
+    notes_key = f"notes-{sample_id}"
+
+    def save_transcript_edit() -> None:
+        changed_text = str(st.session_state.get(text_key) or "").strip()
+        if changed_text and changed_text != original_text.strip():
+            save_adjudication(
+                output_path,
+                {
+                    "sample_id": sample_id,
+                    "decision": "edited",
+                    "text_original": original_text,
+                    "text_corrected": changed_text,
+                    "notes": str(
+                        st.session_state.get(notes_key) or previous.get("notes") or ""
+                    ).strip(),
+                    "queue_path": str(queue_path),
+                },
+            )
+
     if previous.get("decision") and previous["decision"] not in REVIEW_DECISIONS:
         st.warning(
             f"This row has the older '{previous['decision']}' decision. "
@@ -126,15 +147,16 @@ def main() -> None:
             st.error("This queue row has no playable audio payload or path.")
         else:
             st.audio(audio)
-        st.text_area(
-            "Original transcript", str(row["text_original"]), disabled=True, height=120
-        )
+        st.text_area("Original transcript", original_text, disabled=True, height=120)
         corrected = st.text_area(
             "Verified transcript",
-            value=str(previous.get("text_corrected") or row["text_original"]),
+            value=str(previous.get("text_corrected") or original_text),
             height=120,
-            key=f"text-{sample_id}",
+            key=text_key,
+            on_change=save_transcript_edit,
         )
+        if previous.get("decision") == "edited":
+            st.success("Correction saved as Edited.")
     with right:
         st.code(sample_id, language=None)
         for field in (
@@ -162,13 +184,19 @@ def main() -> None:
             ),
         )
         notes = st.text_area(
-            "Notes", value=str(previous.get("notes") or ""), key=f"notes-{sample_id}"
+            "Notes", value=str(previous.get("notes") or ""), key=notes_key
         )
 
         def persist(selected_decision: str) -> None:
+            effective_decision = selected_decision
             if (
-                selected_decision == "edited"
-                and corrected.strip() == str(row["text_original"]).strip()
+                selected_decision == "correct"
+                and corrected.strip() != original_text.strip()
+            ):
+                effective_decision = "edited"
+            if (
+                effective_decision == "edited"
+                and corrected.strip() == original_text.strip()
             ):
                 st.error("An edited decision requires a changed transcript.")
                 return
@@ -176,8 +204,8 @@ def main() -> None:
                 output_path,
                 {
                     "sample_id": sample_id,
-                    "decision": selected_decision,
-                    "text_original": str(row["text_original"]),
+                    "decision": effective_decision,
+                    "text_original": original_text,
                     "text_corrected": corrected.strip(),
                     "notes": notes.strip(),
                     "queue_path": str(queue_path),
