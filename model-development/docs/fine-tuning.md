@@ -1,9 +1,83 @@
-# Sinhala ASR Fine-Tuning Strategy
+# Sinhala ASR Fine-Tuning
 
 This plan assumes fine-tuning starts again from a pretrained multilingual
 Whisper checkpoint rather than training an ASR model from randomly initialized
 weights. The goal is to reduce Sinhala word error rate (WER) while keeping the
 experiments comparable and reproducible.
+
+## Operational workflow
+
+Run these commands from `model-development/`. The scripts expect this local
+dataset layout, which is ignored by Git:
+
+```text
+data/stratified/
+├── train.parquet
+├── validation.parquet
+└── test.parquet
+```
+
+Install and smoke-test the pipeline:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+python3 training/finetune_whisper.py --smoke-test
+python3 training/finetune_whisper_lora.py --smoke-test
+python3 training/prepare_whisper_dataset.py data/stratified/test.parquet
+```
+
+Run a full fine-tune:
+
+```bash
+python3 training/finetune_whisper.py \
+  --output-dir /workspace/whisper-small-sinhala/full-lr2e-5 \
+  --run-name full-lr2e-5 \
+  --wandb-project whisper \
+  --learning-rate 2e-5 \
+  --per-device-train-batch-size 32 \
+  --num-train-epochs 6
+```
+
+Run a wide-target LoRA experiment:
+
+```bash
+python3 training/finetune_whisper_lora.py \
+  --output-dir /workspace/whisper-small-sinhala-lora/wide-lora \
+  --run-name wide-lora \
+  --wandb-project whisper \
+  --learning-rate 1e-4 \
+  --per-device-train-batch-size 32 \
+  --num-train-epochs 4 \
+  --lora-target-modules q_proj k_proj v_proj out_proj fc1 fc2
+```
+
+Evaluate full and LoRA checkpoints on the fixed test set:
+
+```bash
+python3 evaluation/evaluate_finetuned.py \
+  --model /workspace/whisper-small-sinhala/full-lr2e-5 \
+  --lora /workspace/whisper-small-sinhala-lora/wide-lora:openai/whisper-small \
+  --output-dir evaluation/results/generated
+
+python3 evaluation/evaluate_baselines.py --help
+python3 evaluation/evaluate_english_forgetting.py --help
+```
+
+Analyze the resulting prediction CSV:
+
+```bash
+python3 evaluation/error_analysis.py \
+  --predictions evaluation/results/generated/full-lr2e-5_predictions.csv \
+  --output-dir evaluation/results/generated/error-analysis
+```
+
+Use each command's `--help` output for augmentation, LoRA, batching, and
+checkpoint options. Record every completed run in
+`experiments/finetune_tracker.csv`; keep generated per-sample reports under
+`evaluation/results/generated/`.
 
 ## 1. Establish a trustworthy baseline
 

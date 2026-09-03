@@ -20,7 +20,7 @@ audio, so it's streamed row-group by row-group via `iter_batches` -- only the
 unchanged and are never held beyond that batch.
 
 Usage (from repo root):
-    python3 dse-project/scripts/clean_hidden_chars.py
+    python3 model-development/scripts/clean_hidden_chars.py
 """
 
 import argparse
@@ -29,10 +29,10 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-DEFAULT_COLLECTION_IN = "dse-project/model-development/data/final_dataset/final_collection.parquet"
-DEFAULT_COLLECTION_OUT = "dse-project/model-development/data/final_dataset/final_collection_cleaned.parquet"
-DEFAULT_OPENSLR_IN = "dse-project/model-development/data/final_dataset/final_dataset_openslr.parquet"
-DEFAULT_OPENSLR_OUT = "dse-project/model-development/data/final_dataset/final_dataset_openslr_cleaned.parquet"
+DEFAULT_COLLECTION_IN = "model-development/data/final_dataset/final_collection.parquet"
+DEFAULT_COLLECTION_OUT = "model-development/data/final_dataset/final_collection_cleaned.parquet"
+DEFAULT_OPENSLR_IN = "model-development/data/final_dataset/final_dataset_openslr.parquet"
+DEFAULT_OPENSLR_OUT = "model-development/data/final_dataset/final_dataset_openslr_cleaned.parquet"
 
 ZWNJ = "‌"
 ZWJ = "‍"

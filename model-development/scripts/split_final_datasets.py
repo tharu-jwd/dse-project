@@ -33,8 +33,8 @@ routed to up to two output writers (its stratified-config file and its
 held-out-config file); peak memory is bounded by one batch, not either dataset.
 
 Usage (from repo root):
-    python3 dse-project/scripts/split_final_datasets.py
-    python3 dse-project/scripts/split_final_datasets.py --holdout-frac 0.25 --random-state 0
+    python3 model-development/scripts/split_final_datasets.py
+    python3 model-development/scripts/split_final_datasets.py --holdout-frac 0.25 --random-state 0
 """
 
 import argparse
@@ -45,9 +45,9 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from sklearn.model_selection import train_test_split
 
-DEFAULT_COLLECTION = "dse-project/model-development/data/final_dataset/final_collection_qa.parquet"
-DEFAULT_OPENSLR = "dse-project/model-development/data/final_dataset/final_dataset_openslr_qa.parquet"
-DEFAULT_OUTPUT_DIR = "dse-project/model-development/data/final_split_dataset"
+DEFAULT_COLLECTION = "model-development/data/final_dataset/final_collection_qa.parquet"
+DEFAULT_OPENSLR = "model-development/data/final_dataset/final_dataset_openslr_qa.parquet"
+DEFAULT_OUTPUT_DIR = "model-development/data/final_split_dataset"
 
 SCHEMA = pa.schema([
     pa.field("audio", pa.binary()),

@@ -18,11 +18,11 @@ audio bytes are never held past the batch they arrived in.
 `final_collection.parquet` is small enough (15k rows, ~2GB) to load whole.
 
 Usage (from repo root):
-    python3 dse-project/scripts/dedup_collection_against_openslr.py
-    python3 dse-project/scripts/dedup_collection_against_openslr.py \
-        --collection dse-project/model-development/data/final_dataset/final_collection.parquet \
-        --openslr dse-project/model-development/data/final_dataset/final_dataset_openslr.parquet \
-        --output dse-project/model-development/data/final_dataset/final_collection_deduped.parquet
+    python3 model-development/scripts/dedup_collection_against_openslr.py
+    python3 model-development/scripts/dedup_collection_against_openslr.py \
+        --collection model-development/data/final_dataset/final_collection.parquet \
+        --openslr model-development/data/final_dataset/final_dataset_openslr.parquet \
+        --output model-development/data/final_dataset/final_collection_deduped.parquet
 """
 
 import argparse
@@ -31,9 +31,9 @@ import hashlib
 import pandas as pd
 import pyarrow.parquet as pq
 
-DEFAULT_COLLECTION = "dse-project/model-development/data/final_dataset/final_collection.parquet"
-DEFAULT_OPENSLR = "dse-project/model-development/data/final_dataset/final_dataset_openslr.parquet"
-DEFAULT_OUTPUT = "dse-project/model-development/data/final_dataset/final_collection_deduped.parquet"
+DEFAULT_COLLECTION = "model-development/data/final_dataset/final_collection.parquet"
+DEFAULT_OPENSLR = "model-development/data/final_dataset/final_dataset_openslr.parquet"
+DEFAULT_OUTPUT = "model-development/data/final_dataset/final_collection_deduped.parquet"
 
 
 def hash_openslr_audio(path, batch_size):

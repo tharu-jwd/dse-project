@@ -22,8 +22,8 @@ batch they arrive in. `final_collection_qa.parquet` (4.9k rows) is small enough
 to load whole.
 
 Usage (from repo root):
-    python3 dse-project/scripts/compare_kl_divergence.py
-    python3 dse-project/scripts/compare_kl_divergence.py --top-n 20
+    python3 model-development/scripts/compare_kl_divergence.py
+    python3 model-development/scripts/compare_kl_divergence.py --top-n 20
 """
 
 import argparse
@@ -35,8 +35,8 @@ import pandas as pd
 import pyarrow.parquet as pq
 import soundfile as sf
 
-DEFAULT_COLLECTION = "dse-project/model-development/data/final_dataset/final_collection_qa.parquet"
-DEFAULT_OPENSLR = "dse-project/model-development/data/final_dataset/final_dataset_openslr_qa.parquet"
+DEFAULT_COLLECTION = "model-development/data/final_dataset/final_collection_qa.parquet"
+DEFAULT_OPENSLR = "model-development/data/final_dataset/final_dataset_openslr_qa.parquet"
 LABEL_A, LABEL_B = "collection", "openslr"
 
 DURATION_BIN_WIDTH = 0.5  # seconds

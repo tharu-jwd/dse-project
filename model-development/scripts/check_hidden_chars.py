@@ -15,8 +15,8 @@ Read-only: only loads the `text`/`source_dataset` columns (audio is never
 touched), so this is cheap and safe to run against both final datasets.
 
 Usage (from repo root):
-    python3 dse-project/scripts/check_hidden_chars.py
-    python3 dse-project/scripts/check_hidden_chars.py --examples 5
+    python3 model-development/scripts/check_hidden_chars.py
+    python3 model-development/scripts/check_hidden_chars.py --examples 5
 """
 
 import argparse
@@ -26,8 +26,8 @@ from collections import Counter
 import pandas as pd
 
 DEFAULT_FILES = {
-    "final_collection": "dse-project/model-development/data/final_dataset/final_collection.parquet",
-    "final_dataset_openslr": "dse-project/model-development/data/final_dataset/final_dataset_openslr.parquet",
+    "final_collection": "model-development/data/final_dataset/final_collection.parquet",
+    "final_dataset_openslr": "model-development/data/final_dataset/final_dataset_openslr.parquet",
 }
 
 # Explicit named list (covers the ones asked about, plus close relatives) --

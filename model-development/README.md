@@ -21,10 +21,8 @@ model-development/
 
 ## Start here
 
-- [Fine-tuning guide](docs/fine-tuning-guide.md): setup, training, evaluation,
-  and error-analysis commands.
-- [Fine-tuning strategy](docs/fine-tuning-strategy.md): prioritized experiments
-  for reducing Sinhala WER.
+- [Fine-tuning workflow](docs/fine-tuning.md): setup, commands, evaluation, and
+  prioritized experiments for reducing Sinhala WER.
 - [Dataset notes](docs/dataset.md): dataset provenance and preparation notes.
 - [Backend integration](docs/integration-points.md): how an ASR checkpoint is
   connected to the application.

@@ -43,7 +43,7 @@ Combined total: **154,828 rows** across both corpora.
 
 ## `final_split_dataset/` — the two split configurations
 
-Built by `dse-project/scripts/split_final_datasets.py` from the two files
+Built by `model-development/scripts/split_final_datasets.py` from the two files
 above. Every row appears in exactly one split *within* each configuration, but
 a given row can appear in both configurations (e.g. `stratified/train` and
 `held_out/train`) since each is an independent partition of the same pool.
@@ -85,7 +85,7 @@ collection-domain rows, remaining pool split 90/10 train/validation.
 ## Regenerating
 
 ```
-python3 dse-project/scripts/split_final_datasets.py
+python3 model-development/scripts/split_final_datasets.py
 ```
 
 Re-run this any time either source file changes (e.g. after applying more
