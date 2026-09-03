@@ -262,9 +262,9 @@ actual cloud cost.
 
 - [x] Historical run and error-profile review
 - [x] Clean-project scope and architecture recorded
-- [ ] Package scaffold and development tooling
-- [ ] Dataset manifest and audit
-- [ ] Sinhala normalization policy and tests
+- [x] Package scaffold and development tooling
+- [x] Dataset manifest and initial audit
+- [x] Conservative Sinhala normalization v1 and tests
 - [ ] Leakage-resistant split generation
 - [ ] Evaluation and detailed error reports
 - [ ] Configuration-driven training
