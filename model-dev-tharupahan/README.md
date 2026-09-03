@@ -20,6 +20,9 @@ Dataset source, fingerprinting, audit, and native-speaker review commands are in
 [DATASET.md](DATASET.md). Raw audio and generated reports remain local and are
 ignored by Git.
 
+Prediction scoring and error-analysis rules are in
+[EVALUATION.md](EVALUATION.md).
+
 ## Audit existing splits
 
 The first implemented gate builds a row-level manifest and fails if it finds
