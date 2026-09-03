@@ -18,6 +18,12 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8,<9"]
 review = ["streamlit>=1.40,<2"]
+train = [
+  "accelerate>=1.0,<2",
+  "peft>=0.13,<1",
+  "torch>=2.2,<3",
+  "transformers>=4.46,<6",
+]
 
 [project.scripts]
 sinhala-asr-prepare = "sinhala_asr.data.audit:main"

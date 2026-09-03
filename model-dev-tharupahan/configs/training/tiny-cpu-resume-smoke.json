@@ -1,0 +1,22 @@
+{
+  "model_name": "openai/whisper-tiny",
+  "manifest": "data/versions/v1/manifest.parquet",
+  "output_dir": "runs/tiny-cpu-smoke",
+  "method": "full",
+  "max_steps": 2,
+  "learning_rate": 1e-5,
+  "train_batch_size": 1,
+  "eval_batch_size": 1,
+  "gradient_accumulation_steps": 1,
+  "eval_steps": 1,
+  "save_steps": 1,
+  "logging_steps": 1,
+  "fp16": false,
+  "bf16": false,
+  "gradient_checkpointing": false,
+  "dataloader_num_workers": 0,
+  "resume_from_checkpoint": "runs/tiny-cpu-smoke/checkpoint-1",
+  "hourly_price_usd": 0.0,
+  "estimated_hours": 0.0,
+  "maximum_cost_usd": 0.0
+}

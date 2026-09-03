@@ -1,0 +1,21 @@
+{
+  "model_name": "openai/whisper-small",
+  "manifest": "data/versions/v1/manifest.parquet",
+  "output_dir": "runs/small-full-pilot",
+  "method": "full",
+  "max_steps": 500,
+  "learning_rate": 1e-5,
+  "train_batch_size": 8,
+  "eval_batch_size": 8,
+  "gradient_accumulation_steps": 2,
+  "eval_steps": 100,
+  "save_steps": 100,
+  "logging_steps": 10,
+  "fp16": true,
+  "bf16": false,
+  "gradient_checkpointing": true,
+  "dataloader_num_workers": 2,
+  "hourly_price_usd": 0.0,
+  "estimated_hours": 0.0,
+  "maximum_cost_usd": 0.0
+}
