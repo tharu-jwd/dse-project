@@ -23,7 +23,7 @@ is no code path yet that loads a real model.
 
 <p align="center">
   <br>
-  <img src="diagrams/transcriber-swap-in-point.png" alt="Sequence diagram: the backend's transcription worker calls Transcriber.transcribe(); today that's FakeTranscriber, in future it would load a LoRA checkpoint from model-development" width="640">
+  <img src="../diagrams/transcriber-swap-in-point.png" alt="Sequence diagram: the backend's transcription worker calls Transcriber.transcribe(); today that's FakeTranscriber, in future it would load a LoRA checkpoint from model-development" width="640">
   <br>
   <br>
 </p>

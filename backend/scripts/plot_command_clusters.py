@@ -7,7 +7,9 @@ boundary overlay so you can see how well unsupervised clustering recovers
 the known command labels.
 
 Usage (from backend/, with the venv active):
-    python -m scripts.plot_command_clusters ../command_embeddings.json ../command_clusters.png
+    python -m scripts.plot_command_clusters \
+        artifacts/voice-commands/command_embeddings.json \
+        artifacts/voice-commands/command_clusters.png
 """
 
 import json
@@ -31,8 +33,16 @@ ORDER = ["delete", "next", "previous", "save", "stop", "submit"]
 
 
 def main() -> None:
-    in_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("../command_embeddings.json")
-    out_path = Path(sys.argv[2]) if len(sys.argv) > 2 else Path("../command_clusters.png")
+    in_path = (
+        Path(sys.argv[1])
+        if len(sys.argv) > 1
+        else Path("artifacts/voice-commands/command_embeddings.json")
+    )
+    out_path = (
+        Path(sys.argv[2])
+        if len(sys.argv) > 2
+        else Path("artifacts/voice-commands/command_clusters.png")
+    )
 
     data = json.loads(in_path.read_text())
     points = data["points"]

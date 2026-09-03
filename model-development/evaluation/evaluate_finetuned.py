@@ -16,28 +16,27 @@ by cosmetic punctuation/casing choices would swamp real transcription
 differences between runs.
 
 The test-set path is NOT a CLI flag -- same as the fine-tune scripts, it
-expects data/stratified/test.parquet to already sit next to this file (see
-finetune_whisper.py's module docstring for the expected layout, and
-README.md for how to get it there).
+expects `model-development/data/stratified/test.parquet` to exist (see
+`model-development/README.md` for the expected layout).
 
 Usage: compare a full fine-tune against a LoRA run
-    python3 evaluate_finetuned.py \\
+    python3 evaluation/evaluate_finetuned.py \\
         --model /workspace/whisper-small-sinhala/run6-lr3e-5-bs32 \\
         --lora /workspace/whisper-small-sinhala-lora/run1-lr1e-4-bs32:openai/whisper-small
 
 Compare several checkpoints of the same kind (e.g. different epochs/LRs from
 a hyperparameter sweep) to find the best one:
-    python3 evaluate_finetuned.py \\
+    python3 evaluation/evaluate_finetuned.py \\
         --model /workspace/whisper-small-sinhala/run1-lr1e-5-bs16 \\
         --model /workspace/whisper-small-sinhala/run2-lr3e-5-bs16 \\
         --model /workspace/whisper-small-sinhala/run3-lr3e-5-bs32
 
 Quick sanity pass on a subsample before committing to a full test-set run:
-    python3 evaluate_finetuned.py --model <dir> --max-samples 200
+    python3 evaluation/evaluate_finetuned.py --model <dir> --max-samples 200
 
 Log the ranked summary to the same W&B project training used, so the
 training curves and the final test-set ranking sit side by side:
-    python3 evaluate_finetuned.py --model <dir> --lora <dir>:<base> \\
+    python3 evaluation/evaluate_finetuned.py --model <dir> --lora <dir>:<base> \\
         --wandb-project whisper --run-name model-selection
 """
 
@@ -59,7 +58,7 @@ TARGET_SR = 16000
 
 # Fixed, not a CLI flag: scripts and data are uploaded to the GPU pod
 # together (see README.md), so there's no need to pass a path at run time.
-TEST_PARQUET = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "stratified", "test.parquet")
+TEST_PARQUET = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "stratified", "test.parquet")
 
 NORMALIZE = jiwer.Compose([
     jiwer.ToLowerCase(),

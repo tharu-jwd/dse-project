@@ -1,30 +1,37 @@
-"""LoRA fine-tune of Whisper-small for Sinhala ASR: a small low-rank adapter
-is trained on top of a frozen base model, instead of unfreezing every weight
-(see `finetune_whisper.py` for that full fine-tune). Same data pipeline, same
-`stratified/` split, same CLI shape as `finetune_whisper.py` -- only the
-model-construction and checkpoint-saving steps differ, so the two scripts'
-runs are directly comparable in W&B.
+"""Full fine-tune of Whisper-small for Sinhala ASR (every weight unfrozen) on
+the `stratified/` split of the final datasets. Meant to run on a GPU pod
+(e.g. RunPod) -- tokenization (audio decode + log-mel feature extraction +
+text tokenization) happens on the fly via `WhisperASRDataset` from
+`prepare_whisper_dataset.py`, inside the `DataLoader` workers, overlapped
+with GPU compute. There is no separate "tokenize first, then train" step:
+running this script does both, and it avoids ever precomputing/storing the
+~110GB a fully-cached spectrogram set for the 123,862-row train split would
+take.
 
-Why LoRA here: far less GPU memory (only adapter weights + optimizer state
-for them need gradients), a few-MB adapter artifact instead of a multi-GB
-checkpoint per save, and a lower risk of catastrophic forgetting of Whisper's
-general multilingual ability -- useful to compare against the full fine-tune
-on the same eval set.
+For a parameter-efficient alternative that trains a small LoRA adapter
+instead of the full model, see `finetune_whisper_lora.py` -- same CLI shape,
+same data pipeline, far less GPU memory and a much smaller artifact to save.
 
-Per SinhaSpeech_Proporsal.pdf section 4.2, same as the full fine-tune script:
+Per SinhaSpeech_Proporsal.pdf section 4.2:
   - stratified/train.parquet + stratified/validation.parquet for training
-    and per-epoch WER/CER validation (best-checkpoint selection)
+    and per-epoch WER/CER validation (best-checkpoint selection, not
+    last-checkpoint)
   - Mixed precision (bf16 on Ampere+ GPUs, fp16 otherwise -- auto-detected)
-  - SpecAugment (time + frequency masking) via WhisperConfig, active only
-    during `model.train()`
+    to cut memory use and speed up training
+  - SpecAugment (time + frequency masking) enabled via WhisperConfig's
+    built-in support (`apply_spec_augment`), active only in `model.train()`
+    mode -- no hand-rolled masking code needed
+
+`held_out/` is a secondary diagnostic split, not used here.
 
 Dataset paths are NOT passed on the command line -- this script expects the
 scripts and the data to be uploaded to the GPU pod together, so the paths
 are fixed constants (TRAIN_PARQUET / EVAL_PARQUET below), relative to this
 file's own directory:
 
-    final-scripts/
-      finetune_whisper_lora.py     <- this file
+    model-development/
+      training/
+        finetune_whisper.py        <- this file
       data/
         stratified/
           train.parquet
@@ -35,23 +42,18 @@ See README.md for how to get the data into that layout (GCS download or
 local copy) before running this script.
 
 Usage (on a RunPod GPU pod, or any machine with a GPU -- run from inside
-final-scripts/, with data/stratified/ already populated):
-    python3 finetune_whisper_lora.py \\
-        --output-dir /workspace/whisper-small-sinhala-lora/run1-lr1e-4-bs32 \\
-        --run-name run1-lr1e-4-bs32 \\
+model-development/, with data/stratified/ already populated):
+    python3 training/finetune_whisper.py \\
+        --output-dir /workspace/whisper-small-sinhala/run5-lr3e-5-bs32 \\
+        --run-name run5-lr3e-5-bs32 \\
         --wandb-project whisper \\
-        --learning-rate 1e-4 \\
+        --learning-rate 3e-5 \\
         --per-device-train-batch-size 32 \\
         --num-train-epochs 4
 
 Smoke test on CPU (no GPU needed, a handful of steps, sanity-checks the
 pipeline without a real training run):
-    python3 finetune_whisper_lora.py --smoke-test
-
-Scoring the resulting adapter (repeat for the full fine-tune's output dir
-too, to compare):
-    python3 evaluate_finetuned.py \\
-        --lora /workspace/whisper-small-sinhala-lora/run1-lr1e-4-bs32:openai/whisper-small
+    python3 finetune_whisper.py --smoke-test
 """
 
 import argparse
@@ -61,7 +63,6 @@ import sys
 import evaluate
 import numpy as np
 import torch
-from peft import LoraConfig, get_peft_model
 from transformers import (
     Seq2SeqTrainer,
     Seq2SeqTrainingArguments,
@@ -78,7 +79,7 @@ from prepare_whisper_dataset import (  # noqa: E402
 
 # Fixed, not CLI flags: scripts and data are uploaded to the GPU pod together
 # (see README.md), so there's no need to pass paths at run time.
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "stratified")
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "stratified")
 TRAIN_PARQUET = os.path.join(DATA_DIR, "train.parquet")
 EVAL_PARQUET = os.path.join(DATA_DIR, "validation.parquet")
 
@@ -128,15 +129,14 @@ def make_compute_metrics(processor):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--model-name", default="openai/whisper-small")
-    parser.add_argument("--output-dir", default="whisper-small-sinhala-lora")
+    parser.add_argument("--output-dir", default="whisper-small-sinhala/run5")
     parser.add_argument("--run-name", default=None,
                          help="W&B run name; defaults to the --output-dir basename")
     parser.add_argument("--num-train-epochs", type=float, default=3.0)
     parser.add_argument("--per-device-train-batch-size", type=int, default=16)
     parser.add_argument("--per-device-eval-batch-size", type=int, default=8)
     parser.add_argument("--gradient-accumulation-steps", type=int, default=2)
-    parser.add_argument("--learning-rate", type=float, default=1e-4,
-                         help="LoRA adapters typically want a higher LR than full fine-tuning (default 1e-4 vs 1e-5)")
+    parser.add_argument("--learning-rate", type=float, default=1e-5)
     parser.add_argument("--lr-scheduler-type", default="cosine",
                          help="passed straight to Seq2SeqTrainingArguments -- 'cosine', 'linear', "
                               "'constant_with_warmup', etc. (see transformers SchedulerType)")
@@ -155,38 +155,23 @@ def main():
                          help="probability per training sample of pitch-shifting (0 to disable)")
     parser.add_argument("--pitch-semitones-min", type=float, default=-2.0)
     parser.add_argument("--pitch-semitones-max", type=float, default=2.0)
-    parser.add_argument("--lora-r", type=int, default=32)
-    parser.add_argument("--lora-alpha", type=int, default=64)
-    parser.add_argument("--lora-dropout", type=float, default=0.05)
-    parser.add_argument("--lora-target-modules", default="q_proj,v_proj",
-                         help="comma-separated module names LoRA adapters attach to")
     parser.add_argument("--wandb-project", default=None, help="omit to disable W&B logging")
     parser.add_argument("--smoke-test", action="store_true",
                          help="tiny CPU run (a few steps, no generation-based eval) to sanity-check the pipeline")
     args = parser.parse_args()
 
-    print(f"Loading processor + base model: {args.model_name}")
+    print(f"Loading processor + model: {args.model_name}")
     processor = build_processor(args.model_name)
-    base_model = WhisperForConditionalGeneration.from_pretrained(args.model_name)
+    model = WhisperForConditionalGeneration.from_pretrained(args.model_name)
 
-    base_model.generation_config.language = "sinhala"
-    base_model.generation_config.task = "transcribe"
-    base_model.generation_config.forced_decoder_ids = None
+    model.generation_config.language = "sinhala"
+    model.generation_config.task = "transcribe"
+    model.generation_config.forced_decoder_ids = None
 
     if not args.no_spec_augment:
-        enable_spec_augment(base_model)
-        print(f"SpecAugment enabled: mask_time_prob={base_model.config.mask_time_prob}, "
-              f"mask_feature_prob={base_model.config.mask_feature_prob}")
-
-    lora_config = LoraConfig(
-        r=args.lora_r,
-        lora_alpha=args.lora_alpha,
-        lora_dropout=args.lora_dropout,
-        target_modules=args.lora_target_modules.split(","),
-        bias="none",
-    )
-    model = get_peft_model(base_model, lora_config)
-    model.print_trainable_parameters()
+        enable_spec_augment(model)
+        print(f"SpecAugment enabled: mask_time_prob={model.config.mask_time_prob}, "
+              f"mask_feature_prob={model.config.mask_feature_prob}")
 
     print(f"Loading train split: {TRAIN_PARQUET}")
     train_dataset = WhisperASRDataset(
@@ -229,7 +214,6 @@ def main():
             logging_steps=1,
             predict_with_generate=False,
             remove_unused_columns=False,
-            label_names=["labels"],
             report_to=[],
             dataloader_num_workers=0,
             **precision,
@@ -246,6 +230,9 @@ def main():
         trainer.train()
         print("\nSmoke test passed -- pipeline runs end to end.")
         return
+
+    run_name = args.run_name or os.path.basename(os.path.normpath(args.output_dir))
+    report_to = ["wandb"] if args.wandb_project else []
 
     training_args = Seq2SeqTrainingArguments(
         output_dir=args.output_dir,
@@ -267,13 +254,8 @@ def main():
         logging_steps=25,
         dataloader_num_workers=args.dataloader_num_workers,
         remove_unused_columns=False,
-        # A wrapped PeftModel confuses Trainer's automatic column/label
-        # detection, so this has to be set explicitly (the full fine-tune
-        # script doesn't need it -- WhisperForConditionalGeneration alone
-        # already tells Trainer what its label column is).
-        label_names=["labels"],
-        report_to=["wandb"] if args.wandb_project else [],
-        run_name=args.run_name or os.path.basename(os.path.normpath(args.output_dir)),
+        report_to=report_to,
+        run_name=run_name,
         **precision,
     )
     if args.wandb_project:
@@ -292,11 +274,7 @@ def main():
     print("\nStarting training...")
     trainer.train()
 
-    # Saving a PeftModel writes only the adapter (config + weights), not the
-    # multi-gigabyte base model -- load it back with
-    # `PeftModel.from_pretrained(base_model, output_dir)`, same shape
-    # evaluate_finetuned.py's --lora expects.
-    print(f"\nSaving best adapter to {args.output_dir}")
+    print(f"\nSaving best checkpoint to {args.output_dir}")
     trainer.save_model(args.output_dir)
     processor.save_pretrained(args.output_dir)
 

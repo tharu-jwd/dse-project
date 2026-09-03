@@ -2,12 +2,13 @@
 
 Reuses app.streaming.embeddings.embed_audio (the actual runtime encoder
 path) against the real recordings in storage/voice_samples/ - the same
-31 clips validate_command_embeddings.py and command_embedding_similarities.csv
+31 clips used by `validate_command_embeddings.py` and the reference artifacts
 were built from. Writes 768-dim embeddings plus a 2D PCA projection so a
 plot can be drawn without re-running the model.
 
 Usage (from backend/, with the venv active):
-    python -m scripts.export_command_embeddings storage/voice_samples ../command_embeddings.json
+    python -m scripts.export_command_embeddings \
+        storage/voice_samples artifacts/voice-commands/command_embeddings.json
 """
 
 import json
@@ -43,7 +44,11 @@ def load_16k_mono(path: Path) -> np.ndarray:
 
 def main() -> None:
     wav_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("storage/voice_samples")
-    out_path = Path(sys.argv[2]) if len(sys.argv) > 2 else Path("../command_embeddings.json")
+    out_path = (
+        Path(sys.argv[2])
+        if len(sys.argv) > 2
+        else Path("artifacts/voice-commands/command_embeddings.json")
+    )
 
     model = get_streaming_transcriber()._model
 

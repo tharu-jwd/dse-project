@@ -27,7 +27,7 @@ library gap here, just a missing function.
 
 *My call: fix it.* Add `compute_cer` next to `compute_wer`, wire it into `train_asr.py`'s
 `compute_metrics` and `evaluate_asr.py`'s scoring, and add a `cer` field to the persisted
-`eval_results/results.jsonl` rows. Maybe twenty minutes of work. No excuse to skip it.
+`evaluation/results/legacy-results.jsonl` rows. Maybe twenty minutes of work. No excuse to skip it.
 
 **3. No Weights & Biases integration.**
 Called out as a defined term, an explicit pipeline step (SAD Figure 5), a required software
@@ -100,7 +100,8 @@ test, and it's arguably not solely mine to build given the SAD's own use-case sp
 after the first real fine-tuning run produces something worth analyzing, not before.
 
 **10. No aggregate output report.**
-SRS §3.1.3 wants a summary report regardless of outcome. We have `eval_results/results.jsonl`,
+SRS §3.1.3 wants a summary report regardless of outcome. We have
+`evaluation/results/legacy-results.jsonl`,
 raw rows, no rendered summary.
 
 *My call: low priority, do it once there's real data.* A script that reads the JSONL and spits
@@ -147,14 +148,14 @@ Common Voice set, not the one dataset standing in for both right now.
   names).
 - A PEFT adapter directory satisfies the SRS/SAD's generic checkpoint definition. Neither
   document mandates a specific serialization format.
-- `eval_results/results.jsonl` writes with `ensure_ascii=False`, so it won't mangle Sinhala text
+- `evaluation/results/legacy-results.jsonl` writes with `ensure_ascii=False`, so it won't mangle Sinhala text
   if any ends up in a logged field later.
 
 ## Not reviewed here
 
 VAD precision/recall against a manually labelled subset (SRS §3.1.3) is a preprocessing task,
 not this folder's. Backend `Transcriber` integration is covered in
-[`INTEGRATION_POINTS.md`](INTEGRATION_POINTS.md), not here. I also checked the ERD directly:
+[`integration-points.md`](integration-points.md), not here. I also checked the ERD directly:
 nothing in it relates to fine-tuning or evaluation, it's entirely the Phase 2 application's
 schema (users, media, transcripts, quizzes), no checkpoint or experiment-tracking tables.
 

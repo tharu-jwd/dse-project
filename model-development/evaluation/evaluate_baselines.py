@@ -33,15 +33,14 @@ by cosmetic punctuation/casing choices would swamp real transcription
 differences between models.
 
 The test-set path is NOT a CLI flag -- same as the fine-tune scripts, it
-expects data/stratified/test.parquet to already sit next to this file (see
-finetune_whisper.py's module docstring for the expected layout, and
-README.md for how to get it there).
+expects `model-development/data/stratified/test.parquet` to exist (see
+`model-development/README.md` for the expected layout).
 
 Usage:
-    python3 evaluate_baselines.py
-    python3 evaluate_baselines.py --max-samples 500 --batch-size 16
-    python3 evaluate_baselines.py --list-models
-    python3 evaluate_baselines.py --models openai/whisper-small SPEAK-ASR/whisper-si-exp-9
+    python3 evaluation/evaluate_baselines.py
+    python3 evaluation/evaluate_baselines.py --max-samples 500 --batch-size 16
+    python3 evaluation/evaluate_baselines.py --list-models
+    python3 evaluation/evaluate_baselines.py --models openai/whisper-small SPEAK-ASR/whisper-si-exp-9
 
 Scoring your own fine-tuned checkpoint against the final test set (final
 step of both `finetune_whisper.py` and `finetune_whisper_lora.py`):
@@ -74,7 +73,7 @@ TARGET_SR = 16000
 
 # Fixed, not a CLI flag: scripts and data are uploaded to the GPU pod
 # together (see README.md), so there's no need to pass a path at run time.
-TEST_PARQUET = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "stratified", "test.parquet")
+TEST_PARQUET = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "stratified", "test.parquet")
 
 
 def _read_parquet_table(path: str, columns: list[str]):

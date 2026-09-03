@@ -47,7 +47,8 @@ COMMANDS_SI: tuple[VoiceCommand, ...] = (
     VoiceCommand(id="delete", phrase="මකන්න", destructive=True),
 )
 
-# Validated against 36 real recordings (see command_embedding_similarities_en.csv) -
+# Validated against 36 real recordings (see
+# backend/artifacts/voice-commands/command_embedding_similarities_en.csv) -
 # "stop" scored weakest on every similarity metric there and is the
 # first candidate to reword if English false-matches show up in practice.
 COMMANDS_EN: tuple[VoiceCommand, ...] = (

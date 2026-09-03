@@ -17,8 +17,8 @@ Usage as a library (typical Seq2SeqTrainer setup):
     from prepare_whisper_dataset import WhisperASRDataset, DataCollatorSpeechSeq2SeqWithPadding, build_processor
 
     processor = build_processor("openai/whisper-small")
-    train_ds = WhisperASRDataset("dse-project/model-development/data/final_split_dataset/stratified/train.parquet", processor)
-    eval_ds = WhisperASRDataset("dse-project/model-development/data/final_split_dataset/stratified/validation.parquet", processor)
+    train_ds = WhisperASRDataset("model-development/data/stratified/train.parquet", processor)
+    eval_ds = WhisperASRDataset("model-development/data/stratified/validation.parquet", processor)
     collator = DataCollatorSpeechSeq2SeqWithPadding(processor=processor)
     # pass train_ds / eval_ds / collator straight to Seq2SeqTrainer
 
@@ -27,10 +27,10 @@ datasets are staged in a GCS bucket for cloud GPU runs. Requires
 `GOOGLE_APPLICATION_CREDENTIALS` (or ADC/workload identity on the pod) to be
 set; no bucket auth handling lives in this module.
 
-Usage as a smoke test (from inside final-scripts/):
+Usage as a smoke test (from inside model-development/):
 
-    python3 prepare_whisper_dataset.py data/stratified/test.parquet
-    python3 prepare_whisper_dataset.py gs://singen/whisper/finalData/stratified/test.parquet
+    python3 training/prepare_whisper_dataset.py data/stratified/test.parquet
+    python3 training/prepare_whisper_dataset.py gs://singen/whisper/finalData/stratified/test.parquet
 """
 
 import io

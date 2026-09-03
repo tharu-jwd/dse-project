@@ -10,11 +10,9 @@ quizzes.
   and transcript CRUD. See [`backend/README.md`](backend/README.md).
 - `frontend/`: React app for lectures, spoken quizzes, study notes, transcript review, and
   teacher workflows. See [`frontend/README.md`](frontend/README.md).
-- `model-development/`: Sinhala ASR, LoRA fine-tuning on Whisper, evaluation by WER, and the
-  SPEAK-ASR baseline this project builds on. See
-  [`model-development/README.md`](model-development/README.md), and
-  [`model-development/INTEGRATION_POINTS.md`](model-development/INTEGRATION_POINTS.md) for how
-  it connects to the backend and to preprocessing.
+- `model-development/`: Sinhala ASR data preparation, Whisper training,
+  evaluation, experiment tracking, and research. See
+  [`model-development/README.md`](model-development/README.md).
 - `project-docs/`: the project's formal deliverables, SRS, Software Architecture Document, ERD, Gantt
   chart, and project proposal.
 - `docker-compose.yml`: local PostgreSQL service for the backend.
@@ -22,11 +20,10 @@ quizzes.
 ## Status
 
 The backend currently ships a fake transcriber (canned output) rather than a real ASR model.
-See [`model-development/README.md`](model-development/README.md) for the evaluated Sinhala
-baseline (`SPEAK-ASR/whisper-si-exp-10-medium-all`, 10.85% WER) and the in-progress fine-tuning
-work intended to replace it, and
-[`model-development/INTEGRATION_POINTS.md`](model-development/INTEGRATION_POINTS.md) for exactly
-where that swap-in point is.
+See [`model-development/README.md`](model-development/README.md) for current
+fine-tuning work and
+[`model-development/docs/integration-points.md`](model-development/docs/integration-points.md)
+for the backend swap-in point.
 
 ## Getting started
 

@@ -42,5 +42,8 @@ youtubeData/
 model-development/checkpoints/*
 !model-development/checkpoints/.gitkeep
 
+# Local ASR datasets and generated evaluation output
+model-development/data/stratified/
+model-development/evaluation/results/generated/
 
 
