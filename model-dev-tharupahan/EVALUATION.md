@@ -12,10 +12,20 @@ uses whitespace-delimited words. Report both metrics as ratios or percentages,
 never as an unlabeled bare number.
 
 ```bash
+PYTHONPATH=src python scripts/predict.py \
+  --model openai/whisper-small \
+  --manifest data/versions/v2/manifest.parquet \
+  --split validation \
+  --output runs/untouched-small/validation-predictions.parquet
+
 PYTHONPATH=src python scripts/evaluate_predictions.py \
-  --predictions runs/RUN_ID/predictions.parquet \
+  --predictions runs/untouched-small/validation-predictions.parquet \
   --output-dir runs/RUN_ID/evaluation
 ```
+
+Prediction refuses candidate splits unless a bounded `--max-rows` smoke limit
+is supplied. It also refuses the locked test split unless `--unlock-test` is
+explicitly supplied after model and decoding selection are frozen.
 
 The evaluator writes scored rows, machine-readable aggregate/subgroup metrics,
 95% paired bootstrap intervals, edit-operation counts, and a Markdown summary.
