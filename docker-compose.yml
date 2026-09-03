@@ -18,5 +18,45 @@ services:
       retries: 5
     restart: unless-stopped
 
+  backend:
+    build: ./backend
+    env_file: .env
+    environment:
+      # Overrides for values that only make sense inside the compose
+      # network / container filesystem - everything else (JWT secret,
+      # CORS origins, transcriber backend, ...) still comes from .env.
+      POSTGRES_HOST: database
+      MEDIA_STORAGE_DIR: /app/storage/uploads
+      VOICE_SAMPLES_DIR: /app/storage/voice_samples
+      STREAMING_SOURCE_MODEL: /app/models/whisper-sinhala1
+      STREAMING_MODEL_PATH: /app/models/whisper-sinhala1-ct2
+    volumes:
+      # Model checkpoints (1.2GB) and uploaded/recorded audio are bind
+      # mounts, not baked into the image - swapping a model or wiping
+      # dev data never needs a rebuild, and storage/ persists across
+      # `docker compose up --build`.
+      - ./models:/app/models:ro
+      - ./storage:/app/storage
+    ports:
+      - "8000:8000"
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Baked into the static build at image-build time (Vite env
+        # vars aren't readable at container startup) - rebuild the
+        # frontend image if the backend's reachable address changes.
+        VITE_API_BASE_URL: http://localhost:8000
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
 volumes:
   postgres_data:
