@@ -12,6 +12,12 @@ pretrained multilingual Whisper checkpoint, initially
 `openai/whisper-small`, rather than from a team fine-tuned checkpoint or random
 weights.
 
+In this document, "official baseline" means an untouched OpenAI checkpoint; it
+does not mean the checkpoint named `openai/whisper-base`. Use Whisper-base only
+for inexpensive pipeline smoke tests. Whisper-small is the primary training and
+comparison model. Consider Whisper-medium only after a small-model recipe wins
+on the frozen validation protocol and passes a new cost review.
+
 The first acceptance target is less than 10% strict WER and less than 10%
 strict CER on a frozen, leakage-checked test set. Canonical metrics are reported
 alongside strict metrics but cannot replace them. Standalone English retention
@@ -134,8 +140,27 @@ Produce reports for corrupt or missing audio, silence, clipping, duration
 outliers, Unicode anomalies, exact and near duplicates, repeated transcripts,
 speaker leakage, audio leakage, and source/speaker/split distributions.
 
+Dataset adequacy is measured primarily in verified speech hours, speakers, and
+conditions—not row count. The audit must report total and retained hours,
+duration quantiles, speaker coverage where identities exist, source/domain
+coverage, Sinhala-only/code-switched counts, and estimated transcript error
+rates. The historical claim of approximately 154,828 rows is not accepted as a
+training-capacity measurement until it is reproduced from the cloud data.
+
+Perform a reviewed, stratified listening audit before freezing the data. Sample
+at least 100 rows from each applicable category: random OpenSLR, random
+collection sources, automatically flagged anomalies, duplicate/near-duplicate
+candidates, and code-switched speech. A row may satisfy more than one category;
+record every reviewed decision in a durable adjudication table.
+
 Exit with failure when invariants are violated. Never silently discard a row;
 write its reason to an exclusions manifest.
+
+Regenerate speaker-disjoint splits when reliable speaker or recording-group
+identifiers can be recovered. Also retain a collection-domain robustness test,
+a standalone English-retention set, and explicit Sinhala-only and code-switched
+evaluation slices. If speaker identity is unavailable, document that limitation
+and group by the strongest defensible recording/session identifier instead.
 
 ## Phase 2: Sinhala text policy
 
@@ -207,6 +232,14 @@ Initial controlled experiments after evaluating the untouched model:
    exact artifact, optimizer state, and dataset identity can be recovered.
 5. Augmentation ablations only after error analysis shows the matching need.
 6. Whisper-medium only after the winning small-model recipe and budget review.
+
+Before full-data recipe comparisons, measure a nested data learning curve using
+approximately 10, 25, 50, and 100 verified speech hours plus the full retained
+dataset. Build every larger subset as a superset of the smaller one, balanced by
+speaker and source where metadata permits. Use identical bounded pilot settings
+and validation evaluation. Advance full runs only when the curve shows that
+additional data is useful; diagnose label noise, domain mismatch, tokenization,
+or capacity when it plateaus.
 
 Change one experimental factor at a time. Use validation data and early stopping
 for selection; evaluate the test set only after freezing a candidate.
