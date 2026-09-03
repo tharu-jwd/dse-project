@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 import pandas as pd
+import pyarrow.parquet as pq
 import streamlit as st
 
 from sinhala_asr.review.store import (
@@ -43,6 +44,17 @@ def main() -> None:
     st.set_page_config(page_title="Sinhala ASR Review", layout="wide")
     queue_path, output_path = parse_paths()
     queue = load_queue(queue_path)
+    suggestion_path = (
+        queue_path.parent / "gpt-suggestions" / "analysis" / "suggestions.parquet"
+    )
+    suggestions = (
+        {
+            str(row["sample_id"]): row
+            for row in pq.read_table(suggestion_path).to_pylist()
+        }
+        if suggestion_path.is_file()
+        else {}
+    )
     records = load_adjudications(output_path)
     reviewed = reviewed_count(queue, records)
 
@@ -154,6 +166,35 @@ def main() -> None:
                 key=f"play-{sample_id}",
             )
             st.audio(audio, autoplay=play_requested)
+        suggestion = suggestions.get(sample_id)
+        if suggestion and suggestion["suggested_transcript"] != original_text:
+            st.info(
+                f"GPT text-only suggestion ({suggestion['confidence']}, "
+                f"{suggestion['change_class']}):\n\n"
+                f"{suggestion['suggested_transcript']}\n\n"
+                f"Reason: {suggestion['reason']}"
+            )
+
+            def accept_suggestion() -> None:
+                proposed = str(suggestion["suggested_transcript"])
+                st.session_state[text_key] = proposed
+                save_adjudication(
+                    output_path,
+                    {
+                        "sample_id": sample_id,
+                        "decision": "edited",
+                        "text_original": original_text,
+                        "text_corrected": proposed,
+                        "notes": f"Accepted GPT text-only suggestion: {suggestion['reason']}",
+                        "queue_path": str(queue_path),
+                    },
+                )
+
+            st.button(
+                "Use suggestion after checking audio",
+                on_click=accept_suggestion,
+                key=f"accept-suggestion-{sample_id}",
+            )
         st.text_area("Original transcript", original_text, disabled=True, height=120)
         corrected = st.text_area(
             "Verified transcript",

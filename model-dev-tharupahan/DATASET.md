@@ -146,6 +146,16 @@ PYTHONPATH=src python scripts/export_transcripts_for_gpt.py \
   --output-dir reports/review/gpt-suggestions/input
 ```
 
+Returned batches are structurally validated and classified with
+`scripts/analyze_gpt_suggestions.py`. The UI discovers the resulting
+`suggestions.parquet` automatically and offers changed text for one-click
+acceptance only after listening to the audio.
+
+An explicitly owner-approved suggestion pass can be converted to a complete
+overlay with `scripts/apply_gpt_suggestions.py`. Existing native audio reviews
+override text-only suggestions. See `REVIEW_PROVENANCE.md`; never describe a
+text-only suggestion as audio-verified.
+
 ## Verified findings (2026-09-03 snapshots)
 
 - Official OpenSLR-52 contains 185,293 rows and 224.50 hours. Two clips exceed
