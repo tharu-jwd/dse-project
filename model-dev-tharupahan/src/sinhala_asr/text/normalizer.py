@@ -67,7 +67,11 @@ def transcript_flags(text: object) -> list[str]:
         flags.append("empty_transcript")
     if text != unicodedata.normalize("NFC", text):
         flags.append("non_nfc")
-    if any(unicodedata.category(char) in {"Cc", "Cf"} for char in text):
+    if any(
+        unicodedata.category(char) in {"Cc", "Cf"}
+        and not (char == "\u200d" and _is_valid_zwj(text, index))
+        for index, char in enumerate(text)
+    ):
         flags.append("control_or_format_character")
     if any(char == "\u200d" and not _is_valid_zwj(text, i) for i, char in enumerate(text)):
         flags.append("invalid_zwj")
@@ -76,4 +80,3 @@ def transcript_flags(text: object) -> list[str]:
     if any(char.isdigit() for char in text):
         flags.append("contains_digit")
     return flags
-

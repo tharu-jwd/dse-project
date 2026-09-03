@@ -12,9 +12,13 @@ The evidence-graded assessment of inherited work is in
 cd model-dev-tharupahan
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e '.[dev]'
+pip install -e '.[dev,review]'
 pytest
 ```
+
+Dataset source, fingerprinting, audit, and native-speaker review commands are in
+[DATASET.md](DATASET.md). Raw audio and generated reports remain local and are
+ignored by Git.
 
 ## Audit existing splits
 

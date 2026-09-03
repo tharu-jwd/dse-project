@@ -1,0 +1,42 @@
+{
+  "schema_version": "source-registry-v1",
+  "sources": [
+    {
+      "id": "openslr52",
+      "role": "primary",
+      "url": "https://www.openslr.org/52/",
+      "revision": "SLR52 accessed 2026-09-03",
+      "license": "CC-BY-SA-4.0",
+      "license_status": "declared-upstream",
+      "local_path": "data/raw/openslr52"
+    },
+    {
+      "id": "youtube",
+      "role": "candidate",
+      "url": "https://huggingface.co/datasets/SPEAK-ASR/youtube-sinhala-asr",
+      "revision": "4203ccbc52707c2cd6533cfd1e0732251e300ef2",
+      "license": null,
+      "license_status": "unresolved",
+      "local_path": "data/raw/youtube"
+    },
+    {
+      "id": "bizbrains",
+      "role": "candidate",
+      "url": "https://huggingface.co/datasets/SPEAK-ASR/biz-brains-academy-sinhala",
+      "revision": "5e50dd02d86f7810412de4a6de9322f96bed0c77",
+      "license": null,
+      "license_status": "unresolved",
+      "local_path": "data/raw/bizbrains"
+    },
+    {
+      "id": "linga",
+      "role": "provenance-comparison-only",
+      "url": "https://huggingface.co/datasets/Lingalingeswaran/asr-sinhala-dataset_v4",
+      "revision": "0eccec22c52d23193b505c105c939103f456bd7c",
+      "license": null,
+      "license_status": "unresolved",
+      "local_path": "data/raw/linga",
+      "notes": "Suspected substantial OpenSLR overlap; never count as independent speech without decoded-audio proof."
+    }
+  ]
+}

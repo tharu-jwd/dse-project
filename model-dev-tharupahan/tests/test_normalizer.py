@@ -28,6 +28,7 @@ def test_valid_sinhala_joiner_is_preserved_but_invalid_joiner_is_removed():
     assert canonicalize(valid) == valid
     assert canonicalize(invalid) == "කම"
     assert "invalid_zwj" not in transcript_flags(valid)
+    assert "control_or_format_character" not in transcript_flags(valid)
     assert "invalid_zwj" in transcript_flags(invalid)
 
 

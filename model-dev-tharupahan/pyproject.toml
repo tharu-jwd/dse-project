@@ -17,6 +17,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<9"]
+review = ["streamlit>=1.40,<2"]
 
 [project.scripts]
 sinhala-asr-prepare = "sinhala_asr.data.audit:main"
@@ -30,4 +31,3 @@ where = ["src"]
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]
-

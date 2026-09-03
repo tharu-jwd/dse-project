@@ -34,6 +34,7 @@ def test_manifest_contains_stable_identity_audio_and_text_metadata(tmp_path):
 
     assert first["sample_id"] == second["sample_id"]
     assert len(first["audio_sha256"]) == 64
+    assert len(first["audio_pcm_sha256"]) == 64
     assert first["text_original"] == "  සිංහල  පාඨය ."
     assert first["text_canonical"] == "සිංහල පාඨය."
     assert first["text_metric"] == "සිංහල පාඨය"
@@ -72,6 +73,8 @@ def test_audit_detects_audio_and_sample_leakage_across_splits(tmp_path):
     assert len(summary["audio_cross_split_leaks"]) == 1
     assert len(summary["sample_cross_split_leaks"]) == 1
     assert summary["duplicate_audio_hashes"] == 1
+    assert summary["duplicate_pcm_audio_hashes"] == 1
+    assert summary["total_audio_hours"] > 0
     assert (output / "manifest.parquet").is_file()
     assert (output / "summary.json").is_file()
     assert (output / "summary.md").is_file()
@@ -111,3 +114,19 @@ def test_clean_disjoint_data_passes(tmp_path):
 
     assert summary["passed"] is True
     assert summary["invalid_rows"] == 0
+
+
+def test_audit_detects_recording_group_leakage(tmp_path):
+    train = tmp_path / "train.parquet"
+    test = tmp_path / "test.parquet"
+    write_parquet(
+        train,
+        [{"audio": wav_bytes(frequency=300), "text": "පුහුණු", "source_dataset": "youtube", "video_id": "v1"}],
+    )
+    write_parquet(
+        test,
+        [{"audio": wav_bytes(frequency=600), "text": "පරීක්ෂණ", "source_dataset": "youtube", "video_id": "v1"}],
+    )
+    summary = run_audit([("train", train), ("test", test)], tmp_path / "report")
+    assert summary["recording_group_audit_available"] is True
+    assert len(summary["recording_group_cross_split_leaks"]) == 1

@@ -20,13 +20,21 @@ from sinhala_asr.text.normalizer import (
     transcript_flags,
 )
 
-MANIFEST_VERSION = "manifest-v1"
+MANIFEST_VERSION = "manifest-v2"
 
 
 def _digest(value: bytes | str) -> str:
     if isinstance(value, str):
         value = value.encode("utf-8")
     return hashlib.sha256(value).hexdigest()
+
+
+def _first_present(row: dict[str, Any], *names: str) -> Any:
+    for name in names:
+        value = row.get(name)
+        if value is not None:
+            return value
+    return None
 
 
 def _audio_bytes(value: Any, base_dir: Path) -> bytes:
@@ -55,6 +63,7 @@ def _audio_metadata(raw: bytes, silence_rms: float, clipping_peak: float) -> dic
 
     peak = float(np.max(np.abs(samples))) if samples.size else 0.0
     rms = float(np.sqrt(np.mean(np.square(samples, dtype=np.float64)))) if samples.size else 0.0
+    pcm_identity = sample_rate.to_bytes(4, "little") + channels.to_bytes(2, "little") + samples.tobytes()
     return {
         "sample_rate": sample_rate,
         "channels": channels,
@@ -64,6 +73,7 @@ def _audio_metadata(raw: bytes, silence_rms: float, clipping_peak: float) -> dic
         "audio_subtype": subtype,
         "peak_amplitude": peak,
         "rms_amplitude": rms,
+        "audio_pcm_sha256": _digest(pcm_identity),
         "is_silent": rms < silence_rms,
         "is_clipped": peak >= clipping_peak,
         "audio_error": None,
@@ -91,10 +101,24 @@ def build_manifest_rows(
     """Build manifest rows without silently dropping invalid samples."""
     rows: list[dict[str, Any]] = []
     for row_index, source_row in iter_parquet_rows(path):
-        original = source_row.get("text")
-        source = str(source_row.get("source_dataset") or "unknown")
-        source_record_id = source_row.get("source_record_id") or source_row.get("id")
-        speaker_id = source_row.get("speaker_id") or source_row.get("speaker")
+        original = _first_present(source_row, "text", "transcription", "Transcription")
+        known_sources = {"openslr52", "youtube", "bizbrains", "linga"}
+        inferred_source = next((part for part in reversed(path.parts) if part in known_sources), "unknown")
+        source = str(source_row.get("source_dataset") or inferred_source)
+        source_record_id = (
+            source_row.get("source_record_id")
+            or source_row.get("id")
+            or source_row.get("file_id")
+            or source_row.get("FileID")
+        )
+        speaker_id = (
+            source_row.get("speaker_id")
+            or source_row.get("speaker")
+            or source_row.get("Speaker")
+        )
+        recording_group_id = _first_present(
+            source_row, "recording_group_id", "recording_id", "session_id", "video_id"
+        )
         flags = transcript_flags(original)
         canonical = canonicalize(original) if isinstance(original, str) else ""
         metric_text = metric_normalize(original) if isinstance(original, str) else ""
@@ -111,12 +135,14 @@ def build_manifest_rows(
             "audio_subtype": None,
             "peak_amplitude": None,
             "rms_amplitude": None,
+            "audio_pcm_sha256": "",
             "is_silent": None,
             "is_clipped": None,
             "audio_error": None,
         }
         try:
-            raw = _audio_bytes(source_row.get("audio"), path.parent)
+            audio_value = _first_present(source_row, "audio", "audio_path", "file")
+            raw = _audio_bytes(audio_value, path.parent)
             audio_hash = _digest(raw)
             metadata = _audio_metadata(raw, silence_rms, clipping_peak)
             if metadata["duration_seconds"] < min_duration:
@@ -154,6 +180,14 @@ def build_manifest_rows(
                 "source_record_id": None if source_record_id is None else str(source_record_id),
                 "speaker_id": None if speaker_id is None else str(speaker_id),
                 "speaker_key": None if speaker_id is None else f"{source}:{speaker_id}",
+                "recording_group_id": None if recording_group_id is None else str(recording_group_id),
+                "recording_group_key": (
+                    None if recording_group_id is None else f"{source}:{recording_group_id}"
+                ),
+                "domain": source_row.get("domain"),
+                "uploader": source_row.get("uploader"),
+                "speaker_gender": source_row.get("speaker_gender"),
+                "source_has_noise": source_row.get("has_noise"),
                 "source_path": str(path),
                 "source_row_index": row_index,
                 "audio_sha256": audio_hash,

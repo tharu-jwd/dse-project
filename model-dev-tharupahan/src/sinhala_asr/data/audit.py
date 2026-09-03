@@ -7,6 +7,7 @@ import hashlib
 import json
 from collections import Counter, defaultdict
 from pathlib import Path
+from statistics import mean
 from typing import Any
 
 from .manifest import MANIFEST_VERSION, build_manifest_rows, write_manifest
@@ -46,20 +47,34 @@ def summarize(rows: list[dict[str, Any]], inputs: list[tuple[str, Path]]) -> dic
         flag_counts.update(json.loads(row["validation_flags"]))
 
     audio_by_split: dict[str, set[str]] = defaultdict(set)
+    pcm_audio_by_split: dict[str, set[str]] = defaultdict(set)
     sample_by_split: dict[str, set[str]] = defaultdict(set)
     speaker_by_split: dict[str, set[str]] = defaultdict(set)
+    recording_group_by_split: dict[str, set[str]] = defaultdict(set)
     for row in rows:
         audio_by_split[row["split"]].add(row["audio_sha256"])
+        pcm_audio_by_split[row["split"]].add(row["audio_pcm_sha256"])
         sample_by_split[row["split"]].add(row["sample_id"])
         if row["speaker_key"]:
             speaker_by_split[row["split"]].add(row["speaker_key"])
+        if row["recording_group_key"]:
+            recording_group_by_split[row["split"]].add(row["recording_group_key"])
 
     audio_leaks = _cross_split(audio_by_split)
+    pcm_audio_leaks = _cross_split(pcm_audio_by_split)
     sample_leaks = _cross_split(sample_by_split)
     speaker_leaks = _cross_split(speaker_by_split)
+    recording_group_leaks = _cross_split(recording_group_by_split)
     audio_counts = Counter(row["audio_sha256"] for row in rows if row["audio_sha256"])
+    pcm_audio_counts = Counter(row["audio_pcm_sha256"] for row in rows if row["audio_pcm_sha256"])
     transcript_counts = Counter(row["transcript_sha256"] for row in rows if row["text_canonical"])
     invalid_rows = sum(not row["is_valid"] for row in rows)
+    durations = sorted(float(row["duration_seconds"]) for row in rows if row["duration_seconds"] is not None)
+
+    def percentile(fraction: float) -> float | None:
+        if not durations:
+            return None
+        return durations[round((len(durations) - 1) * fraction)]
     fingerprint_lines = [
         f"{row['sample_id']}\t{row['split']}\t{row['audio_sha256']}\t{row['transcript_sha256']}"
         for row in sorted(rows, key=lambda item: (item["sample_id"], item["split"]))
@@ -70,14 +85,19 @@ def summarize(rows: list[dict[str, Any]], inputs: list[tuple[str, Path]]) -> dic
     if invalid_rows:
         violations.append(f"{invalid_rows} invalid rows")
     duplicate_audio_hashes = sum(count > 1 for count in audio_counts.values())
+    duplicate_pcm_audio_hashes = sum(count > 1 for count in pcm_audio_counts.values())
     if duplicate_audio_hashes:
         violations.append(f"{duplicate_audio_hashes} duplicate audio hashes")
     if audio_leaks:
         violations.append(f"{len(audio_leaks)} audio hashes cross split boundaries")
+    if pcm_audio_leaks:
+        violations.append(f"{len(pcm_audio_leaks)} decoded audio hashes cross split boundaries")
     if sample_leaks:
         violations.append(f"{len(sample_leaks)} sample IDs cross split boundaries")
     if speaker_leaks:
         violations.append(f"{len(speaker_leaks)} speaker IDs cross split boundaries")
+    if recording_group_leaks:
+        violations.append(f"{len(recording_group_leaks)} recording groups cross split boundaries")
 
     return {
         "manifest_version": MANIFEST_VERSION,
@@ -91,11 +111,24 @@ def summarize(rows: list[dict[str, Any]], inputs: list[tuple[str, Path]]) -> dic
         "source_counts": dict(sorted(source_counts.items())),
         "flag_counts": dict(sorted(flag_counts.items())),
         "duplicate_audio_hashes": duplicate_audio_hashes,
+        "duplicate_pcm_audio_hashes": duplicate_pcm_audio_hashes,
         "repeated_transcript_hashes": sum(count > 1 for count in transcript_counts.values()),
+        "total_audio_hours": sum(durations) / 3600,
+        "mean_duration_seconds": mean(durations) if durations else None,
+        "duration_percentiles_seconds": {
+            "p01": percentile(0.01),
+            "p50": percentile(0.50),
+            "p95": percentile(0.95),
+            "p99": percentile(0.99),
+        },
+        "code_switched_rows": sum(bool(row["is_code_switched"]) for row in rows),
         "audio_cross_split_leaks": audio_leaks,
+        "decoded_audio_cross_split_leaks": pcm_audio_leaks,
         "sample_cross_split_leaks": sample_leaks,
         "speaker_cross_split_leaks": speaker_leaks,
+        "recording_group_cross_split_leaks": recording_group_leaks,
         "speaker_audit_available": bool(speaker_by_split),
+        "recording_group_audit_available": bool(recording_group_by_split),
         "violations": violations,
         "passed": not violations,
     }
@@ -113,8 +146,12 @@ def render_markdown(summary: dict[str, Any]) -> str:
         f"- Valid rows: {summary['valid_rows']}",
         f"- Invalid rows: {summary['invalid_rows']}",
         f"- Duplicate audio hashes: {summary['duplicate_audio_hashes']}",
+        f"- Duplicate decoded-audio hashes: {summary['duplicate_pcm_audio_hashes']}",
         f"- Repeated transcript hashes: {summary['repeated_transcript_hashes']}",
+        f"- Total audio: {summary['total_audio_hours']:.2f} hours",
+        f"- Code-switched rows: {summary['code_switched_rows']}",
         f"- Speaker audit available: {summary['speaker_audit_available']}",
+        f"- Recording-group audit available: {summary['recording_group_audit_available']}",
         "",
         "## Split counts",
         "",
