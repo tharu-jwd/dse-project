@@ -91,6 +91,7 @@ def main() -> None:
             use_container_width=True,
             on_click=move_position,
             args=(-1,),
+            shortcut="Left",
         )
     with position_column:
         index = st.number_input(
@@ -107,6 +108,7 @@ def main() -> None:
             use_container_width=True,
             on_click=move_position,
             args=(1,),
+            shortcut="Right",
         )
     row = visible.loc[options[int(index)]]
     sample_id = str(row["sample_id"])
