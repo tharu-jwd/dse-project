@@ -3,6 +3,8 @@
 Clean, reproducible Sinhala ASR development built independently from the
 historical `model-development/` implementation. See [PLAN.md](PLAN.md) for the
 decisions, quality gates, experiment sequence, and GPU cost controls.
+The evidence-graded assessment of inherited work is in
+[HISTORICAL_AUDIT.md](HISTORICAL_AUDIT.md).
 
 ## Development setup
 
@@ -35,4 +37,3 @@ Outputs:
 
 Use `--allow-invalid` only while investigating a failed audit. It does not hide
 violations from the reports.
-

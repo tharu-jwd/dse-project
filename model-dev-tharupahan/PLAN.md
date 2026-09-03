@@ -12,9 +12,18 @@ pretrained multilingual Whisper checkpoint, initially
 `openai/whisper-small`, rather than from a team fine-tuned checkpoint or random
 weights.
 
+The first acceptance target is less than 10% strict WER and less than 10%
+strict CER on a frozen, leakage-checked test set. Canonical metrics are reported
+alongside strict metrics but cannot replace them. Standalone English retention
+is desirable rather than a hard acceptance condition; code-switched English in
+Sinhala samples remains part of the primary task and is never silently removed.
+
 Existing checkpoints and results are historical comparison baselines only.
 `model-development/` remains read-only reference material; code is copied from
 it only after review.
+
+See [HISTORICAL_AUDIT.md](HISTORICAL_AUDIT.md) for the evidence-graded run
+history, contradictions, evaluation policy, and experiment rationale.
 
 ## Non-negotiable rules
 
@@ -187,19 +196,27 @@ LoRA training behind the same configuration schema. Track strict/canonical
 validation metrics, loss, learning rate, gradient norm, throughput, peak memory,
 checkpoint identity, and wall time.
 
-Initial controlled experiments after baseline reproduction:
+Initial controlled experiments after evaluating the untouched model:
 
-1. Full fine-tune with cosine scheduling at `1e-5`, `2e-5`, and `3e-5`.
-2. Augmentation ablation: none, SpecAugment, speed perturbation, and
-   deployment-matched real noise.
-3. Wide-target LoRA comparison.
-4. Whisper-medium using only the winning small-model recipe.
-5. Domain adaptation and filtered pseudo-labeling only after earlier phases.
+1. Clean full fine-tune from official `openai/whisper-small`, selecting a
+   conservative learning rate through short pilots.
+2. Bilingual replay using the winning recipe plus a fixed English rehearsal set
+   and the available Sinhala-English code-switched samples.
+3. Wide-target LoRA or DoRA comparison on the same frozen data.
+4. Low-learning-rate continuation of the historical 17% checkpoint only if its
+   exact artifact, optimizer state, and dataset identity can be recovered.
+5. Augmentation ablations only after error analysis shows the matching need.
+6. Whisper-medium only after the winning small-model recipe and budget review.
 
 Change one experimental factor at a time. Use validation data and early stopping
 for selection; evaluate the test set only after freezing a candidate.
 
 ## Phase 5: GPU and cloud cost gates
+
+Initial compute allowance: five included Camber GPU hours plus at most USD 10
+of paid compute. Free hours are still budgeted and measured. The GPU model,
+VRAM, framework compatibility, persistence, and observed throughput must be
+recorded before estimating how many complete runs fit this allowance.
 
 ### Gate A: free/local checks
 
@@ -229,6 +246,8 @@ planned cost = hourly GPU price × estimated hours × 1.25 safety margin
 ```
 
 Do not start a full run without an approved maximum cost and stop condition.
+The first pilot must calculate the projected total cost; if it exceeds the
+remaining allowance, the job must not advance automatically.
 
 ### Gate D: bounded full experiments
 
