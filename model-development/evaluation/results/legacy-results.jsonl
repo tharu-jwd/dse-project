@@ -1,1 +1,0 @@
-{"timestamp": "2026-08-11T17:29:53.585773+00:00", "model": "custom", "checkpoint": "model-development/checkpoints/smoke-test", "base_model": "openai/whisper-medium", "dataset": "SPEAK-ASR/openslr-sinhala-asr", "split": "test", "num_samples": 1, "wer": 6.166666666666667, "git_commit": "6336ed2"}

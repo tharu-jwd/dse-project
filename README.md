@@ -19,9 +19,9 @@ quizzes.
 
 ## Status
 
-The backend currently ships a fake transcriber (canned output) rather than a real ASR model.
-See [`model-development/README.md`](model-development/README.md) for current
-fine-tuning work and
+The backend supports a lightweight fake transcriber, complete Whisper
+checkpoints, and SPEAK-ASR/PEFT adapters through configuration. See
+[`model-development/README.md`](model-development/README.md) for current fine-tuning work and
 [`model-development/docs/integration-points.md`](model-development/docs/integration-points.md)
 for the backend swap-in point.
 

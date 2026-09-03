@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
-import dashboardBackground from '../assets/7.jpg'
+import dashboardBackground from '../assets/1.jpg'
 import heroImage from '../assets/astronaut.png'
 import Icon from '../components/Icon'
 import { Loading, StatusBadge } from '../components/UI'

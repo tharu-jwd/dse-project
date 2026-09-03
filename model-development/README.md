@@ -16,7 +16,6 @@ model-development/
 ├── data/           # Local datasets (large Parquet files are ignored)
 ├── checkpoints/    # Local model artifacts (ignored except .gitkeep)
 ├── docs/           # Guides, strategy, dataset notes, and design reviews
-├── diagrams/       # Editable Mermaid diagrams and rendered copies
 └── requirements.txt
 ```
 
@@ -34,3 +33,8 @@ model-development/
 
 Run active ML commands from this directory so examples and relative output
 paths remain consistent.
+
+One dependency file at the directory root covers preparation, training, and
+evaluation. `scripts/split_final_datasets.py` is the maintained split generator;
+it produces both the standard stratified split and the cross-domain held-out
+split.

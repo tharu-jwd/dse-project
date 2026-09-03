@@ -46,4 +46,7 @@ model-development/checkpoints/*
 model-development/data/stratified/
 model-development/evaluation/results/generated/
 
+# Reproducible per-sample ASR reports (keep compact summaries in Git)
+model-development/evaluation/results/*_predictions.csv
+model-development/evaluation/results/error_analysis/*_errors_by_severity.csv
 
