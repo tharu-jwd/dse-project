@@ -1,4 +1,6 @@
 import { useRef, useState } from 'react'
+import { useLanguage } from '../contexts/LanguageContext'
+import { translate } from '../i18n/translations'
 import Icon from './Icon'
 
 export const MAX_FILE_SIZE = 100 * 1024 * 1024
@@ -7,15 +9,21 @@ export const formatFileSize = (bytes) =>
     ? `${(bytes / 1024).toFixed(1)} KB`
     : `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 
-export function validateMediaFile(file, { audioOnly = false, maxSize = MAX_FILE_SIZE } = {}) {
-  if (!file) return 'Choose a file to continue.'
+export function validateMediaFile(
+  file,
+  { audioOnly = false, maxSize = MAX_FILE_SIZE, language = 'en' } = {},
+) {
+  if (!file) return translate('upload.chooseFileToContinue', language)
   const validType = audioOnly
     ? file.type.startsWith('audio/')
     : file.type.startsWith('audio/') || file.type.startsWith('video/')
   if (!validType)
-    return audioOnly ? 'Choose a supported audio file.' : 'Choose a supported audio or video file.'
+    return translate(
+      audioOnly ? 'upload.chooseSupportedAudio' : 'upload.chooseSupportedAudioVideo',
+      language,
+    )
   if (file.size > maxSize)
-    return `The file is larger than the ${Math.round(maxSize / 1024 / 1024)} MB limit.`
+    return translate('upload.fileTooLarge', language, Math.round(maxSize / 1024 / 1024))
   return ''
 }
 
@@ -31,12 +39,13 @@ export default function FileUpload({
   heading,
   tagline,
 }) {
+  const { t, language } = useLanguage()
   const inputRef = useRef(null)
   const [dragging, setDragging] = useState(false)
   const [localError, setLocalError] = useState('')
   const accept = audioOnly ? 'audio/*' : 'audio/*,video/*'
   const choose = (selected) => {
-    const error = validateMediaFile(selected, { audioOnly })
+    const error = validateMediaFile(selected, { audioOnly, language })
     setLocalError(error)
     if (!error) onChange(selected)
   }
@@ -54,7 +63,7 @@ export default function FileUpload({
         <div>
           <strong>{file.name}</strong>
           <span>
-            {file.type || 'Media file'} · {formatFileSize(file.size)}
+            {file.type || t('upload.mediaFile')} · {formatFileSize(file.size)}
           </span>
         </div>
         <button
@@ -66,7 +75,7 @@ export default function FileUpload({
             if (inputRef.current) inputRef.current.value = ''
           }}
         >
-          <Icon name="trash" size={17} /> Remove
+          <Icon name="trash" size={17} /> {t('upload.remove')}
         </button>
       </div>
     )
@@ -99,10 +108,11 @@ export default function FileUpload({
         {heading && <strong className="dropzone__heading">{heading}</strong>}
         {tagline && <p className="dropzone__tagline">{tagline}</p>}
         <label htmlFor={id}>
-          <strong>Choose a file</strong> or drag and drop
+          <strong>{t('upload.chooseFile')}</strong> {t('upload.orDragDrop')}
         </label>
         <span id={`${id}-hint`}>
-          {audioOnly ? 'MP3, WAV, M4A or OGG' : 'MP3, WAV, M4A, MP4, MOV or WEBM'} · up to 100 MB
+          {audioOnly ? t('upload.audioFormats') : t('upload.audioVideoFormats')} ·{' '}
+          {t('upload.upTo100mb')}
         </span>
       </div>
       {(localError || externalError) && (

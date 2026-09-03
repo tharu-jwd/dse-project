@@ -22,6 +22,7 @@ silero-vad
 onnxruntime
 websockets
 rapidfuzz
+soundfile
 
 pytest
 pytest-asyncio

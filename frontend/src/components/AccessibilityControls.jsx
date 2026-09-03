@@ -1,7 +1,9 @@
 import { useAccessibility } from '../contexts/AccessibilityContext'
+import { useLanguage } from '../contexts/LanguageContext'
 
 export default function AccessibilityControls({ compact = false }) {
   const { fontSize, highContrast, updatePreference } = useAccessibility()
+  const { t } = useLanguage()
   if (compact)
     return (
       <button
@@ -10,37 +12,37 @@ export default function AccessibilityControls({ compact = false }) {
         aria-pressed={highContrast}
         onClick={() => updatePreference('highContrast', !highContrast)}
       >
-        <span aria-hidden="true">◐</span> <span>High contrast</span>
+        <span aria-hidden="true">◐</span> <span>{t('accessibility.highContrast')}</span>
       </button>
     )
   return (
     <div className="accessibility-controls">
       <fieldset>
-        <legend>Transcript text size</legend>
+        <legend>{t('accessibility.textSize')}</legend>
         <div className="segmented-control">
           {[
-            ['normal', 'A', 'Normal'],
-            ['large', 'A', 'Large'],
-            ['xlarge', 'A', 'Extra large'],
-          ].map(([value, label, accessible]) => (
+            ['normal', 'A', 'accessibility.normal'],
+            ['large', 'A', 'accessibility.large'],
+            ['xlarge', 'A', 'accessibility.extraLarge'],
+          ].map(([value, label, accessibleKey]) => (
             <button
               type="button"
               key={value}
               className={fontSize === value ? 'active' : ''}
               aria-pressed={fontSize === value}
-              aria-label={`${accessible} transcript text`}
+              aria-label={t('accessibility.transcriptText', t(accessibleKey))}
               onClick={() => updatePreference('fontSize', value)}
             >
               <span className={`font-demo font-demo--${value}`}>{label}</span>
-              <small>{accessible}</small>
+              <small>{t(accessibleKey)}</small>
             </button>
           ))}
         </div>
       </fieldset>
       <label className="toggle-row">
         <span>
-          <strong>High contrast</strong>
-          <small>Increase contrast throughout the application.</small>
+          <strong>{t('accessibility.highContrast')}</strong>
+          <small>{t('accessibility.highContrastDescription')}</small>
         </span>
         <input
           type="checkbox"

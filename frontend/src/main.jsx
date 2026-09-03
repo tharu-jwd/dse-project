@@ -5,18 +5,21 @@ import './index.css'
 import App from './App.jsx'
 import { AccessibilityProvider } from './contexts/AccessibilityContext.jsx'
 import { AuthProvider } from './contexts/AuthContext.jsx'
+import { LanguageProvider } from './contexts/LanguageContext.jsx'
 import { ToastProvider } from './contexts/ToastContext.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
-      <AccessibilityProvider>
-        <AuthProvider>
-          <ToastProvider>
-            <App />
-          </ToastProvider>
-        </AuthProvider>
-      </AccessibilityProvider>
+      <LanguageProvider>
+        <AccessibilityProvider>
+          <AuthProvider>
+            <ToastProvider>
+              <App />
+            </ToastProvider>
+          </AuthProvider>
+        </AccessibilityProvider>
+      </LanguageProvider>
     </BrowserRouter>
   </StrictMode>,
 )

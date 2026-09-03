@@ -6,72 +6,74 @@ import heroImage from '../assets/astronaut.png'
 import Icon from '../components/Icon'
 import { Loading, StatusBadge } from '../components/UI'
 import { useAuth } from '../contexts/AuthContext'
+import { useLanguage } from '../contexts/LanguageContext'
 
 const actions = {
   STUDENT: [
     [
       'upload',
-      'Lecture captioning',
-      'Upload a lecture and turn Sinhala speech into clear captions.',
+      'dashboard.student.lectureTitle',
+      'dashboard.student.lectureDescription',
       '/lectures/new',
-      'Upload lecture',
+      'dashboard.student.lectureCta',
     ],
     [
       'quiz',
-      'My quizzes',
-      'Record spoken answers and review the transcript before submitting.',
+      'dashboard.student.quizTitle',
+      'dashboard.student.quizDescription',
       '/quizzes',
-      'View quizzes',
+      'dashboard.student.quizCta',
     ],
     [
       'mic',
-      'Self-study notes',
-      'Speak your thoughts and save them as editable study notes.',
+      'dashboard.student.notesTitle',
+      'dashboard.student.notesDescription',
       '/notes/new',
-      'Create note',
+      'dashboard.student.notesCta',
     ],
     [
       'file',
-      'Transcript library',
-      'Find, review and export your saved transcripts.',
+      'dashboard.libraryTitle',
+      'dashboard.student.libraryDescription',
       '/transcripts',
-      'Open library',
+      'dashboard.libraryCta',
     ],
   ],
   TEACHER: [
     [
       'upload',
-      'Upload lecture',
-      'Create accessible Sinhala captions from a recorded lecture.',
+      'nav.uploadLecture',
+      'dashboard.teacher.lectureDescription',
       '/lectures/new',
-      'Upload lecture',
+      'nav.uploadLecture',
     ],
     [
       'quiz',
-      'Manage quizzes',
-      'Create, edit and publish speech-based assessments.',
+      'dashboard.teacher.quizTitle',
+      'dashboard.teacher.quizDescription',
       '/teacher/quizzes',
-      'Manage quizzes',
+      'dashboard.teacher.quizCta',
     ],
     [
       'users',
-      'Review submissions',
-      'Read answers and leave marks and feedback.',
+      'dashboard.teacher.submissionsTitle',
+      'dashboard.teacher.submissionsDescription',
       '/teacher/submissions',
-      'Review work',
+      'dashboard.teacher.submissionsCta',
     ],
     [
       'file',
-      'Transcript library',
-      'Find, review and export lecture transcripts.',
+      'dashboard.libraryTitle',
+      'dashboard.teacher.libraryDescription',
       '/transcripts',
-      'Open library',
+      'dashboard.libraryCta',
     ],
   ],
 }
 
 export default function DashboardPage() {
   const { user } = useAuth()
+  const { t, language } = useLanguage()
   const [all, setAll] = useState(null)
   useEffect(() => {
     let active = true
@@ -89,7 +91,7 @@ export default function DashboardPage() {
     finalized: all.filter((item) => item.status === 'FINALIZED').length,
     inProgress: all.filter((item) => item.status !== 'FINALIZED').length,
   }
-  const date = new Intl.DateTimeFormat('en-GB', {
+  const date = new Intl.DateTimeFormat(language === 'si' ? 'si-LK' : 'en-GB', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -99,35 +101,33 @@ export default function DashboardPage() {
     <div className="page has-bg-image" style={{ backgroundImage: `url(${dashboardBackground})` }}>
       <section className="hero-banner">
         <span className="eyebrow">{date}</span>
-        <h1>Ayubowan, {user.name.split(' ')[0]}!</h1>
+        <h1>{t('dashboard.greeting', user.name.split(' ')[0])}</h1>
         <p>
-          {user.role === 'TEACHER'
-            ? 'Make today’s learning more accessible for every student.'
-            : 'What would you like to work on today?'}
+          {user.role === 'TEACHER' ? t('dashboard.teacherSubtitle') : t('dashboard.studentSubtitle')}
         </p>
         <div className="button-row">
           <Link className="button button--primary" to={firstAction[3]}>
-            {firstAction[4]}
+            {t(firstAction[4])}
           </Link>
           <Link className="button button--secondary" to="/transcripts">
-            View library
+            {t('dashboard.viewLibrary')}
           </Link>
         </div>
       </section>
       <section className="section">
         <div className="section-heading">
-          <h2>{user.role === 'TEACHER' ? 'Quick actions' : 'Mission launchpad'}</h2>
+          <h2>{user.role === 'TEACHER' ? t('dashboard.quickActions') : t('dashboard.missionLaunchpad')}</h2>
         </div>
-        <div className="quick-grid" aria-label="Quick actions">
-          {actions[user.role].map(([icon, title, description, to, label], index) => (
+        <div className="quick-grid" aria-label={t('dashboard.quickActions')}>
+          {actions[user.role].map(([icon, titleKey, descriptionKey, to, labelKey], index) => (
             <Link className={`quick-card quick-card--${index + 1}`} to={to} key={to}>
               <span className="quick-card__icon">
                 <Icon name={icon} size={26} />
               </span>
-              <h2>{title}</h2>
-              <p>{description}</p>
+              <h2>{t(titleKey)}</h2>
+              <p>{t(descriptionKey)}</p>
               <span className="quick-card__link">
-                {label} <Icon name="arrow" size={16} />
+                {t(labelKey)} <Icon name="arrow" size={16} />
               </span>
             </Link>
           ))}
@@ -136,7 +136,7 @@ export default function DashboardPage() {
       <section className="section dashboard-columns">
         <div>
           <div className="section-heading">
-            <h2>Your stats</h2>
+            <h2>{t('dashboard.yourStats')}</h2>
           </div>
           {stats ? (
             <div className="stat-grid">
@@ -145,7 +145,7 @@ export default function DashboardPage() {
                   <Icon name="file" size={22} />
                 </span>
                 <div>
-                  <p>Total transcripts</p>
+                  <p>{t('dashboard.totalTranscripts')}</p>
                   <p>{stats.total}</p>
                 </div>
               </div>
@@ -154,7 +154,7 @@ export default function DashboardPage() {
                   <Icon name="check" size={22} />
                 </span>
                 <div>
-                  <p>Finalized</p>
+                  <p>{t('dashboard.finalized')}</p>
                   <p>{stats.finalized}</p>
                 </div>
               </div>
@@ -163,27 +163,27 @@ export default function DashboardPage() {
                   <Icon name="clock" size={22} />
                 </span>
                 <div>
-                  <p>In progress</p>
+                  <p>{t('dashboard.inProgress')}</p>
                   <p>{stats.inProgress}</p>
                 </div>
               </div>
             </div>
           ) : (
-            <Loading label="Loading your stats…" />
+            <Loading label={t('dashboard.loadingStats')} />
           )}
         </div>
         <div className="recent-section">
           <div className="section-heading">
             <div>
-              <span className="eyebrow">Pick up where you left off</span>
-              <h2>Recent transcripts</h2>
+              <span className="eyebrow">{t('dashboard.pickUpWhereLeftOff')}</span>
+              <h2>{t('dashboard.recentTranscripts')}</h2>
             </div>
             <Link className="text-link" to="/transcripts">
-              View all <Icon name="arrow" size={15} />
+              {t('dashboard.viewAll')} <Icon name="arrow" size={15} />
             </Link>
           </div>
           {recent === null ? (
-            <Loading label="Loading recent transcripts…" />
+            <Loading label={t('dashboard.loadingRecent')} />
           ) : recent.length ? (
             <div className="recent-list">
               {recent.map((item) => (
@@ -203,7 +203,7 @@ export default function DashboardPage() {
                     <strong>{item.title}</strong>
                     <small>
                       {item.type.replace('_', ' ').toLowerCase()} ·{' '}
-                      {new Intl.DateTimeFormat('en-GB', {
+                      {new Intl.DateTimeFormat(language === 'si' ? 'si-LK' : 'en-GB', {
                         day: 'numeric',
                         month: 'short',
                         year: 'numeric',
@@ -216,20 +216,18 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : (
-            <p className="muted">
-              No transcripts yet. Start by uploading a lecture or recording a note.
-            </p>
+            <p className="muted">{t('dashboard.noTranscripts')}</p>
           )}
         </div>
       </section>
       <aside className="tip-card">
         <span aria-hidden="true">සිං</span>
         <div>
-          <strong>Quick Start is available in English and Sinhala</strong>
-          <p>Learn how to upload a lecture, record an answer and correct low-confidence words.</p>
+          <strong>{t('dashboard.tipTitle')}</strong>
+          <p>{t('dashboard.tipBody')}</p>
         </div>
         <Link className="button button--secondary" to="/help">
-          View guide
+          {t('dashboard.viewGuide')}
         </Link>
       </aside>
     </div>

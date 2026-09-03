@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { useLanguage } from '../contexts/LanguageContext'
 import FileUpload from './FileUpload'
 import Icon from './Icon'
 import { Alert } from './UI'
@@ -7,6 +8,7 @@ const time = (seconds) =>
   `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
 
 export default function AudioRecorder({ onUse, disabled = false }) {
+  const { t } = useLanguage()
   const uploadId = useId()
   const [state, setState] = useState('idle')
   const [seconds, setSeconds] = useState(0)
@@ -42,7 +44,7 @@ export default function AudioRecorder({ onUse, disabled = false }) {
   const start = async () => {
     setError('')
     if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
-      setError('Audio recording is not supported by this browser. Upload an audio clip instead.')
+      setError(t('recorder.notSupported'))
       return
     }
     try {
@@ -55,7 +57,7 @@ export default function AudioRecorder({ onUse, disabled = false }) {
         if (event.data.size) chunksRef.current.push(event.data)
       }
       recorder.onerror = () => {
-        setError('Recording failed. Please retry or upload an audio clip.')
+        setError(t('recorder.recordingFailed'))
         setState('idle')
         releaseStream()
       }
@@ -77,12 +79,9 @@ export default function AudioRecorder({ onUse, disabled = false }) {
       intervalRef.current = window.setInterval(() => setSeconds((value) => value + 1), 1000)
     } catch (cause) {
       if (cause?.name === 'NotAllowedError' || cause?.name === 'SecurityError')
-        setError(
-          'Microphone permission was denied. Allow access in your browser settings, or upload an audio clip.',
-        )
-      else if (cause?.name === 'NotFoundError')
-        setError('No microphone was found. Connect one or upload an audio clip.')
-      else setError('The microphone could not be started. Please retry or upload an audio clip.')
+        setError(t('recorder.permissionDenied'))
+      else if (cause?.name === 'NotFoundError') setError(t('recorder.noMicrophone'))
+      else setError(t('recorder.startFailed'))
       releaseStream()
     }
   }
@@ -114,12 +113,12 @@ export default function AudioRecorder({ onUse, disabled = false }) {
               className="record-button"
               onClick={start}
               disabled={disabled}
-              aria-label="Start recording"
+              aria-label={t('recorder.startRecording')}
             >
               <Icon name="mic" size={28} />
             </button>
-            <strong>Ready to record</strong>
-            <span>Speak clearly in Sinhala, or upload a clip below.</span>
+            <strong>{t('recorder.readyToRecord')}</strong>
+            <span>{t('recorder.speakPrompt')}</span>
           </>
         )}
         {state === 'recording' && (
@@ -128,11 +127,11 @@ export default function AudioRecorder({ onUse, disabled = false }) {
               <span />
             </div>
             <strong>
-              Recording… <time>{time(seconds)}</time>
+              {t('recorder.recording')} <time>{time(seconds)}</time>
             </strong>
-            <span>Your microphone is active</span>
+            <span>{t('recorder.micActive')}</span>
             <button type="button" className="button button--danger" onClick={stop}>
-              <Icon name="stop" size={17} /> Stop recording
+              <Icon name="stop" size={17} /> {t('recorder.stopRecording')}
             </button>
           </>
         )}
@@ -143,14 +142,14 @@ export default function AudioRecorder({ onUse, disabled = false }) {
                 <Icon name="check" />
               </span>
               <div>
-                <strong>Recording ready</strong>
-                <small>{time(seconds)} · Review it before continuing</small>
+                <strong>{t('recorder.recordingReady')}</strong>
+                <small>{t('recorder.reviewBeforeContinuing', time(seconds))}</small>
               </div>
             </div>
-            <audio controls src={audio.url} aria-label="Recorded audio preview" />
+            <audio controls src={audio.url} aria-label={t('recorder.audioPreview')} />
             <div className="button-row">
               <button type="button" className="button button--secondary" onClick={clearAudio}>
-                <Icon name="trash" size={17} /> Discard & re-record
+                <Icon name="trash" size={17} /> {t('recorder.discardReRecord')}
               </button>
               <button
                 type="button"
@@ -158,7 +157,7 @@ export default function AudioRecorder({ onUse, disabled = false }) {
                 onClick={() => onUse(new File([audio.blob], audio.name, { type: audio.type }))}
                 disabled={disabled}
               >
-                <Icon name="check" size={17} /> Use recording
+                <Icon name="check" size={17} /> {t('recorder.useRecording')}
               </button>
             </div>
           </>
@@ -166,7 +165,7 @@ export default function AudioRecorder({ onUse, disabled = false }) {
       </div>
       {state === 'idle' && (
         <>
-          <p className="recorder__divider">or upload an audio clip</p>
+          <p className="recorder__divider">{t('recorder.orUpload')}</p>
           <FileUpload
             audioOnly
             id={`audio-${uploadId}`}
@@ -181,7 +180,7 @@ export default function AudioRecorder({ onUse, disabled = false }) {
                 disabled={disabled}
                 onClick={() => onUse(audio.file)}
               >
-                <Icon name="check" size={17} /> Use audio clip
+                <Icon name="check" size={17} /> {t('recorder.useAudioClip')}
               </button>
             </div>
           )}

@@ -1,14 +1,18 @@
+import { useLanguage } from '../contexts/LanguageContext'
 import Icon from './Icon'
 
 const states = {
-  UPLOADING: ['Uploading your media', 'Your file is being securely uploaded.', 25],
-  PROCESSING: ['Creating your Sinhala transcript', 'This usually takes a moment in demo mode.', 65],
-  COMPLETED: ['Transcript is ready', 'Opening the transcript editor…', 100],
-  FAILED: ['Transcription failed', 'We could not process this recording.', 100],
+  UPLOADING: ['transcription.uploadingTitle', 'transcription.uploadingDetail', 25],
+  PROCESSING: ['transcription.processingTitle', 'transcription.processingDetail', 65],
+  COMPLETED: ['transcription.completedTitle', 'transcription.completedDetail', 100],
+  FAILED: ['transcription.failedTitle', 'transcription.failedDetail', 100],
 }
 
 export default function TranscriptionStatus({ status = 'UPLOADING', message, onRetry }) {
-  const [title, detail, percent] = states[status] || states.PROCESSING
+  const { t } = useLanguage()
+  const [titleKey, detailKey, percent] = states[status] || states.PROCESSING
+  const title = t(titleKey)
+  const detail = t(detailKey)
   return (
     <section
       className={`transcription-status transcription-status--${status.toLowerCase()}`}
@@ -41,14 +45,14 @@ export default function TranscriptionStatus({ status = 'UPLOADING', message, onR
       </div>
       <small>
         {status === 'PROCESSING'
-          ? 'Please keep this page open'
+          ? t('transcription.keepPageOpen')
           : status === 'UPLOADING'
-            ? `${percent}% complete`
+            ? t('transcription.percentComplete', percent)
             : ''}
       </small>
       {status === 'FAILED' && onRetry && (
         <button type="button" className="button button--primary" onClick={onRetry}>
-          Try again
+          {t('transcription.tryAgain')}
         </button>
       )}
     </section>

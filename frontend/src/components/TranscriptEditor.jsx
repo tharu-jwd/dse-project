@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api, downloadBlob } from '../api'
 import { useAccessibility } from '../contexts/AccessibilityContext'
+import { useLanguage } from '../contexts/LanguageContext'
 import { useToast } from '../contexts/ToastContext'
 import useVoiceCommands from '../hooks/useVoiceCommands'
 import Icon from './Icon'
@@ -49,6 +50,7 @@ export default function TranscriptEditor({
   onTranscriptChange,
   compact = false,
 }) {
+  const { t } = useLanguage()
   const [transcript, setTranscript] = useState(initialTranscript)
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -78,13 +80,13 @@ export default function TranscriptEditor({
       if (transcript.status === 'FINALIZED') return
       if (command === 'save') {
         if (!dirty) {
-          showCommandFeedback('Nothing to save')
+          showCommandFeedback(t('editor.nothingToSave'))
           return
         }
-        showCommandFeedback('Saving…')
+        showCommandFeedback(t('editor.saving'))
         save()
       } else if (command === 'submit') {
-        showCommandFeedback('Opening finalize confirmation…')
+        showCommandFeedback(t('editor.openingFinalizeConfirmation'))
         setConfirmFinalize(true)
       }
     },
@@ -128,7 +130,7 @@ export default function TranscriptEditor({
       .catch((cause) => {
         if (active) {
           setMediaError(
-            cause.message || 'The recording could not be loaded.'
+            cause.message || t('editor.recordingLoadFailed')
           )
         }
       })
@@ -187,9 +189,9 @@ export default function TranscriptEditor({
       setTranscript(saved)
       setDirty(false)
       onTranscriptChange?.(saved)
-      showToast('Transcript changes saved.')
+      showToast(t('editor.changesSaved'))
     } catch (cause) {
-      setError(cause.message || 'Changes could not be saved. Your edits are still here.')
+      setError(cause.message || t('editor.changesSaveFailed'))
     } finally {
       setSaving(false)
     }
@@ -208,7 +210,7 @@ export default function TranscriptEditor({
       setTranscript(result)
       setDirty(false)
       onTranscriptChange?.(result)
-      showToast('Transcript finalized successfully.')
+      showToast(t('editor.finalizedSuccessfully'))
     } catch (cause) {
       setError(cause.message)
     } finally {
@@ -223,7 +225,7 @@ export default function TranscriptEditor({
         `${transcript.title.replace(/[^a-zA-Z0-9\u0D80-\u0DFF]+/g, '-')}.${format}`,
       )
       setLastFormat(format)
-      showToast(`${format.toUpperCase()} export downloaded.`)
+      showToast(t('editor.exportDownloaded', format.toUpperCase()))
     } catch (cause) {
       setError(cause.message)
     }
@@ -276,7 +278,7 @@ export default function TranscriptEditor({
         <div className="editor-toolbar">
           <div>
             <label htmlFor="transcript-title" className="sr-only">
-              Transcript title
+              {t('editor.transcriptTitle')}
             </label>
             <input
               id="transcript-title"
@@ -289,8 +291,8 @@ export default function TranscriptEditor({
             />
             <div className="editor-meta">
               <StatusBadge status={transcript.status} />
-              <span>{transcript.segments.length} segments</span>
-              {dirty && <span className="unsaved-dot">● Unsaved changes</span>}
+              <span>{t('editor.segments', transcript.segments.length)}</span>
+              {dirty && <span className="unsaved-dot">{t('editor.unsavedChanges')}</span>}
             </div>
           </div>
           <div className="editor-toolbar__actions">
@@ -301,8 +303,10 @@ export default function TranscriptEditor({
                   className={`button button--icon ${voice.isListening ? 'is-recording' : ''}`}
                   onClick={voice.isListening ? voice.stop : voice.start}
                   disabled={voice.status === 'connecting' || voice.status === 'stopping'}
-                  aria-label={voice.isListening ? 'Stop voice commands' : 'Listen for voice commands'}
-                  title={voice.isListening ? 'Stop voice commands' : 'Say "save" or "submit"'}
+                  aria-label={
+                    voice.isListening ? t('editor.stopVoiceCommands') : t('editor.listenVoiceCommands')
+                  }
+                  title={voice.isListening ? t('editor.stopVoiceCommands') : t('editor.sayCommand')}
                 >
                   <Icon name={voice.isListening ? 'stop' : 'mic'} size={17} />
                 </button>
@@ -312,7 +316,7 @@ export default function TranscriptEditor({
               </div>
             )}
             {!compact && (
-              <div className="export-toggle" role="group" aria-label="Export format">
+              <div className="export-toggle" role="group" aria-label={t('editor.exportFormat')}>
                 {exportFormats.map((format) => (
                   <button
                     type="button"
@@ -320,7 +324,11 @@ export default function TranscriptEditor({
                     className={format === lastFormat ? 'active' : ''}
                     onClick={() => exportFile(format)}
                     disabled={dirty}
-                    title={dirty ? 'Save changes before exporting' : `Export ${format.toUpperCase()}`}
+                    title={
+                      dirty
+                        ? t('editor.saveBeforeExporting')
+                        : t('editor.exportFormatLabel', format.toUpperCase())
+                    }
                   >
                     {format.toUpperCase()}
                   </button>
@@ -338,7 +346,7 @@ export default function TranscriptEditor({
               ) : (
                 <Icon name="check" size={17} />
               )}{' '}
-              Save draft
+              {t('editor.saveDraft')}
             </button>
             {transcript.status !== 'FINALIZED' && (
               <button
@@ -347,7 +355,7 @@ export default function TranscriptEditor({
                 disabled={saving}
                 onClick={() => setConfirmFinalize(true)}
               >
-                Finalize
+                {t('editor.finalize')}
               </button>
             )}
           </div>
@@ -355,7 +363,7 @@ export default function TranscriptEditor({
       )}
       {error && (
         <Alert>
-          {error} {dirty && 'Your unsaved edits have been preserved.'}
+          {error} {dirty && t('editor.unsavedEditsPreserved')}
         </Alert>
       )}
       {voice.error && <Alert>{voice.error}</Alert>}
@@ -382,7 +390,7 @@ export default function TranscriptEditor({
                 type="button"
                 className="player-bar__play"
                 onClick={togglePlay}
-                aria-label={isPlaying ? 'Pause' : 'Play'}
+                aria-label={isPlaying ? t('editor.pause') : t('editor.play')}
               >
                 <Icon name={isPlaying ? 'stop' : 'play'} size={18} />
               </button>
@@ -398,7 +406,7 @@ export default function TranscriptEditor({
                   step={0.1}
                   value={currentTime}
                   onChange={(e) => scrub(Number(e.target.value))}
-                  aria-label="Seek recording"
+                  aria-label={t('editor.seekRecording')}
                 />
               </div>
               <span className="player-bar__time">
@@ -410,14 +418,14 @@ export default function TranscriptEditor({
               <Icon name={mediaError ? 'alert' : 'play'} size={18} />
               <span className="player-bar__message">
                 {mediaError ||
-                  (transcript.mediaUrl ? 'Loading recording…' : 'No recording is attached')}
+                  (transcript.mediaUrl ? t('editor.loadingRecording') : t('editor.noRecordingAttached'))}
               </span>
             </>
           )}
         </div>
       )}
       <div className="editor-layout">
-        <section className="segments" aria-label="Transcript segments">
+        <section className="segments" aria-label={t('editor.segmentsLabel')}>
           {transcript.segments.map((segment, index) => {
             const isLow = segment.confidence > 0 && segment.confidence < confidenceThreshold
             return (
@@ -427,30 +435,30 @@ export default function TranscriptEditor({
                     type="button"
                     className="timestamp"
                     onClick={() => seek(segment.startTime)}
-                    aria-label={`Play from ${formatTime(segment.startTime)}`}
-                    title={`Play from ${formatTime(segment.startTime)}`}
+                    aria-label={t('editor.playFrom', formatTime(segment.startTime))}
+                    title={t('editor.playFrom', formatTime(segment.startTime))}
                   >
                     {formatTime(segment.startTime)}
                   </button>
                   {isLow && (
                     <span
                       className="confidence-flag"
-                      title={`${Math.round(segment.confidence * 100)}% confidence — needs review`}
+                      title={t('editor.confidencePercentReview', Math.round(segment.confidence * 100))}
                     >
                       <Icon name="alert" size={13} />
                       <span className="sr-only">
-                        {Math.round(segment.confidence * 100)}% confidence, needs review
+                        {t('editor.confidencePercentReviewSr', Math.round(segment.confidence * 100))}
                       </span>
                     </span>
                   )}
-                  <span className="sr-only">Segment {index + 1}</span>
+                  <span className="sr-only">{t('editor.segmentN', index + 1)}</span>
                 </div>
                 <div className="segment__body">
                   <div className="confidence-preview" lang="si">
                     <ConfidenceText segment={segment} threshold={confidenceThreshold} />
                   </div>
                   <label htmlFor={`segment-${segment.id}`} className="sr-only">
-                    Edit segment {index + 1}
+                    {t('editor.editSegmentN', index + 1)}
                   </label>
                   <textarea
                     id={`segment-${segment.id}`}
@@ -469,21 +477,21 @@ export default function TranscriptEditor({
           {!compact && (
             <div className="stats-card">
               <h3>
-                <Icon name="file" size={15} /> Transcript data
+                <Icon name="file" size={15} /> {t('editor.transcriptData')}
               </h3>
               <div className="stats-card__grid">
                 <div>
-                  <p>Words</p>
+                  <p>{t('editor.words')}</p>
                   <p>{stats.words.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p>Duration</p>
+                  <p>{t('editor.duration')}</p>
                   <p>{stats.duration}</p>
                 </div>
               </div>
               <div className="stats-card__reading">
-                <span>Reading time</span>
-                <strong>~{stats.readingMinutes} min</strong>
+                <span>{t('editor.readingTime')}</span>
+                <strong>{t('editor.readingMinutes', stats.readingMinutes)}</strong>
               </div>
             </div>
           )}
@@ -505,7 +513,7 @@ export default function TranscriptEditor({
                   <Icon name={mediaError ? 'alert' : 'play'} size={22} />
                   <small>
                     {mediaError ||
-                      (transcript.mediaUrl ? 'Loading recording…' : 'No recording is attached')}
+                      (transcript.mediaUrl ? t('editor.loadingRecording') : t('editor.noRecordingAttached'))}
                   </small>
                 </div>
               )}
@@ -514,22 +522,22 @@ export default function TranscriptEditor({
           {!compact && (
             <div className="search-replace">
               <h3>
-                <Icon name="search" size={15} /> Smart search
+                <Icon name="search" size={15} /> {t('editor.smartSearch')}
               </h3>
-              <label htmlFor="search-word">Search word</label>
+              <label htmlFor="search-word">{t('editor.searchWord')}</label>
               <input
                 id="search-word"
                 value={searchWord}
                 onChange={(e) => setSearchWord(e.target.value)}
-                placeholder="e.g. baryon"
+                placeholder={t('editor.searchPlaceholder')}
                 disabled={transcript.status === 'FINALIZED'}
               />
-              <label htmlFor="replace-word">Replace with</label>
+              <label htmlFor="replace-word">{t('editor.replaceWith')}</label>
               <input
                 id="replace-word"
                 value={replaceWord}
                 onChange={(e) => setReplaceWord(e.target.value)}
-                placeholder="e.g. proton"
+                placeholder={t('editor.replacePlaceholder')}
                 disabled={transcript.status === 'FINALIZED'}
               />
               <button
@@ -538,17 +546,17 @@ export default function TranscriptEditor({
                 onClick={executeReplace}
                 disabled={!searchWord.trim() || transcript.status === 'FINALIZED'}
               >
-                Execute replace
+                {t('editor.executeReplace')}
               </button>
             </div>
           )}
           <div className="confidence-control">
             <h3>
-              <Icon name="alert" size={15} /> Confidence threshold
+              <Icon name="alert" size={15} /> {t('editor.confidenceThreshold')}
             </h3>
             <label htmlFor={`threshold-${transcript.id}`}>
               <span>
-                <small>Flag words below {Math.round(confidenceThreshold * 100)}%</small>
+                <small>{t('editor.flagWordsBelow', Math.round(confidenceThreshold * 100))}</small>
               </span>
               <output>{Math.round(confidenceThreshold * 100)}%</output>
             </label>
@@ -565,16 +573,16 @@ export default function TranscriptEditor({
               <span className="low-confidence low-confidence--sample">
                 <span className="confidence-mark">?</span>word
               </span>{' '}
-              Needs review
+              {t('editor.needsReview')}
             </p>
           </div>
         </aside>
       </div>
       {compact && (
         <div className="compact-editor-actions">
-          <span>{dirty ? '● Unsaved answer edits' : 'Answer transcript saved'}</span>
+          <span>{dirty ? t('editor.unsavedAnswerEdits') : t('editor.answerTranscriptSaved')}</span>
           <button className="button button--secondary" disabled={!dirty || saving} onClick={save}>
-            Save correction
+            {t('editor.saveCorrection')}
           </button>
           {transcript.status !== 'FINALIZED' && (
             <button
@@ -582,16 +590,16 @@ export default function TranscriptEditor({
               disabled={saving}
               onClick={() => setConfirmFinalize(true)}
             >
-              Use this answer
+              {t('editor.useThisAnswer')}
             </button>
           )}
         </div>
       )}
       <ConfirmDialog
         open={confirmFinalize}
-        title={compact ? 'Use this spoken answer?' : 'Finalize this transcript?'}
-        message="You will not be able to edit it after finalizing. Make sure all low-confidence words have been reviewed."
-        confirmLabel={compact ? 'Use answer' : 'Finalize transcript'}
+        title={compact ? t('editor.useSpokenAnswerTitle') : t('editor.finalizeTranscriptTitle')}
+        message={t('editor.finalizeMessage')}
+        confirmLabel={compact ? t('editor.useAnswer') : t('editor.finalizeTranscript')}
         onCancel={() => setConfirmFinalize(false)}
         onConfirm={finalize}
       />

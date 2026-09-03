@@ -1,7 +1,10 @@
 import { useEffect, useRef } from 'react'
+import { useLanguage } from '../contexts/LanguageContext'
 import Icon from './Icon'
 
-export function Loading({ label = 'Loading…' }) {
+export function Loading({ label }) {
+  const { t } = useLanguage()
+  label ??= t('ui.loading')
   return (
     <div className="loading" role="status">
       <span className="spinner" aria-hidden="true" /> <span>{label}</span>
@@ -35,21 +38,22 @@ export function Alert({ type = 'error', title, children }) {
 }
 
 export function StatusBadge({ status }) {
-  const labels = {
-    DRAFT: 'Draft',
-    FINALIZED: 'Finalized',
-    PROCESSING: 'Processing',
-    FAILED: 'Failed',
-    PUBLISHED: 'Published',
-    SUBMITTED: 'Submitted',
-    REVIEWED: 'Reviewed',
-    NOT_STARTED: 'Not started',
-    COMPLETED: 'Completed',
-    UPLOADING: 'Uploading',
+  const { t } = useLanguage()
+  const keys = {
+    DRAFT: 'status.draft',
+    FINALIZED: 'status.finalized',
+    PROCESSING: 'status.processing',
+    FAILED: 'status.failed',
+    PUBLISHED: 'status.published',
+    SUBMITTED: 'status.submitted',
+    REVIEWED: 'status.reviewed',
+    NOT_STARTED: 'status.notStarted',
+    COMPLETED: 'status.completed',
+    UPLOADING: 'status.uploading',
   }
   return (
     <span className={`badge badge--${status.toLowerCase().replace('_', '-')}`}>
-      {labels[status] || status}
+      {keys[status] ? t(keys[status]) : status}
     </span>
   )
 }
@@ -58,12 +62,14 @@ export function ConfirmDialog({
   open,
   title,
   message,
-  confirmLabel = 'Confirm',
+  confirmLabel,
   dangerous = false,
   busy = false,
   onConfirm,
   onCancel,
 }) {
+  const { t } = useLanguage()
+  confirmLabel ??= t('ui.confirm')
   const cancelRef = useRef(null)
   useEffect(() => {
     if (open) cancelRef.current?.focus()
@@ -93,14 +99,14 @@ export function ConfirmDialog({
             onClick={onCancel}
             disabled={busy}
           >
-            Cancel
+            {t('ui.cancel')}
           </button>
           <button
             className={`button ${dangerous ? 'button--danger' : 'button--primary'}`}
             onClick={onConfirm}
             disabled={busy}
           >
-            {busy ? 'Working…' : confirmLabel}
+            {busy ? t('ui.working') : confirmLabel}
           </button>
         </div>
       </div>
@@ -125,8 +131,9 @@ export function PageHeader({ eyebrow, title, description, actions, back }) {
 }
 
 export function ProgressSteps({ steps, current }) {
+  const { t } = useLanguage()
   return (
-    <ol className="progress-steps" aria-label="Progress">
+    <ol className="progress-steps" aria-label={t('ui.progress')}>
       {steps.map((step, index) => (
         <li
           key={step}

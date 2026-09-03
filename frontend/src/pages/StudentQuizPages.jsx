@@ -10,6 +10,7 @@ import useTranscriptionJob from '../components/useTranscriptionJob'
 import useVoiceCommands from '../hooks/useVoiceCommands'
 import VoiceMeter from '../components/VoiceMeter'
 import { useAccessibility } from '../contexts/AccessibilityContext'
+import { useLanguage } from '../contexts/LanguageContext'
 import {
   Alert,
   ConfirmDialog,
@@ -21,6 +22,7 @@ import {
 } from '../components/UI'
 
 export function QuizListPage() {
+  const { t, language } = useLanguage()
   const [quizzes, setQuizzes] = useState(null)
   const [error, setError] = useState('')
   useEffect(() => {
@@ -32,13 +34,13 @@ export function QuizListPage() {
   return (
     <div className="page has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>
       <PageHeader
-        eyebrow="Speak your answer"
-        title="My quizzes"
-        description="Record answers in Sinhala, check the transcript and submit when you are ready."
+        eyebrow={t('quiz.speakYourAnswer')}
+        title={t('quiz.myQuizzes')}
+        description={t('quiz.listDescription')}
       />
       {error && <Alert>{error}</Alert>}
       {!quizzes && !error ? (
-        <Loading label="Loading quizzes…" />
+        <Loading label={t('quiz.loadingQuizzes')} />
       ) : quizzes?.length ? (
         <div className="quiz-grid">
           {quizzes.map((quiz) => (
@@ -53,40 +55,41 @@ export function QuizListPage() {
               <p>{quiz.description}</p>
               <div className="quiz-card__meta">
                 <span>
-                  <Icon name="file" size={16} /> {quiz.questions.length} questions
+                  <Icon name="file" size={16} /> {t('quiz.questionsCount', quiz.questions.length)}
                 </span>
                 {quiz.dueDate && (
                   <span>
-                    <Icon name="clock" size={16} /> Due{' '}
-                    {new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' }).format(
-                      new Date(`${quiz.dueDate}T00:00:00`),
+                    <Icon name="clock" size={16} />{' '}
+                    {t(
+                      'quiz.due',
+                      new Intl.DateTimeFormat(language === 'si' ? 'si-LK' : 'en-GB', {
+                        day: 'numeric',
+                        month: 'short',
+                      }).format(new Date(`${quiz.dueDate}T00:00:00`)),
                     )}
                   </span>
                 )}
               </div>
               <Link className="button button--primary" to={`/quizzes/${quiz.id}`}>
                 {quiz.submissionStatus === 'SUBMITTED'
-                  ? 'View submission'
+                  ? t('quiz.viewSubmission')
                   : quiz.submissionStatus === 'IN_PROGRESS'
-                    ? 'Continue quiz'
-                    : 'Start quiz'}{' '}
+                    ? t('quiz.continueQuiz')
+                    : t('quiz.startQuiz')}{' '}
                 <Icon name="arrow" size={17} />
               </Link>
             </article>
           ))}
         </div>
       ) : (
-        <EmptyState
-          icon="quiz"
-          title="No quizzes available"
-          message="Published quizzes from your teachers will appear here."
-        />
+        <EmptyState icon="quiz" title={t('quiz.noQuizzesAvailable')} message={t('quiz.noQuizzesMessage')} />
       )}
     </div>
   )
 }
 
 export function QuizAnswerPage() {
+  const { t } = useLanguage()
   const { id } = useParams()
   const navigate = useNavigate()
   const [quiz, setQuiz] = useState(null)
@@ -113,7 +116,7 @@ export function QuizAnswerPage() {
           setWorkingTranscript(answers[quiz.questions[current + 1]?.id] || null)
           reset()
         } else {
-          showCommandFeedback('Answer this question before moving on')
+          showCommandFeedback(t('quiz.answerBeforeMoving'))
         }
       } else if (command === 'previous') {
         if (current > 0) {
@@ -121,7 +124,7 @@ export function QuizAnswerPage() {
           setWorkingTranscript(answers[quiz.questions[current - 1]?.id] || null)
           reset()
         } else {
-          showCommandFeedback('Already on the first question')
+          showCommandFeedback(t('quiz.alreadyFirstQuestion'))
         }
       } else if (command === 'submit') {
         const isLast = current === quiz.questions.length - 1
@@ -129,7 +132,7 @@ export function QuizAnswerPage() {
         if (isLast && allDone) {
           setConfirm(true)
         } else {
-          showCommandFeedback('Complete every required question first')
+          showCommandFeedback(t('quiz.completeAllRequired'))
         }
       }
     },
@@ -162,7 +165,7 @@ export function QuizAnswerPage() {
   if (!quiz)
     return (
       <div className="page has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>
-        <Loading label="Opening quiz…" />
+        <Loading label={t('quiz.openingQuiz')} />
       </div>
     )
   if (submitted)
@@ -172,13 +175,15 @@ export function QuizAnswerPage() {
           <span>
             <Icon name="check" size={34} />
           </span>
-          <span className="eyebrow">Submitted successfully</span>
-          <h1>Your answers are on their way</h1>
+          <span className="eyebrow">{t('quiz.submittedSuccessfully')}</span>
+          <h1>{t('quiz.answersOnWay')}</h1>
           <p>
-            Your teacher can now review the transcribed responses for <strong>{quiz.title}</strong>.
+            {t('quiz.teacherCanReviewPrefix')}
+            <strong>{quiz.title}</strong>
+            {t('quiz.teacherCanReviewSuffix')}
           </p>
           <button className="button button--primary" onClick={() => navigate('/quizzes')}>
-            Back to my quizzes
+            {t('quiz.backToMyQuizzes')}
           </button>
         </div>
       </div>
@@ -222,24 +227,24 @@ export function QuizAnswerPage() {
   return (
     <div className="page has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>
       <PageHeader
-        eyebrow={`Question ${current + 1} of ${quiz.questions.length}`}
+        eyebrow={t('quiz.questionOf', current + 1, quiz.questions.length)}
         title={quiz.title}
         description={quiz.description}
         back={
           <button className="back-link" onClick={() => navigate('/quizzes')}>
-            ← Exit quiz
+            {t('quiz.exitQuiz')}
           </button>
         }
         actions={
           <span className="question-count">
-            <strong>{completeCount}</strong> / {quiz.questions.length} answered
+            <strong>{completeCount}</strong> / {quiz.questions.length} {t('quiz.answeredCount')}
           </span>
         }
       />
       <ProgressSteps steps={quiz.questions.map((_, index) => `Q${index + 1}`)} current={current} />
       <div className="quiz-workspace">
         <aside className="question-nav">
-          <strong>Questions</strong>
+          <strong>{t('quiz.questions')}</strong>
           {quiz.questions.map((item, index) => (
             <button
               key={item.id}
@@ -247,21 +252,21 @@ export function QuizAnswerPage() {
               onClick={() => go(index)}
             >
               <span>{answers[item.id] ? '✓' : index + 1}</span>
-              <em>Question {index + 1}</em>
+              <em>{t('quiz.questionN', index + 1)}</em>
             </button>
           ))}
         </aside>
         <section className="answer-panel">
           <div className="question-prompt">
             <span>
-              Question {current + 1}
-              {question.required && <em>Required</em>}
+              {t('quiz.questionN', current + 1)}
+              {question.required && <em>{t('quiz.required')}</em>}
             </span>
             <h2 lang="si">{question.text}</h2>
           </div>
           {answered && !workingTranscript && (
-            <Alert type="success" title="Answer ready">
-              You have completed this question.
+            <Alert type="success" title={t('quiz.answerReady')}>
+              {t('quiz.questionCompleted')}
             </Alert>
           )}
           {job && !workingTranscript ? (
@@ -278,11 +283,10 @@ export function QuizAnswerPage() {
             />
           ) : (
             <>
-              <h3>Record your spoken answer</h3>
+              <h3>{t('quiz.recordSpokenAnswer')}</h3>
               <AudioRecorder onUse={record} />
               <p className="privacy-inline">
-                <Icon name="help" size={15} /> Your recording is stored for transcription and
-                teacher review.
+                <Icon name="help" size={15} /> {t('quiz.recordingStoredNotice')}
               </p>
             </>
           )}
@@ -300,8 +304,8 @@ export function QuizAnswerPage() {
                   className={`button button--icon ${voice.isListening ? 'is-recording' : ''}`}
                   onClick={voice.isListening ? voice.stop : voice.start}
                   disabled={voice.status === 'connecting' || voice.status === 'stopping'}
-                  aria-label={voice.isListening ? 'Stop voice commands' : 'Listen for voice commands'}
-                  title={voice.isListening ? 'Stop voice commands' : 'Say "next", "previous" or "submit"'}
+                  aria-label={voice.isListening ? t('quiz.stopVoiceCommands') : t('quiz.listenVoiceCommands')}
+                  title={voice.isListening ? t('quiz.stopVoiceCommands') : t('quiz.sayNextPreviousSubmit')}
                 >
                   <Icon name={voice.isListening ? 'stop' : 'mic'} size={17} />
                 </button>
@@ -315,7 +319,7 @@ export function QuizAnswerPage() {
               disabled={current === 0}
               onClick={() => go(current - 1)}
             >
-              Previous
+              {t('quiz.previous')}
             </button>
             {current < quiz.questions.length - 1 ? (
               <button
@@ -323,7 +327,7 @@ export function QuizAnswerPage() {
                 disabled={!answered}
                 onClick={() => go(current + 1)}
               >
-                Next question <Icon name="arrow" size={17} />
+                {t('quiz.nextQuestion')} <Icon name="arrow" size={17} />
               </button>
             ) : (
               <button
@@ -331,20 +335,20 @@ export function QuizAnswerPage() {
                 disabled={!allAnswered || submitting}
                 onClick={() => setConfirm(true)}
               >
-                {submitting ? 'Submitting…' : 'Review & submit'}
+                {submitting ? t('quiz.submitting') : t('quiz.reviewSubmit')}
               </button>
             )}
           </div>
           {!allAnswered && current === quiz.questions.length - 1 && (
-            <p className="field-hint">Complete every required question before final submission.</p>
+            <p className="field-hint">{t('quiz.completeBeforeFinal')}</p>
           )}
         </section>
       </div>
       <ConfirmDialog
         open={confirm}
-        title="Submit your quiz?"
-        message="Your answers will be sent to your teacher. You will not be able to edit them after submission."
-        confirmLabel="Submit quiz"
+        title={t('quiz.submitYourQuiz')}
+        message={t('quiz.submitMessage')}
+        confirmLabel={t('quiz.submitQuiz')}
         onCancel={() => setConfirm(false)}
         onConfirm={submit}
       />

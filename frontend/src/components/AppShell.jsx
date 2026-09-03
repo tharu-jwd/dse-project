@@ -1,26 +1,28 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useLanguage } from '../contexts/LanguageContext'
 import AccessibilityControls from './AccessibilityControls'
 import Icon from './Icon'
 
 const studentNav = [
-  ['dashboard', 'Dashboard', '/dashboard'],
-  ['upload', 'Lecture captioning', '/lectures/new'],
-  ['quiz', 'My quizzes', '/quizzes'],
-  ['mic', 'Self-study notes', '/notes/new'],
-  ['file', 'Transcript library', '/transcripts'],
+  ['dashboard', 'nav.dashboard', '/dashboard'],
+  ['upload', 'nav.lectureCaptioning', '/lectures/new'],
+  ['quiz', 'nav.myQuizzes', '/quizzes'],
+  ['mic', 'nav.selfStudyNotes', '/notes/new'],
+  ['file', 'nav.transcriptLibrary', '/transcripts'],
 ]
 const teacherNav = [
-  ['dashboard', 'Dashboard', '/dashboard'],
-  ['upload', 'Upload lecture', '/lectures/new'],
-  ['quiz', 'Manage quizzes', '/teacher/quizzes'],
-  ['users', 'Review submissions', '/teacher/submissions'],
-  ['file', 'Transcript library', '/transcripts'],
+  ['dashboard', 'nav.dashboard', '/dashboard'],
+  ['upload', 'nav.uploadLecture', '/lectures/new'],
+  ['quiz', 'nav.manageQuizzes', '/teacher/quizzes'],
+  ['users', 'nav.reviewSubmissions', '/teacher/submissions'],
+  ['file', 'nav.transcriptLibrary', '/transcripts'],
 ]
 
 export default function AppShell() {
   const { user, logout } = useAuth()
+  const { t } = useLanguage()
   const navigate = useNavigate()
   const location = useLocation()
   const [open, setOpen] = useState(false)
@@ -30,17 +32,18 @@ export default function AppShell() {
     await logout()
     navigate('/login', { replace: true })
   }
-  const activeLabel =
+  const activeLabelKey =
     nav.find(([, , to]) => location.pathname.startsWith(to))?.[1] ||
     (location.pathname.startsWith('/settings')
-      ? 'Settings'
+      ? 'nav.settings'
       : location.pathname.startsWith('/help')
-        ? 'Quick start & help'
+        ? 'nav.quickStartHelp'
         : location.pathname.startsWith('/teacher/submissions')
-          ? 'Review submissions'
+          ? 'nav.reviewSubmissions'
           : location.pathname.startsWith('/notes')
-            ? 'Self-study notes'
-            : 'SinhaSpeech')
+            ? 'nav.selfStudyNotes'
+            : null)
+  const activeLabel = activeLabelKey ? t(activeLabelKey) : 'SinhaSpeech'
   const submitSearch = (event) => {
     event.preventDefault()
     if (search.trim()) navigate(`/transcripts?q=${encodeURIComponent(search.trim())}`)
@@ -48,10 +51,14 @@ export default function AppShell() {
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main-content">
-        Skip to main content
+        {t('nav.skipToContent')}
       </a>
       <header className="mobile-header">
-        <button className="icon-button" aria-label="Open navigation" onClick={() => setOpen(true)}>
+        <button
+          className="icon-button"
+          aria-label={t('nav.openNavigation')}
+          onClick={() => setOpen(true)}
+        >
           <Icon name="menu" />
         </button>
         <Logo />
@@ -59,7 +66,7 @@ export default function AppShell() {
       {open && (
         <button
           className="nav-overlay"
-          aria-label="Close navigation"
+          aria-label={t('nav.closeNavigation')}
           onClick={() => setOpen(false)}
         />
       )}
@@ -68,17 +75,17 @@ export default function AppShell() {
           <Logo />
           <button
             className="icon-button sidebar__close"
-            aria-label="Close navigation"
+            aria-label={t('nav.closeNavigation')}
             onClick={() => setOpen(false)}
           >
             <Icon name="close" />
           </button>
         </div>
         <nav aria-label="Main navigation">
-          {nav.map(([icon, label, to]) => (
+          {nav.map(([icon, labelKey, to]) => (
             <NavLink key={to} to={to} onClick={() => setOpen(false)}>
               <Icon name={icon} />
-              <span>{label}</span>
+              <span>{t(labelKey)}</span>
             </NavLink>
           ))}
         </nav>
@@ -86,11 +93,11 @@ export default function AppShell() {
           <nav aria-label="Support navigation">
             <NavLink to="/settings">
               <Icon name="settings" />
-              <span>Settings</span>
+              <span>{t('nav.settings')}</span>
             </NavLink>
             <NavLink to="/help">
               <Icon name="help" />
-              <span>Quick start & help</span>
+              <span>{t('nav.quickStartHelp')}</span>
             </NavLink>
           </nav>
           <AccessibilityControls compact />
@@ -104,12 +111,12 @@ export default function AppShell() {
             </div>
             <div>
               <strong>{user.name}</strong>
-              <small>{user.role === 'TEACHER' ? 'Teacher' : 'Student'}</small>
+              <small>{user.role === 'TEACHER' ? t('nav.teacher') : t('nav.student')}</small>
             </div>
             <button
               className="icon-button"
-              aria-label="Sign out"
-              title="Sign out"
+              aria-label={t('nav.signOut')}
+              title={t('nav.signOut')}
               onClick={signOut}
             >
               <Icon name="logout" />
@@ -117,7 +124,7 @@ export default function AppShell() {
           </div>
           <NavLink className="new-adventure" to="/lectures/new" onClick={() => setOpen(false)}>
             <Icon name="rocket" size={18} />
-            <span>New adventure</span>
+            <span>{t('nav.newAdventure')}</span>
           </NavLink>
         </div>
       </aside>
@@ -127,21 +134,29 @@ export default function AppShell() {
           <form className="topbar__search" role="search" onSubmit={submitSearch}>
             <Icon name="search" size={18} />
             <label className="sr-only" htmlFor="topbar-search">
-              Search your transcripts
+              {t('nav.searchPlaceholder')}
             </label>
             <input
               id="topbar-search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search your transcripts…"
+              placeholder={t('nav.searchPlaceholder')}
               type="search"
             />
           </form>
           <div className="topbar__actions">
-            <button className="icon-button topbar__bell" aria-label="Notifications" type="button">
+            <button
+              className="icon-button topbar__bell"
+              aria-label={t('nav.notifications')}
+              type="button"
+            >
               <Icon name="bell" size={19} />
             </button>
-            <NavLink className="avatar avatar--header" to="/settings" title="Account settings">
+            <NavLink
+              className="avatar avatar--header"
+              to="/settings"
+              title={t('nav.accountSettings')}
+            >
               {user.name
                 .split(' ')
                 .map((part) => part[0])
@@ -154,17 +169,17 @@ export default function AppShell() {
         <footer className="app-footer">
           <div className="app-footer__links">
             <a href="#" onClick={(e) => e.preventDefault()}>
-              Accessibility statement
+              {t('footer.accessibilityStatement')}
             </a>
             <a href="#" onClick={(e) => e.preventDefault()}>
-              Privacy policy
+              {t('footer.privacyPolicy')}
             </a>
             <a href="#" onClick={(e) => e.preventDefault()}>
-              Terms of service
+              {t('footer.termsOfService')}
             </a>
-            <NavLink to="/help">Help center</NavLink>
+            <NavLink to="/help">{t('footer.helpCenter')}</NavLink>
           </div>
-          <p>© {new Date().getFullYear()} SinhaSpeech Accessibility.</p>
+          <p>{t('footer.copyright', new Date().getFullYear())}</p>
         </footer>
       </main>
     </div>
