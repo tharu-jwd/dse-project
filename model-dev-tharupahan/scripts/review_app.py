@@ -147,7 +147,13 @@ def main() -> None:
         if audio is None:
             st.error("This queue row has no playable audio payload or path.")
         else:
-            st.audio(audio)
+            play_requested = st.button(
+                "▶ Play / replay audio",
+                shortcut="Space",
+                use_container_width=True,
+                key=f"play-{sample_id}",
+            )
+            st.audio(audio, autoplay=play_requested)
         st.text_area("Original transcript", original_text, disabled=True, height=120)
         corrected = st.text_area(
             "Verified transcript",

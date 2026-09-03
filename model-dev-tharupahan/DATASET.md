@@ -123,7 +123,8 @@ ID. Raw source rows are never edited. Back up the adjudication file during a
 long review campaign. Keyboard shortcuts 1–4 select and save correct, edited,
 bad audio, or uncertain. Changing the radio decision or transcript also saves
 automatically. Exact duplicates are assigned from decoded-audio hashes and are
-not a reviewer memory task.
+not a reviewer memory task. Space plays or replays the current audio; Left and
+Right navigate between rows.
 
 After every gold candidate has a decision, lock a new immutable version. This
 command fails on missing candidates, unknown IDs, invalid accepted transcripts,
