@@ -11,7 +11,7 @@ import pandas as pd
 import streamlit as st
 
 from sinhala_asr.review.store import (
-    DECISIONS,
+    REVIEW_DECISIONS,
     load_adjudications,
     load_queue,
     reviewed_count,
@@ -113,6 +113,11 @@ def main() -> None:
     row = visible.loc[options[int(index)]]
     sample_id = str(row["sample_id"])
     previous = records.get(sample_id, {})
+    if previous.get("decision") and previous["decision"] not in REVIEW_DECISIONS:
+        st.warning(
+            f"This row has the older '{previous['decision']}' decision. "
+            "Review it again and save one of the four current decisions."
+        )
 
     left, right = st.columns([2, 1])
     with left:
@@ -149,8 +154,12 @@ def main() -> None:
                 st.write(f"**{field}:**", value)
         decision = st.radio(
             "Decision",
-            DECISIONS,
-            index=DECISIONS.index(previous.get("decision", "correct")),
+            REVIEW_DECISIONS,
+            index=(
+                REVIEW_DECISIONS.index(previous["decision"])
+                if previous.get("decision") in REVIEW_DECISIONS
+                else REVIEW_DECISIONS.index("uncertain")
+            ),
         )
         notes = st.text_area(
             "Notes", value=str(previous.get("notes") or ""), key=f"notes-{sample_id}"
@@ -176,19 +185,15 @@ def main() -> None:
             )
             st.rerun()
 
-        st.caption(
-            "Quick decisions: 1 correct · 2 edited · 3 bad audio · 4 mismatch · 5 duplicate · 6 uncertain"
-        )
+        st.caption("Quick decisions: 1 correct · 2 edited · 3 bad audio · 4 uncertain")
         labels = {
             "correct": "Correct",
             "edited": "Edited",
             "bad_audio": "Bad audio",
-            "mismatch": "Mismatch",
-            "duplicate": "Duplicate",
             "uncertain": "Uncertain",
         }
         columns = st.columns(3)
-        for position, selected_decision in enumerate(DECISIONS, start=1):
+        for position, selected_decision in enumerate(REVIEW_DECISIONS, start=1):
             with columns[(position - 1) % 3]:
                 if st.button(
                     labels[selected_decision],

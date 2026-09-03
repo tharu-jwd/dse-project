@@ -120,8 +120,10 @@ PYTHONPATH=src streamlit run scripts/review_app.py -- \
 
 The output is an atomic, resumable correction overlay keyed by stable sample
 ID. Raw source rows are never edited. Back up the adjudication file during a
-long review campaign. Keyboard shortcuts 1–6 select the six review decisions;
-Enter saves the currently selected radio decision.
+long review campaign. Keyboard shortcuts 1–4 select correct, edited, bad audio,
+or uncertain; Enter saves the currently selected radio decision. Exact
+duplicates are assigned automatically from decoded-audio hashes and are not a
+reviewer memory task.
 
 After every gold candidate has a decision, lock a new immutable version. This
 command fails on missing candidates, unknown IDs, invalid accepted transcripts,

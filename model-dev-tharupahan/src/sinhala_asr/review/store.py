@@ -11,6 +11,8 @@ from typing import Any
 import pandas as pd
 
 DECISIONS = ("correct", "edited", "bad_audio", "mismatch", "duplicate", "uncertain")
+# Legacy decisions remain valid so previously saved overlays stay readable.
+REVIEW_DECISIONS = ("correct", "edited", "bad_audio", "uncertain")
 REQUIRED_QUEUE_COLUMNS = {"sample_id", "text_original"}
 
 

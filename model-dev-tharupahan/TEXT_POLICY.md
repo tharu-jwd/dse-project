@@ -29,10 +29,12 @@ errors but never replaces strict scoring.
 
 Use `correct` only when the transcript matches the audible speech under this
 policy. Use `edited` and enter exactly what was spoken when wording is wrong.
-Use `bad_audio`, `mismatch`, `duplicate`, or `uncertain` instead of guessing.
-English words spoken inside Sinhala audio remain in the reference. Standalone
-English rows remain labeled `latin_only`; mixed Sinhala/Latin rows are labeled
-`code_switched`.
+Use `bad_audio` when the recording is unusable and `uncertain` instead of
+guessing. Any usable audio/transcript mismatch is corrected with `edited`.
+Exact duplicates are detected automatically from audio fingerprints rather
+than reviewer memory. English words spoken inside Sinhala audio remain in the
+reference. Standalone English rows remain labeled `latin_only`; mixed
+Sinhala/Latin rows are labeled `code_switched`.
 
 Changing any rule requires a new normalization version, updated tests, a new
 dataset fingerprint, and rescoring every compared prediction set.
