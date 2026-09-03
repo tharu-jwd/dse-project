@@ -7,6 +7,7 @@ import Icon from '../components/Icon'
 import { PageHeader } from '../components/UI'
 import { useAccessibility } from '../contexts/AccessibilityContext'
 import { useAuth } from '../contexts/AuthContext'
+import { useLanguage } from '../contexts/LanguageContext'
 import { useToast } from '../contexts/ToastContext'
 
 const LANGUAGE_LABELS = { si: 'Sinhala', en: 'English' }
@@ -15,6 +16,7 @@ export function SettingsPage() {
   const { confidenceThreshold, interactionMode, updatePreference } = useAccessibility()
   const { user } = useAuth()
   const { showToast } = useToast()
+  const { language, setLanguage, t } = useLanguage()
 
   const [commandLanguage, setCommandLanguage] = useState(null)
   const [switchingLanguage, setSwitchingLanguage] = useState(false)
@@ -46,12 +48,35 @@ export function SettingsPage() {
       style={{ backgroundImage: `url(${settingsBackground})` }}
     >
       <PageHeader
-        eyebrow="Make SinhaSpeech work for you"
-        title="Accessibility settings"
-        description="These preferences are saved on this device and applied across the application."
+        eyebrow={t('settings.eyebrow')}
+        title={t('settings.title')}
+        description={t('settings.description')}
       />
       <section className="settings-card">
-        <h2>Reading preferences</h2>
+        <h2>{t('settings.languageTitle')}</h2>
+        <p className="muted" style={{ fontSize: '0.85rem', marginBottom: 16 }}>
+          {t('settings.languageDescription')}
+        </p>
+        <div className="mode-toggle" role="radiogroup" aria-label={t('settings.languageTitle')}>
+          {(['en', 'si']).map((lng) => (
+            <button
+              key={lng}
+              type="button"
+              role="radio"
+              aria-checked={language === lng}
+              className={`mode-toggle__option ${language === lng ? 'active' : ''}`}
+              onClick={() => setLanguage(lng)}
+            >
+              <Icon name={language === lng ? 'check' : 'mic'} size={17} />
+              <span>
+                <strong>{lng === 'en' ? t('lang.english') : t('lang.sinhala')}</strong>
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+      <section className="settings-card">
+        <h2>{t('settings.readingPreferences')}</h2>
         <AccessibilityControls />
       </section>
       <section className="settings-card">
@@ -193,9 +218,9 @@ export function SettingsPage() {
       <button
         type="button"
         className="button button--primary"
-        onClick={() => showToast('Your accessibility settings are saved automatically.')}
+        onClick={() => showToast(t('settings.autoSavedToast'))}
       >
-        <Icon name="check" size={17} /> Confirm preferences
+        <Icon name="check" size={17} /> {t('settings.confirmPreferences')}
       </button>
     </div>
   )
