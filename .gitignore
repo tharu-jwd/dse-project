@@ -50,3 +50,8 @@ model-development/evaluation/results/generated/
 model-development/evaluation/results/*_predictions.csv
 model-development/evaluation/results/error_analysis/*_errors_by_severity.csv
 
+# Clean Sinhala ASR rebuild: local data, models, and generated run artifacts
+model-dev-tharupahan/data/
+model-dev-tharupahan/checkpoints/
+model-dev-tharupahan/reports/
+model-dev-tharupahan/runs/

@@ -13,6 +13,9 @@ quizzes.
 - `model-development/`: Sinhala ASR data preparation, Whisper training,
   evaluation, experiment tracking, and research. See
   [`model-development/README.md`](model-development/README.md).
+- `model-dev-tharupahan/`: clean-room Sinhala ASR rebuild with explicit data,
+  evaluation, reproducibility, and GPU-cost gates. See
+  [`model-dev-tharupahan/PLAN.md`](model-dev-tharupahan/PLAN.md).
 - `project-docs/`: the project's formal deliverables, SRS, Software Architecture Document, ERD, Gantt
   chart, and project proposal.
 - `docker-compose.yml`: local PostgreSQL service for the backend.
