@@ -3,8 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import Icon from '../components/Icon'
 import { Alert, ConfirmDialog, PageHeader } from '../components/UI'
-
-const LANGUAGE_LABELS = { si: 'Sinhala', en: 'English' }
+import { useLanguage } from '../contexts/LanguageContext'
 
 /**
  * Real per-student voice-command setup. Say each command a few times so
@@ -25,6 +24,8 @@ const LANGUAGE_LABELS = { si: 'Sinhala', en: 'English' }
  * and AudioRecorder, rather than a second recorder implementation.
  */
 export default function VoiceEnrollmentPage() {
+  const { t } = useLanguage()
+  const LANGUAGE_LABELS = { si: t('lang.sinhala'), en: t('lang.english') }
   const [searchParams, setSearchParams] = useSearchParams()
   const language = searchParams.get('language') === 'en' ? 'en' : 'si'
 
@@ -116,7 +117,7 @@ export default function VoiceEnrollmentPage() {
       setActiveId(commandId)
       setRecording(true)
     } catch {
-      setError('Microphone permission was denied, or no microphone is available.')
+      setError(t('enroll.micDenied'))
     }
   }
 
@@ -143,7 +144,7 @@ export default function VoiceEnrollmentPage() {
       setPracticeId(commandId)
       setPracticeRecording(true)
     } catch {
-      setError('Microphone permission was denied, or no microphone is available.')
+      setError(t('enroll.micDenied'))
     }
   }
 
@@ -191,9 +192,9 @@ export default function VoiceEnrollmentPage() {
   return (
     <div className="page page--narrow">
       <PageHeader
-        eyebrow="Speak to control the app"
-        title="Voice command setup"
-        description="Say each command a few times in your own voice. The app then recognizes it by how you say it, as a second check alongside recognizing the words themselves - useful if your speech is transcribed inconsistently. This is optional: voice commands already work from the words alone without enrolling."
+        eyebrow={t('enroll.eyebrow')}
+        title={t('enroll.title')}
+        description={t('enroll.description')}
       />
 
       <div className="voice-setup-options" style={{ marginBottom: 20 }}>
@@ -215,7 +216,7 @@ export default function VoiceEnrollmentPage() {
             </span>
             <span>
               <strong>{LANGUAGE_LABELS[lng]}</strong>
-              <small>{activeLanguage === lng ? 'Currently active for live commands' : 'Not active'}</small>
+              <small>{activeLanguage === lng ? t('enroll.currentlyActive') : t('enroll.notActive')}</small>
             </span>
           </button>
         ))}
@@ -223,8 +224,7 @@ export default function VoiceEnrollmentPage() {
 
       {activeLanguage !== null && activeLanguage !== language && (
         <Alert type="info">
-          You're setting up {LANGUAGE_LABELS[language]} commands, but {LANGUAGE_LABELS[activeLanguage]} is
-          currently active for live voice commands.{' '}
+          {t('enroll.settingUpButActive', LANGUAGE_LABELS[language], LANGUAGE_LABELS[activeLanguage])}{' '}
           <button
             type="button"
             className="button button--secondary button--small"
@@ -232,26 +232,24 @@ export default function VoiceEnrollmentPage() {
             disabled={switchingLanguage}
             style={{ marginLeft: 8 }}
           >
-            {switchingLanguage ? 'Switching…' : `Make ${LANGUAGE_LABELS[language]} active`}
+            {switchingLanguage ? t('enroll.switching') : t('enroll.makeActive', LANGUAGE_LABELS[language])}
           </button>
         </Alert>
       )}
       {activeLanguage !== null && activeLanguage === language && (
-        <Alert type="success">{LANGUAGE_LABELS[language]} is active for your live voice commands.</Alert>
+        <Alert type="success">{t('enroll.activeForLiveCommands', LANGUAGE_LABELS[language])}</Alert>
       )}
 
       {error && <Alert>{error}</Alert>}
       {commands === null ? (
-        <p className="muted">Loading…</p>
+        <p className="muted">{t('enroll.loading')}</p>
       ) : (
         <>
           <div className="enrollment-summary">
             <div className="progress-track">
               <span style={{ width: `${(totalComplete / commands.length) * 100}%` }} />
             </div>
-            <span>
-              {totalComplete} of {commands.length} commands enrolled
-            </span>
+            <span>{t('enroll.commandsEnrolled', totalComplete, commands.length)}</span>
           </div>
           <div className="manage-list">
             {commands.map((command) => {
@@ -274,11 +272,11 @@ export default function VoiceEnrollmentPage() {
                     <div>
                       <strong>
                         {command.phrase}
-                        {command.destructive && <span className="badge">Destructive</span>}
+                        {command.destructive && <span className="badge">{t('enroll.destructive')}</span>}
                       </strong>
                       <small>
-                        {command.collected} of {command.required} samples
-                        {command.complete && ' · complete'}
+                        {t('enroll.samplesOf', command.collected, command.required)}
+                        {command.complete && t('enroll.complete')}
                       </small>
                       {result && (
                         <p
@@ -286,11 +284,11 @@ export default function VoiceEnrollmentPage() {
                         >
                           <Icon name={result.accepted ? 'check' : 'alert'} size={14} />
                           {result.accepted
-                            ? 'Accepted — sounded consistent with your other takes.'
+                            ? t('enroll.accepted')
                             : result.reason === 'low_similarity'
-                              ? "Didn't sound like your earlier takes of this command. Try saying it again, clearly."
-                              : 'This command already has enough samples.'}
-                          {result.similarity != null && ` (${Math.round(result.similarity * 100)}% match)`}
+                              ? t('enroll.lowSimilarity')
+                              : t('enroll.alreadyEnough')}
+                          {result.similarity != null && t('enroll.matchPercent', Math.round(result.similarity * 100))}
                         </p>
                       )}
                       {practice && (
@@ -299,15 +297,17 @@ export default function VoiceEnrollmentPage() {
                         >
                           <Icon name={practice.passesThreshold ? 'check' : 'alert'} size={14} />
                           {practice.ownSimilarity == null
-                            ? 'No enrolled samples to compare against yet.'
+                            ? t('enroll.noEnrolledSamples')
                             : practice.passesThreshold
-                              ? `Practice: sounds like you — ${Math.round(practice.ownSimilarity * 100)}% match.`
-                              : `Practice: didn't quite match — ${Math.round(practice.ownSimilarity * 100)}% match.`}
+                              ? t('enroll.practiceMatch', Math.round(practice.ownSimilarity * 100))
+                              : t('enroll.practiceNoMatch', Math.round(practice.ownSimilarity * 100))}
                           {practice.closestOtherCommandId && (
                             <>
-                              {' '}
-                              (closer to "{practice.closestOtherCommandId}" —{' '}
-                              {Math.round(practice.closestOtherSimilarity * 100)}% — say it more clearly)
+                              {t(
+                                'enroll.closerToOther',
+                                practice.closestOtherCommandId,
+                                Math.round(practice.closestOtherSimilarity * 100),
+                              )}
                             </>
                           )}
                         </p>
@@ -317,7 +317,7 @@ export default function VoiceEnrollmentPage() {
                   <div className="row-actions">
                     {isRecording ? (
                       <button type="button" className="button button--danger button--small" onClick={stop}>
-                        <Icon name="stop" size={15} /> Stop ({seconds}s)
+                        <Icon name="stop" size={15} /> {t('enroll.stopSeconds', seconds)}
                       </button>
                     ) : (
                       <>
@@ -325,7 +325,7 @@ export default function VoiceEnrollmentPage() {
                           <button
                             type="button"
                             className="icon-button icon-button--danger"
-                            title={`Delete all ${command.id} samples`}
+                            title={t('enroll.deleteAllSamples', command.id)}
                             onClick={() => setConfirmDeleteId(command.id)}
                             disabled={recording || isUploading}
                           >
@@ -343,7 +343,7 @@ export default function VoiceEnrollmentPage() {
                           ) : (
                             <Icon name="mic" size={15} />
                           )}{' '}
-                          {command.complete ? 'Complete' : 'Record'}
+                          {command.complete ? t('enroll.completeLabel') : t('enroll.record')}
                         </button>
                       </>
                     )}
@@ -354,7 +354,7 @@ export default function VoiceEnrollmentPage() {
                           className="button button--danger button--small"
                           onClick={stopPractice}
                         >
-                          <Icon name="stop" size={15} /> Stop ({seconds}s)
+                          <Icon name="stop" size={15} /> {t('enroll.stopSeconds', seconds)}
                         </button>
                       ) : (
                         <button
@@ -362,14 +362,14 @@ export default function VoiceEnrollmentPage() {
                           className="button button--text button--small"
                           disabled={practiceRecording || isPracticeUploading}
                           onClick={() => startPractice(command.id)}
-                          title="Try saying the command and see how well it matches your enrolled samples"
+                          title={t('enroll.tryMatchTitle')}
                         >
                           {isPracticeUploading ? (
                             <span className="spinner spinner--small" />
                           ) : (
                             <Icon name="quiz" size={15} />
                           )}{' '}
-                          Practice
+                          {t('enroll.practice')}
                         </button>
                       ))}
                   </div>
@@ -381,9 +381,9 @@ export default function VoiceEnrollmentPage() {
       )}
       <ConfirmDialog
         open={confirmDeleteId !== null}
-        title="Delete these samples?"
-        message="All recorded samples for this command, in this language, will be removed. You can re-record them any time - re-recording always creates fresh embeddings automatically."
-        confirmLabel="Delete samples"
+        title={t('enroll.deleteSamplesTitle')}
+        message={t('enroll.deleteSamplesMessage')}
+        confirmLabel={t('enroll.deleteSamples')}
         dangerous
         busy={deleting}
         onCancel={() => setConfirmDeleteId(null)}

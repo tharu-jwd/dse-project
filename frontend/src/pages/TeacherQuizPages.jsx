@@ -11,9 +11,11 @@ import {
   PageHeader,
   StatusBadge,
 } from '../components/UI'
+import { useLanguage } from '../contexts/LanguageContext'
 import { useToast } from '../contexts/ToastContext'
 
 export function TeacherQuizListPage() {
+  const { t } = useLanguage()
   const [items, setItems] = useState(null)
   const [filter, setFilter] = useState('ALL')
   const [error, setError] = useState('')
@@ -27,16 +29,16 @@ export function TeacherQuizListPage() {
   return (
     <div className="page has-bg-image" style={{ backgroundImage: `url(${teacherQuizBackground})` }}>
       <PageHeader
-        eyebrow="Teacher workspace"
-        title="Manage quizzes"
-        description="Create speech-based quizzes and publish them when they are ready."
+        eyebrow={t('teacherQuiz.workspace')}
+        title={t('teacherQuiz.manageQuizzes')}
+        description={t('teacherQuiz.listDescription')}
         actions={
           <Link className="button button--primary" to="/teacher/quizzes/new">
-            <Icon name="plus" size={17} /> Create quiz
+            <Icon name="plus" size={17} /> {t('teacherQuiz.createQuiz')}
           </Link>
         }
       />
-      <div className="filter-tabs" role="tablist" aria-label="Quiz status filter">
+      <div className="filter-tabs" role="tablist" aria-label={t('teacherQuiz.statusFilter')}>
         {['ALL', 'DRAFT', 'PUBLISHED'].map((item) => (
           <button
             key={item}
@@ -45,13 +47,17 @@ export function TeacherQuizListPage() {
             className={filter === item ? 'active' : ''}
             onClick={() => setFilter(item)}
           >
-            {item === 'ALL' ? 'All quizzes' : item[0] + item.slice(1).toLowerCase()}
+            {item === 'ALL'
+              ? t('teacherQuiz.allQuizzes')
+              : item === 'DRAFT'
+                ? t('teacherQuiz.statusDraft')
+                : t('teacherQuiz.statusPublished')}
           </button>
         ))}
       </div>
       {error && <Alert>{error}</Alert>}
       {!items && !error ? (
-        <Loading label="Loading quizzes…" />
+        <Loading label={t('teacherQuiz.loadingQuizzes')} />
       ) : shown.length ? (
         <div className="manage-list">
           {shown.map((quiz) => (
@@ -63,8 +69,8 @@ export function TeacherQuizListPage() {
                 <span>
                   <strong>{quiz.title}</strong>
                   <small>
-                    {quiz.questions.length} questions{' '}
-                    {quiz.dueDate ? `· Due ${quiz.dueDate}` : '· No due date'}
+                    {t('teacherQuiz.questionsCount', quiz.questions.length)}{' '}
+                    {quiz.dueDate ? t('teacherQuiz.dueDateLabel', quiz.dueDate) : t('teacherQuiz.noDueDate')}
                   </small>
                 </span>
               </div>
@@ -73,7 +79,7 @@ export function TeacherQuizListPage() {
                 className="button button--secondary button--small"
                 to={`/teacher/quizzes/${quiz.id}/edit`}
               >
-                <Icon name="edit" size={15} /> Edit
+                <Icon name="edit" size={15} /> {t('teacherQuiz.edit')}
               </Link>
             </article>
           ))}
@@ -81,8 +87,8 @@ export function TeacherQuizListPage() {
       ) : (
         <EmptyState
           icon="quiz"
-          title="No quizzes here"
-          message="Create a quiz or change the selected status filter."
+          title={t('teacherQuiz.noQuizzesHere')}
+          message={t('teacherQuiz.noQuizzesMessage')}
         />
       )}
     </div>
@@ -90,6 +96,7 @@ export function TeacherQuizListPage() {
 }
 
 export function QuizFormPage() {
+  const { t } = useLanguage()
   const { id } = useParams()
   const navigate = useNavigate()
   const { showToast } = useToast()
@@ -119,9 +126,9 @@ export function QuizFormPage() {
         })
   }, [id])
   const validate = () => {
-    if (!quiz.title.trim()) return 'Quiz title is required.'
-    if (!quiz.questions.length) return 'Add at least one question.'
-    if (quiz.questions.some((q) => !q.text.trim())) return 'Every question needs text.'
+    if (!quiz.title.trim()) return t('teacherQuiz.titleRequired')
+    if (!quiz.questions.length) return t('teacherQuiz.needOneQuestion')
+    if (quiz.questions.some((q) => !q.text.trim())) return t('teacherQuiz.questionNeedsText')
     return ''
   }
   const save = async (publish = false) => {
@@ -136,7 +143,7 @@ export function QuizFormPage() {
       let result = await api.saveQuiz({ ...quiz, status: publish ? quiz.status : 'DRAFT' })
       if (publish) result = await api.publishQuiz(result.id)
       setQuiz(result)
-      showToast(publish ? 'Quiz published to students.' : 'Quiz saved as draft.')
+      showToast(publish ? t('teacherQuiz.publishedToStudents') : t('teacherQuiz.savedAsDraft'))
       navigate('/teacher/quizzes')
     } catch (cause) {
       setError(cause.message)
@@ -158,46 +165,46 @@ export function QuizFormPage() {
   if (loading)
     return (
       <div className="page has-bg-image" style={{ backgroundImage: `url(${teacherQuizBackground})` }}>
-        <Loading label="Loading quiz editor…" />
+        <Loading label={t('teacherQuiz.loadingEditor')} />
       </div>
     )
   return (
     <div className="page page--narrow has-bg-image" style={{ backgroundImage: `url(${teacherQuizBackground})` }}>
       <PageHeader
-        eyebrow={id ? 'Edit quiz' : 'New quiz'}
-        title={id ? quiz.title : 'Create a speech quiz'}
-        description="Add simple text questions that students will answer using recorded speech."
+        eyebrow={id ? t('teacherQuiz.editQuiz') : t('teacherQuiz.newQuiz')}
+        title={id ? quiz.title : t('teacherQuiz.createSpeechQuiz')}
+        description={t('teacherQuiz.formDescription')}
         back={
           <button className="back-link" onClick={() => navigate('/teacher/quizzes')}>
-            ← Back to quizzes
+            {t('teacherQuiz.backToQuizzes')}
           </button>
         }
       />
       {error && <Alert>{error}</Alert>}
       <section className="form-card">
-        <h2>Quiz details</h2>
+        <h2>{t('teacherQuiz.quizDetails')}</h2>
         <div className="field">
-          <label htmlFor="quiz-title">Title</label>
+          <label htmlFor="quiz-title">{t('teacherQuiz.titleLabel')}</label>
           <input
             id="quiz-title"
             value={quiz.title}
             onChange={(e) => setQuiz({ ...quiz, title: e.target.value })}
-            placeholder="e.g. Data Structures — Week 3"
+            placeholder={t('teacherQuiz.titlePlaceholder')}
           />
         </div>
         <div className="field">
-          <label htmlFor="quiz-description">Description</label>
+          <label htmlFor="quiz-description">{t('teacherQuiz.description')}</label>
           <textarea
             id="quiz-description"
             rows="3"
             value={quiz.description}
             onChange={(e) => setQuiz({ ...quiz, description: e.target.value })}
-            placeholder="Tell students what to expect."
+            placeholder={t('teacherQuiz.descriptionPlaceholder')}
           />
         </div>
         <div className="field field--half">
           <label htmlFor="quiz-due">
-            Due date <span>Optional</span>
+            {t('teacherQuiz.dueDate')} <span>{t('teacherQuiz.optional')}</span>
           </label>
           <input
             id="quiz-due"
@@ -210,8 +217,8 @@ export function QuizFormPage() {
       <section className="form-card">
         <div className="section-heading">
           <div>
-            <h2>Questions</h2>
-            <p>Students will record one spoken answer for each question.</p>
+            <h2>{t('teacherQuiz.questions')}</h2>
+            <p>{t('teacherQuiz.questionsDescription')}</p>
           </div>
           <button
             className="button button--secondary button--small"
@@ -222,7 +229,7 @@ export function QuizFormPage() {
               })
             }
           >
-            <Icon name="plus" size={16} /> Add question
+            <Icon name="plus" size={16} /> {t('teacherQuiz.addQuestion')}
           </button>
         </div>
         <div className="question-editor-list">
@@ -230,20 +237,20 @@ export function QuizFormPage() {
             <div className="question-editor" key={question.id}>
               <span className="drag-number">{index + 1}</span>
               <div className="field">
-                <label htmlFor={`q-text-${question.id}`}>Question {index + 1}</label>
+                <label htmlFor={`q-text-${question.id}`}>{t('teacherQuiz.questionN', index + 1)}</label>
                 <textarea
                   id={`q-text-${question.id}`}
                   lang="si"
                   rows="2"
                   value={question.text}
                   onChange={(e) => updateQuestion(index, e.target.value)}
-                  placeholder="Enter the question text…"
+                  placeholder={t('teacherQuiz.questionPlaceholder')}
                 />
               </div>
               <div className="question-editor__actions">
                 <button
                   className="icon-button"
-                  aria-label="Move question up"
+                  aria-label={t('teacherQuiz.moveUp')}
                   disabled={index === 0}
                   onClick={() => move(index, -1)}
                 >
@@ -251,7 +258,7 @@ export function QuizFormPage() {
                 </button>
                 <button
                   className="icon-button"
-                  aria-label="Move question down"
+                  aria-label={t('teacherQuiz.moveDown')}
                   disabled={index === quiz.questions.length - 1}
                   onClick={() => move(index, 1)}
                 >
@@ -259,7 +266,7 @@ export function QuizFormPage() {
                 </button>
                 <button
                   className="icon-button icon-button--danger"
-                  aria-label="Remove question"
+                  aria-label={t('teacherQuiz.removeQuestion')}
                   onClick={() => setRemoveIndex(index)}
                 >
                   <Icon name="trash" size={17} />
@@ -271,7 +278,7 @@ export function QuizFormPage() {
       </section>
       <div className="sticky-actions">
         <button className="button button--secondary" onClick={() => save(false)} disabled={saving}>
-          Save as draft
+          {t('teacherQuiz.saveAsDraft')}
         </button>
         <button
           className="button button--primary"
@@ -282,15 +289,15 @@ export function QuizFormPage() {
           }}
           disabled={saving}
         >
-          {saving ? 'Saving…' : 'Publish quiz'}
+          {saving ? t('teacherQuiz.saving') : t('teacherQuiz.publishQuiz')}
         </button>
       </div>
       <ConfirmDialog
         open={removeIndex !== null}
         dangerous
-        title="Remove this question?"
-        message="The question will be removed from this quiz. This cannot be undone after saving."
-        confirmLabel="Remove question"
+        title={t('teacherQuiz.removeQuestionTitle')}
+        message={t('teacherQuiz.removeQuestionMessage')}
+        confirmLabel={t('teacherQuiz.removeQuestion')}
         onCancel={() => setRemoveIndex(null)}
         onConfirm={() => {
           setQuiz({
@@ -302,9 +309,9 @@ export function QuizFormPage() {
       />
       <ConfirmDialog
         open={publishConfirm}
-        title="Publish this quiz?"
-        message="Students will be able to see and answer it immediately."
-        confirmLabel="Publish quiz"
+        title={t('teacherQuiz.publishQuizTitle')}
+        message={t('teacherQuiz.publishQuizMessage')}
+        confirmLabel={t('teacherQuiz.publishQuiz')}
         onCancel={() => setPublishConfirm(false)}
         onConfirm={() => {
           setPublishConfirm(false)

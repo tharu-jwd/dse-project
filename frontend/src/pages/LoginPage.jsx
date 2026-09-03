@@ -6,9 +6,11 @@ import { Logo } from '../components/AppShell'
 import Icon from '../components/Icon'
 import { Alert } from '../components/UI'
 import { useAuth } from '../contexts/AuthContext'
+import { useLanguage } from '../contexts/LanguageContext'
 
 export default function LoginPage() {
   const { user, login } = useAuth()
+  const { t } = useLanguage()
   const navigate = useNavigate()
   const location = useLocation()
   const [form, setForm] = useState({ email: '', password: '' })
@@ -19,8 +21,8 @@ export default function LoginPage() {
   const submit = async (event) => {
     event.preventDefault()
     const next = {}
-    if (!form.email.trim()) next.email = 'Email is required.'
-    if (!form.password) next.password = 'Password is required.'
+    if (!form.email.trim()) next.email = t('login.emailRequired')
+    if (!form.password) next.password = t('login.passwordRequired')
     setErrors(next)
     setServerError('')
     if (Object.keys(next).length) return
@@ -29,11 +31,7 @@ export default function LoginPage() {
       await login(form.email.trim(), form.password)
       navigate(location.state?.from?.pathname || '/dashboard', { replace: true })
     } catch (error) {
-      setServerError(
-        error.code === 'NETWORK_ERROR'
-          ? 'We could not connect to SinhaSpeech. Check your network and try again.'
-          : error.message,
-      )
+      setServerError(error.code === 'NETWORK_ERROR' ? t('login.networkError') : error.message)
     } finally {
       setLoading(false)
     }
@@ -47,22 +45,20 @@ export default function LoginPage() {
       >
         <Logo />
         <div className="login-intro__content">
-          <span className="eyebrow eyebrow--light">Sinhala speech accessibility</span>
+          <span className="eyebrow eyebrow--light">{t('login.tagline')}</span>
           <h1>
-            Every voice deserves to be <em>understood.</em>
+            {t('login.heroTitle')} <em>{t('login.heroEmphasis')}</em>
           </h1>
-          <p>
-            Turn Sinhala speech into clear, editable text for lectures, learning and assessment.
-          </p>
+          <p>{t('login.heroBody')}</p>
           <ul>
             <li>
-              <Icon name="check" /> Accessible lecture captions
+              <Icon name="check" /> {t('login.featureLectures')}
             </li>
             <li>
-              <Icon name="check" /> Spoken quiz answers
+              <Icon name="check" /> {t('login.featureQuiz')}
             </li>
             <li>
-              <Icon name="check" /> Voice-powered study notes
+              <Icon name="check" /> {t('login.featureNotes')}
             </li>
           </ul>
         </div>
@@ -71,14 +67,14 @@ export default function LoginPage() {
       <section className="login-panel">
         <div className="login-card">
           <div>
-            <span className="eyebrow">Welcome back</span>
-            <h2>Sign in to SinhaSpeech</h2>
-            <p>Use your university account to continue.</p>
+            <span className="eyebrow">{t('login.welcomeBack')}</span>
+            <h2>{t('login.signInTitle')}</h2>
+            <p>{t('login.signInSubtitle')}</p>
           </div>
-          {serverError && <Alert title="Sign-in unsuccessful">{serverError}</Alert>}
+          {serverError && <Alert title={t('login.signInFailedTitle')}>{serverError}</Alert>}
           <form onSubmit={submit} noValidate>
             <div className="field">
-              <label htmlFor="email">Email address</label>
+              <label htmlFor="email">{t('login.emailLabel')}</label>
               <input
                 id="email"
                 type="email"
@@ -87,7 +83,7 @@ export default function LoginPage() {
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 aria-invalid={Boolean(errors.email)}
                 aria-describedby={errors.email ? 'email-error' : undefined}
-                placeholder="name@university.lk"
+                placeholder={t('login.emailPlaceholder')}
               />
               {errors.email && (
                 <span id="email-error" className="field-error" role="alert">
@@ -96,7 +92,7 @@ export default function LoginPage() {
               )}
             </div>
             <div className="field">
-              <label htmlFor="password">Password</label>
+              <label htmlFor="password">{t('login.passwordLabel')}</label>
               <input
                 id="password"
                 type="password"
@@ -105,7 +101,7 @@ export default function LoginPage() {
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 aria-invalid={Boolean(errors.password)}
                 aria-describedby={errors.password ? 'password-error' : undefined}
-                placeholder="Enter your password"
+                placeholder={t('login.passwordPlaceholder')}
               />
               {errors.password && (
                 <span id="password-error" className="field-error" role="alert">
@@ -120,11 +116,11 @@ export default function LoginPage() {
             >
               {loading ? (
                 <>
-                  <span className="spinner spinner--small" /> Signing in…
+                  <span className="spinner spinner--small" /> {t('login.signingIn')}
                 </>
               ) : (
                 <>
-                  Sign in <Icon name="arrow" size={18} />
+                  {t('login.signIn')} <Icon name="arrow" size={18} />
                 </>
               )}
             </button>
@@ -132,14 +128,14 @@ export default function LoginPage() {
           {USE_MOCK_API && (
             <div className="demo-credentials">
               <div className="section-divider">
-                <span>Demo accounts</span>
+                <span>{t('login.demoAccounts')}</span>
               </div>
-              <p>Choose an account to fill in the demo credentials.</p>
+              <p>{t('login.demoChoose')}</p>
               <div>
                 <button type="button" onClick={() => fillDemo('student')}>
                   <span className="demo-avatar demo-avatar--student">ST</span>
                   <span>
-                    <strong>Student demo</strong>
+                    <strong>{t('login.studentDemo')}</strong>
                     <small>student@sinhaspeech.lk</small>
                   </span>
                   <Icon name="arrow" size={16} />
@@ -147,20 +143,20 @@ export default function LoginPage() {
                 <button type="button" onClick={() => fillDemo('teacher')}>
                   <span className="demo-avatar demo-avatar--teacher">TE</span>
                   <span>
-                    <strong>Teacher demo</strong>
+                    <strong>{t('login.teacherDemo')}</strong>
                     <small>teacher@sinhaspeech.lk</small>
                   </span>
                   <Icon name="arrow" size={16} />
                 </button>
               </div>
               <small>
-                Password for both accounts: <strong>demo123</strong>
+                {t('login.demoPasswordLabel')} <strong>demo123</strong>
               </small>
             </div>
           )}
         </div>
         <p className="login-help">
-          <Icon name="help" size={16} /> Need help? Contact your course administrator.
+          <Icon name="help" size={16} /> {t('login.needHelp')}
         </p>
       </section>
     </main>

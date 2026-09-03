@@ -6,11 +6,12 @@ import libraryBackground from '../assets/5.png'
 import Icon from '../components/Icon'
 import TranscriptEditor from '../components/TranscriptEditor'
 import { Alert, ConfirmDialog, EmptyState, Loading, PageHeader, StatusBadge } from '../components/UI'
+import { useLanguage } from '../contexts/LanguageContext'
 import { useToast } from '../contexts/ToastContext'
 
-const typeLabel = { LECTURE: 'Lecture', NOTE: 'Study note', QUIZ_ANSWER: 'Quiz answer' }
-
 export function TranscriptLibraryPage() {
+  const { t, language } = useLanguage()
+  const typeLabel = { LECTURE: t('type.lecture'), NOTE: t('type.studyNote'), QUIZ_ANSWER: t('type.quizAnswer') }
   const [searchParams] = useSearchParams()
   const [items, setItems] = useState(null)
   const [error, setError] = useState('')
@@ -43,7 +44,7 @@ export function TranscriptLibraryPage() {
     try {
       const blob = await api.exportTranscript(item.id, 'txt')
       downloadBlob(blob, `${item.title}.txt`)
-      showToast('Transcript downloaded.')
+      showToast(t('library.transcriptDownloaded'))
     } catch (cause) {
       setError(cause.message)
     }
@@ -59,7 +60,7 @@ export function TranscriptLibraryPage() {
         if (!/not found/i.test(cause.message)) throw cause
       }
       setItems((prev) => (prev || []).filter((entry) => entry.id !== target.id))
-      showToast('Transcript deleted.')
+      showToast(t('library.transcriptDeleted'))
       setDeleteTarget(null)
     } catch (cause) {
       setError(cause.message)
@@ -70,63 +71,63 @@ export function TranscriptLibraryPage() {
   return (
     <div className="page has-bg-image" style={{ backgroundImage: `url(${libraryBackground})` }}>
       <PageHeader
-        eyebrow="Your saved work"
-        title="Transcript library"
-        description="Search, review and export your lecture captions, study notes and spoken answers."
+        eyebrow={t('library.eyebrow')}
+        title={t('library.title')}
+        description={t('library.description')}
       />
-      <section className="library-tools" aria-label="Transcript filters">
+      <section className="library-tools" aria-label={t('library.filtersLabel')}>
         <label className="search-field">
-          <span className="sr-only">Search transcripts</span>
+          <span className="sr-only">{t('library.searchTranscripts')}</span>
           <Icon name="search" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by title…"
+            placeholder={t('library.searchPlaceholder')}
           />
         </label>
         <label>
-          <span className="sr-only">Filter by type</span>
+          <span className="sr-only">{t('library.filterByType')}</span>
           <select value={type} onChange={(e) => setType(e.target.value)}>
-            <option value="ALL">All types</option>
-            <option value="LECTURE">Lectures</option>
-            <option value="NOTE">Study notes</option>
-            <option value="QUIZ_ANSWER">Quiz answers</option>
+            <option value="ALL">{t('library.allTypes')}</option>
+            <option value="LECTURE">{t('library.lectures')}</option>
+            <option value="NOTE">{t('library.studyNotes')}</option>
+            <option value="QUIZ_ANSWER">{t('library.quizAnswers')}</option>
           </select>
         </label>
         <label>
-          <span className="sr-only">Filter by status</span>
+          <span className="sr-only">{t('library.filterByStatus')}</span>
           <select value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="ALL">All statuses</option>
-            <option value="DRAFT">Draft</option>
-            <option value="FINALIZED">Finalized</option>
-            <option value="PROCESSING">Processing</option>
-            <option value="FAILED">Failed</option>
+            <option value="ALL">{t('library.allStatuses')}</option>
+            <option value="DRAFT">{t('status.draft')}</option>
+            <option value="FINALIZED">{t('status.finalized')}</option>
+            <option value="PROCESSING">{t('status.processing')}</option>
+            <option value="FAILED">{t('status.failed')}</option>
           </select>
         </label>
       </section>
       {error && (
-        <Alert title="Could not load transcripts">
+        <Alert title={t('library.couldNotLoad')}>
           {error}
           <div>
             <button className="button button--secondary button--small" onClick={load}>
-              Try again
+              {t('library.tryAgain')}
             </button>
           </div>
         </Alert>
       )}
       {items === null && !error ? (
-        <Loading label="Loading your transcript library…" />
+        <Loading label={t('library.loading')} />
       ) : filtered.length ? (
         <div className="table-card">
           <table>
             <thead>
               <tr>
-                <th>Transcript</th>
-                <th>Type</th>
-                <th>Date created</th>
-                <th>Status</th>
+                <th>{t('library.colTranscript')}</th>
+                <th>{t('library.colType')}</th>
+                <th>{t('library.colDateCreated')}</th>
+                <th>{t('library.colStatus')}</th>
                 <th>
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">{t('library.colActions')}</span>
                 </th>
               </tr>
             </thead>
@@ -149,7 +150,7 @@ export function TranscriptLibraryPage() {
                   </td>
                   <td>{typeLabel[item.type]}</td>
                   <td>
-                    {new Intl.DateTimeFormat('en-GB', {
+                    {new Intl.DateTimeFormat(language === 'si' ? 'si-LK' : 'en-GB', {
                       day: 'numeric',
                       month: 'short',
                       year: 'numeric',
@@ -164,13 +165,13 @@ export function TranscriptLibraryPage() {
                         className="button button--secondary button--small"
                         to={`/transcripts/${item.id}`}
                       >
-                        Open
+                        {t('library.open')}
                       </Link>
                       {item.status === 'FINALIZED' && (
                         <button
                           className="icon-button"
-                          title="Export TXT"
-                          aria-label={`Export ${item.title}`}
+                          title={t('library.exportTxt')}
+                          aria-label={t('library.exportLabel', item.title)}
                           onClick={() => exportItem(item)}
                         >
                           <Icon name="download" size={18} />
@@ -178,8 +179,8 @@ export function TranscriptLibraryPage() {
                       )}
                       <button
                         className="icon-button"
-                        title="Delete"
-                        aria-label={`Delete ${item.title}`}
+                        title={t('library.delete')}
+                        aria-label={t('library.deleteLabel', item.title)}
                         onClick={() => setDeleteTarget(item)}
                       >
                         <Icon name="trash" size={18} />
@@ -194,16 +195,14 @@ export function TranscriptLibraryPage() {
       ) : (
         <EmptyState
           icon="search"
-          title={items?.length ? 'No matching transcripts' : 'Your library is ready'}
+          title={items?.length ? t('library.noMatchingTranscripts') : t('library.libraryReady')}
           message={
-            items?.length
-              ? 'Try changing your search or filters.'
-              : 'Uploaded lectures, recorded notes and spoken answers will appear here.'
+            items?.length ? t('library.tryChangingFilters') : t('library.emptyLibraryMessage')
           }
           action={
             !items?.length && (
               <Link className="button button--primary" to="/lectures/new">
-                Create a transcript
+                {t('library.createTranscript')}
               </Link>
             )
           }
@@ -211,9 +210,9 @@ export function TranscriptLibraryPage() {
       )}
       <ConfirmDialog
         open={Boolean(deleteTarget)}
-        title="Delete transcript"
-        message={`Are you sure you want to delete "${deleteTarget?.title}"? This cannot be undone.`}
-        confirmLabel="Delete transcript"
+        title={t('library.deleteTranscriptTitle')}
+        message={t('library.deleteConfirmMessage', deleteTarget?.title)}
+        confirmLabel={t('library.deleteTranscriptConfirm')}
         dangerous
         busy={isDeleting}
         onConfirm={deleteItem}
@@ -224,6 +223,8 @@ export function TranscriptLibraryPage() {
 }
 
 export function TranscriptPage() {
+  const { t } = useLanguage()
+  const typeLabel = { LECTURE: t('type.lecture'), NOTE: t('type.studyNote'), QUIZ_ANSWER: t('type.quizAnswer') }
   const { id } = useParams()
   const navigate = useNavigate()
   const [item, setItem] = useState(null)
@@ -244,16 +245,16 @@ export function TranscriptPage() {
         className="page page--narrow has-bg-image"
         style={{ backgroundImage: `url(${editorBackground})` }}
       >
-        <Alert title="Could not open transcript">{error}</Alert>
+        <Alert title={t('library.couldNotOpen')}>{error}</Alert>
         <button className="button button--secondary" onClick={() => navigate('/transcripts')}>
-          Back to library
+          {t('library.backToLibrary')}
         </button>
       </div>
     )
   if (!item)
     return (
       <div className="page has-bg-image" style={{ backgroundImage: `url(${editorBackground})` }}>
-        <Loading label="Opening transcript editor…" />
+        <Loading label={t('library.openingEditor')} />
       </div>
     )
   return (
@@ -262,12 +263,12 @@ export function TranscriptPage() {
       style={{ backgroundImage: `url(${editorBackground})` }}
     >
       <PageHeader
-        eyebrow={`${typeLabel[item.type]} transcript`}
-        title="Review transcript"
-        description="Correct uncertain words, save your changes and finalize when it is ready."
+        eyebrow={t('library.typeTranscript', typeLabel[item.type])}
+        title={t('library.reviewTranscript')}
+        description={t('library.reviewDescription')}
         back={
           <button className="back-link" onClick={() => navigate(-1)}>
-            ← Back
+            {t('library.back')}
           </button>
         }
       />

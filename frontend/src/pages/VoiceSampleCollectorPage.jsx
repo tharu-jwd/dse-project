@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import Icon from '../components/Icon'
 import { Alert, PageHeader } from '../components/UI'
+import { useLanguage } from '../contexts/LanguageContext'
 
 /**
  * Dev-only tool: step 1 of the voice-command embedding work needs real
@@ -12,6 +13,7 @@ import { Alert, PageHeader } from '../components/UI'
  * enrollment UI (that depends on what this data shows).
  */
 export default function VoiceSampleCollectorPage() {
+  const { t } = useLanguage()
   const [searchParams, setSearchParams] = useSearchParams()
   const lang = searchParams.get('lang') === 'en' ? 'en' : 'si'
   const [commands, setCommands] = useState(null)
@@ -74,7 +76,7 @@ export default function VoiceSampleCollectorPage() {
       setSeconds(0)
       intervalRef.current = window.setInterval(() => setSeconds((value) => value + 1), 1000)
     } catch {
-      setError('Microphone permission was denied, or no microphone is available.')
+      setError(t('enroll.micDenied'))
     }
   }
 
@@ -99,33 +101,29 @@ export default function VoiceSampleCollectorPage() {
   return (
     <div className="page page--narrow">
       <PageHeader
-        eyebrow="Dev tool · not the real enrollment UI"
-        title="Collect voice-command samples"
-        description={
-          lang === 'en'
-            ? 'Say your chosen English word for each command 3-5 times, in a few different sessions if you can. Saved separately from the Sinhala set, as {command}_{n}.wav under storage/voice_samples_en/.'
-            : 'Say each phrase 3-5 times, in a few different sessions if you can. These get saved as {command}_{n}.wav on the server for scripts/validate_command_embeddings.py.'
-        }
+        eyebrow={t('collector.eyebrow')}
+        title={t('collector.title')}
+        description={lang === 'en' ? t('collector.descriptionEn') : t('collector.descriptionSi')}
       />
-      <div className="view-toggle" role="group" aria-label="Sample language" style={{ marginBottom: 18 }}>
+      <div className="view-toggle" role="group" aria-label={t('collector.sampleLanguage')} style={{ marginBottom: 18 }}>
         <button
           type="button"
           aria-pressed={lang === 'si'}
           onClick={() => setSearchParams(lang === 'si' ? {} : { lang: 'si' })}
         >
-          Sinhala (current)
+          {t('collector.sinhalaCurrent')}
         </button>
         <button
           type="button"
           aria-pressed={lang === 'en'}
           onClick={() => setSearchParams({ lang: 'en' })}
         >
-          English (trial)
+          {t('collector.englishTrial')}
         </button>
       </div>
       {error && <Alert>{error}</Alert>}
       {commands === null ? (
-        <p className="muted">Loading…</p>
+        <p className="muted">{t('collector.loading')}</p>
       ) : (
         <div className="manage-list">
           {commands.map((command) => (
@@ -137,14 +135,14 @@ export default function VoiceSampleCollectorPage() {
                 <div>
                   <strong>{lang === 'en' ? command.id : command.phrase}</strong>
                   <small>
-                    {lang === 'en' ? 'your English word for this command' : command.id} ·{' '}
-                    {command.count} sample{command.count === 1 ? '' : 's'}
+                    {lang === 'en' ? t('collector.yourEnglishWord') : command.id} ·{' '}
+                    {t('collector.sampleCount', command.count)}
                   </small>
                 </div>
               </div>
               {activeId === command.id && recording ? (
                 <button type="button" className="button button--danger button--small" onClick={stop}>
-                  <Icon name="stop" size={15} /> Stop ({seconds}s)
+                  <Icon name="stop" size={15} /> {t('collector.stopSeconds', seconds)}
                 </button>
               ) : (
                 <div className="row-actions">
@@ -152,7 +150,7 @@ export default function VoiceSampleCollectorPage() {
                     <button
                       type="button"
                       className="icon-button icon-button--danger"
-                      title={`Delete all ${command.id} samples`}
+                      title={t('collector.deleteAllSamples', command.id)}
                       onClick={() => reRecord(command.id)}
                     >
                       <Icon name="trash" size={16} />
@@ -164,7 +162,7 @@ export default function VoiceSampleCollectorPage() {
                     disabled={recording}
                     onClick={() => start(command.id)}
                   >
-                    <Icon name="mic" size={15} /> Record
+                    <Icon name="mic" size={15} /> {t('collector.record')}
                   </button>
                 </div>
               )}

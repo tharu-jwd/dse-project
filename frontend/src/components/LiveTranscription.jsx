@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, API_BASE_URL } from '../api'
+import { useLanguage } from '../contexts/LanguageContext'
 import Icon from './Icon'
 import { Alert } from './UI'
 
@@ -48,6 +49,7 @@ const VOICE_BAR_COUNT = 9
 const VOICE_THRESHOLD = 0.02
 
 export default function LiveTranscription({ title, onSessionEnd, disabled = false }) {
+  const { t } = useLanguage()
   const [status, setStatus] = useState('idle') // idle | connecting | recording | stopping | error
   const [error, setError] = useState('')
   const [finals, setFinals] = useState([]) // [{ segment, segmentId, text, dirty }]
@@ -145,11 +147,11 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
     endedRef.current = false
 
     if (!title.trim()) {
-      setError('Give your note a title before recording.')
+      setError(t('live.titleRequired'))
       return
     }
     if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
-      setError('Live transcription is not supported by this browser.')
+      setError(t('live.notSupported'))
       return
     }
 
@@ -211,9 +213,9 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
       } catch (cause) {
         setStatus('error')
         if (cause?.name === 'NotAllowedError' || cause?.name === 'SecurityError')
-          setError('Microphone permission was denied.')
-        else if (cause?.name === 'NotFoundError') setError('No microphone was found.')
-        else setError('The microphone could not be started.')
+          setError(t('live.permissionDenied'))
+        else if (cause?.name === 'NotFoundError') setError(t('live.noMicrophone'))
+        else setError(t('live.startFailed'))
         socket.close()
       }
     }
@@ -234,14 +236,14 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
         if (message.command === 'delete') {
           setFinals((prev) => {
             if (prev.length === 0) {
-              showCommandFeedback('Nothing to delete')
+              showCommandFeedback(t('live.nothingToDelete'))
               return prev
             }
-            showCommandFeedback('Last line deleted')
+            showCommandFeedback(t('live.lastLineDeleted'))
             return prev.slice(0, -1)
           })
         } else if (message.command === 'stop') {
-          showCommandFeedback('Stopping…')
+          showCommandFeedback(t('live.stopping'))
           stop()
         }
       } else if (message.type === 'command_maybe') {
@@ -251,7 +253,7 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
         // student meant a command and wants to say it again more clearly.
         const candidate = message.fuzzy_command || message.embedding_command
         showCommandFeedback(
-          candidate ? `Did you mean "${candidate}"? Try saying it again clearly.` : 'Possible command, unsure — kept as text.',
+          candidate ? t('live.didYouMean', candidate) : t('live.possibleCommand'),
           'advisory',
         )
       } else if (message.type === 'session_end') {
@@ -274,13 +276,13 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
       if (!endedRef.current) {
         const wasStopping = statusRef.current === 'stopping'
         setStatus(wasStopping ? 'idle' : 'error')
-        if (!wasStopping) setError((prev) => prev || 'The connection was lost.')
+        if (!wasStopping) setError((prev) => prev || t('live.connectionLost'))
       }
     }
 
     socket.onerror = () => {
       setStatus('error')
-      setError('Could not connect to the streaming service.')
+      setError(t('live.connectFailed'))
     }
   }
 
@@ -311,7 +313,7 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
       setSaveState('saved')
     } catch (cause) {
       setSaveState('error')
-      setError(cause.message || 'Your edits could not be saved.')
+      setError(cause.message || t('live.editsNotSaved'))
     }
   }
 
@@ -344,7 +346,7 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
       setSaveState('saved')
     } catch (cause) {
       setSaveState('error')
-      setError(cause.message || 'Your edits could not be saved.')
+      setError(cause.message || t('live.editsNotSaved'))
     }
   }
 
@@ -363,7 +365,7 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
           className={`note-toolbar__record ${isRecording ? 'is-recording' : ''}`}
           onClick={isRecording ? stop : start}
           disabled={disabled || status === 'connecting' || status === 'stopping'}
-          aria-label={isRecording ? 'Stop recording' : 'Start live transcription'}
+          aria-label={isRecording ? t('live.stopRecording') : t('live.startLive')}
         >
           <Icon name={isRecording ? 'stop' : 'mic'} size={19} />
         </button>
@@ -373,10 +375,10 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
           ))}
         </div>
         <span className="note-toolbar__status" aria-live="polite">
-          {status === 'connecting' && 'Connecting…'}
-          {status === 'stopping' && 'Finishing…'}
-          {status === 'recording' && (voiceDetected ? 'Voice detected' : 'Listening…')}
-          {(status === 'idle' || status === 'error') && 'Ready to record'}
+          {status === 'connecting' && t('live.connecting')}
+          {status === 'stopping' && t('live.finishing')}
+          {status === 'recording' && (voiceDetected ? t('live.voiceDetected') : t('live.listening'))}
+          {(status === 'idle' || status === 'error') && t('live.readyToRecord')}
         </span>
         {isRecording && <time className="note-toolbar__time">{time(seconds)}</time>}
       </div>
@@ -390,12 +392,12 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
         <div className="note-save-bar">
           <span className="note-save-bar__status" role="status" aria-live="polite">
             {saveState === 'saving'
-              ? 'Saving edits…'
+              ? t('live.savingEdits')
               : hasUnsavedEdits
-                ? 'Unsaved edits'
+                ? t('live.unsavedEdits')
                 : saveState === 'saved'
-                  ? 'All edits saved'
-                  : 'Click anywhere in the text to edit it'}
+                  ? t('live.allEditsSaved')
+                  : t('live.clickToEdit')}
           </span>
           <button
             type="button"
@@ -408,16 +410,14 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
             ) : (
               <Icon name="check" size={15} />
             )}{' '}
-            Save edits
+            {t('live.saveEdits')}
           </button>
         </div>
       )}
       <div className="note-page note-page--editable" aria-live="polite">
         {finals.length === 0 && !partial ? (
           <p className="note-page__placeholder">
-            {isRecording
-              ? 'Listening for speech…'
-              : 'Your note will appear here as you speak. Press the microphone above to begin.'}
+            {isRecording ? t('live.listeningForSpeech') : t('live.notePlaceholder')}
           </p>
         ) : (
           <p className="note-page__paragraph" lang="si">
@@ -429,7 +429,7 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
                   suppressContentEditableWarning
                   role="textbox"
                   aria-multiline="false"
-                  aria-label={`Note line ${item.segment + 1}, editable`}
+                  aria-label={t('live.noteLine', item.segment + 1)}
                   onBlur={(e) => handleSegmentBlur(item, e)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') e.preventDefault()
