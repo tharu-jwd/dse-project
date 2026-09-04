@@ -306,7 +306,7 @@ actual cloud cost.
 - [ ] Evaluation and detailed error reports
 - [x] Configuration-driven training
 - [x] Local smoke and checkpoint-resume tests
-- [ ] Capped GPU pilot and cost estimate
+- [x] Capped 100-step free-Colab wide-LoRA pilot and measured throughput
 - [x] Untouched Whisper-small v4 validation baseline
 - [x] First controlled preprocessing experiment (trimmed versus original audio)
 - [x] Controlled transcript-label refinement A/B (Sinhala-only and Latin-only;
@@ -315,5 +315,6 @@ actual cloud cost.
   freeze 392 usable references as v4 and hold out 1,604 unheard rows
 - [x] Benchmark Bedrock-accessible transcript refiners against 293 audio-verified
   targets; Sonnet 4.6 is safest but does not reproduce the earlier ChatGPT pass
-- [ ] Model-training controlled experiments
+- [ ] Model-training controlled experiments (first 100-step pilot completed;
+  larger nested-data pilot and English-retention evaluation remain)
 - [ ] Final test, deployment benchmark, and model card
