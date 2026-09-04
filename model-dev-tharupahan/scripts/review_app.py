@@ -193,7 +193,11 @@ def main() -> None:
                 on_click=use_previous_v3,
                 key=f"use-v3-{sample_id}",
             )
-        if suggestion and suggestion["suggested_transcript"] != original_text:
+        if (
+            suggestion
+            and suggestion["suggested_transcript"] != original_text
+            and suggestion["suggested_transcript"] != previous_v3
+        ):
             st.info(
                 f"GPT text-only suggestion ({suggestion['confidence']}, "
                 f"{suggestion['change_class']}):\n\n"
