@@ -1,7 +1,7 @@
 {
   "model_name": "openai/whisper-small",
   "manifest": "data/versions/v4/manifest.parquet",
-  "output_dir": "runs/small-wide-lora-pilot",
+  "output_dir": "runs/e001-whisper-small-wide-lora-r16-100-step-v4",
   "method": "lora",
   "max_steps": 100,
   "learning_rate": 5e-5,

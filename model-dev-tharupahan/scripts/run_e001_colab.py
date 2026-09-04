@@ -27,12 +27,15 @@ from transformers import (
 )
 
 MODEL = "openai/whisper-small"
-TRAIN_BUNDLE = Path("/content/v4-training-pilot-2000.parquet")
-VALIDATION_BUNDLE = Path("/content/v4-validation-colab.parquet")
-DRIVE_ROOT = Path("/content/drive/MyDrive/sinhala-asr/wide-lora-100-v1")
+TRAIN_BUNDLE = Path("/content/e001-train-v4-2000-audio.parquet")
+VALIDATION_BUNDLE = Path("/content/v4-validation-206-audio.parquet")
+DRIVE_ROOT = Path(
+    "/content/drive/MyDrive/sinhala-asr/"
+    "e001-whisper-small-wide-lora-r16-100-step-v4"
+)
 FINAL_DIR = DRIVE_ROOT / "final-adapter"
-PREDICTIONS = Path("/content/wide-lora-100-v4-validation-predictions.parquet")
-METADATA = Path("/content/wide-lora-100-run-metadata.json")
+PREDICTIONS = Path("/content/e001-v4-validation-predictions.parquet")
+METADATA = Path("/content/e001-run-metadata.json")
 
 MAX_STEPS = 100
 TRAIN_BATCH_SIZE = 4
@@ -201,7 +204,7 @@ def main() -> None:
     for row, prediction in zip(validation_rows, predictions):
         output_rows.append(
             {key: value for key, value in row.items() if key != "audio"}
-            | {"prediction": prediction.strip(), "model": f"{MODEL}+wide-lora-100"}
+            | {"prediction": prediction.strip(), "model": f"{MODEL}+e001"}
         )
     pq.write_table(pa.Table.from_pylist(output_rows), PREDICTIONS, compression="zstd")
     metadata = {

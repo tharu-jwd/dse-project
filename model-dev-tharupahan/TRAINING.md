@@ -12,7 +12,7 @@ estimate after the capped pilot; do not guess these values before renting.
 
 ```bash
 PYTHONPATH=src python scripts/train.py \
-  --config configs/training/small-wide-lora-pilot.json
+  --config configs/training/e001-wide-lora-r16-100-step-v4.json
 ```
 
 Full runs require a reviewed `validation` split. Access to an unreviewed
@@ -65,15 +65,16 @@ deterministic 2,000-row v4 sample. The sample contains 1,925 Sinhala-only and 75
 Latin-only rows, covers all 471 training speakers, and totals 2.42 audio hours.
 It is a pipeline/learning-signal and throughput measurement, not a final model.
 
-Open `notebooks/whisper-small-wide-lora-pilot.ipynb` in a T4 Colab runtime. Its
-upload cell requires:
+Open `notebooks/e001-whisper-small-wide-lora-r16-100-step-v4-colab.ipynb` in a
+T4 Colab runtime. Its upload cell requires:
 
-- `reports/colab/v4-training-pilot-2000.parquet`
-- `reports/colab/v4-validation-colab.parquet`
-- `scripts/colab_wide_lora_pilot.py`
+- `reports/colab/e001-train-v4-2000-audio.parquet`
+- `reports/colab/v4-validation-206-audio.parquet`
+- `scripts/run_e001_colab.py`
 
 The notebook mounts Drive and writes checkpoints under
-`MyDrive/sinhala-asr/wide-lora-100-v1`. It trains rank-16 wide LoRA with frozen
+`MyDrive/sinhala-asr/e001-whisper-small-wide-lora-r16-100-step-v4`. It trains
+rank-16 wide LoRA with frozen
 base weights, effective batch size 16, and learning rate `5e-5`, then generates
 predictions for the same 206-row v4 validation split using the frozen baseline
 decoding settings. The test split is neither packaged nor accessed.

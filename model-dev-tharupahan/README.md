@@ -27,8 +27,8 @@ The completed text-only label experiment and its rejected automatic-refinement
 decision are in [LABEL_REFINEMENT_AB.md](LABEL_REFINEMENT_AB.md).
 The audio-verified comparison of accessible Bedrock transcript refiners is in
 [REFINEMENT_MODEL_BENCHMARK.md](REFINEMENT_MODEL_BENCHMARK.md).
-The untouched Whisper-small result is in [BASELINE.md](BASELINE.md).
-The first controlled adapter result is in [LORA_PILOT.md](LORA_PILOT.md).
+The experiment index and result reports are in
+[docs/experiments/README.md](docs/experiments/README.md).
 The versioned Sinhala transcription rules are in [TEXT_POLICY.md](TEXT_POLICY.md).
 The current GPU-credit allocation and experiment rationale are in
 [COMPUTE_PLAN.md](COMPUTE_PLAN.md).

@@ -17,7 +17,8 @@
   `5311e5001b335e3f62a0205a3f10230e0100f562b9700095876ba45bac92e09f`
 
 The adapter and checkpoints are stored under
-`MyDrive/sinhala-asr/wide-lora-100-v1`. Validation used the same 206 v4 rows and
+`MyDrive/sinhala-asr/e001-whisper-small-wide-lora-r16-100-step-v4`. Validation
+used the same 206 v4 rows and
 guarded decoding as the untouched baseline. The test split remained locked.
 
 ## Paired result
