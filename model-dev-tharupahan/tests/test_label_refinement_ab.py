@@ -1,4 +1,4 @@
-from scripts.build_label_refinement_ab import build_arms
+from scripts.refinement.build_label_refinement_ab import build_arms
 
 
 def row(sample_id: str, split: str, language: str, text: str) -> dict:

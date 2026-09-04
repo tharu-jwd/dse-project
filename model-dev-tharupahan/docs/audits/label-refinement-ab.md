@@ -47,17 +47,17 @@ Export the fixed training subset, run the resumable Bedrock refiner, then build
 the four matched manifests:
 
 ```bash
-PYTHONPATH=src python scripts/export_label_refinement_batch.py \
+PYTHONPATH=src python scripts/refinement/export_label_refinement_batch.py \
   --manifest data/versions/v3/manifest.parquet \
   --output reports/label-refinement/ab-500-si-500-en-input.json \
   --sinhala 500 --english 500
 
-PYTHONPATH=src python scripts/run_bedrock_refinement_batches.py \
+PYTHONPATH=src python scripts/refinement/run_bedrock_refinement_batches.py \
   --input reports/label-refinement/ab-500-si-500-en-input.json \
   --output-dir reports/label-refinement/sonnet-ab-500-si-500-en \
   --model global.anthropic.claude-sonnet-4-6 --batch-size 50
 
-PYTHONPATH=src python scripts/build_label_refinement_ab.py \
+PYTHONPATH=src python scripts/refinement/build_label_refinement_ab.py \
   --manifest data/versions/v3/manifest.parquet \
   --selection reports/label-refinement/ab-500-si-500-en-input.json \
   --refinements reports/label-refinement/sonnet-ab-500-si-500-en/combined.json \

@@ -28,7 +28,7 @@ Existing checkpoints and results are historical comparison baselines only.
 `model-development/` remains read-only reference material; code is copied from
 it only after review.
 
-See [HISTORICAL_AUDIT.md](HISTORICAL_AUDIT.md) for the evidence-graded run
+See [the historical audit](../audits/historical-audit.md) for the evidence-graded run
 history, contradictions, evaluation policy, and experiment rationale.
 
 ## Non-negotiable rules
@@ -48,7 +48,8 @@ history, contradictions, evaluation policy, and experiment rationale.
    unless they are deliberately selected compact reference artifacts.
 
 Historical metrics, run contradictions, and inherited operational lessons live
-only in `HISTORICAL_AUDIT.md`; do not duplicate them here. Keep implementation
+only in [the historical audit](../audits/historical-audit.md); do not duplicate
+them here. Keep implementation
 under `src/sinhala_asr/`, entry points under `scripts/`, tests under `tests/`,
 and generated data, reports, runs, and checkpoints in ignored directories.
 

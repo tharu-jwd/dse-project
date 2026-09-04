@@ -2,8 +2,8 @@ import zipfile
 
 import pytest
 
-from scripts.download_openslr52 import safe_extract
-from scripts.index_openslr52 import read_transcripts
+from scripts.data.download_openslr52 import safe_extract
+from scripts.data.index_openslr52 import read_transcripts
 
 
 def test_safe_extract_accepts_normal_members(tmp_path):

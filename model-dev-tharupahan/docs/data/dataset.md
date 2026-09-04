@@ -1,6 +1,7 @@
 # Dataset Operations
 
-This is the operational companion to `PLAN.md`. Raw snapshots are immutable,
+This is the operational companion to [the project plan](../project/plan.md).
+Raw snapshots are immutable,
 ignored by Git, and identified by the revisions in `configs/data/sources.json`.
 
 ## Source policy
@@ -48,14 +49,14 @@ partial transfers, fetches four shards concurrently, validates every ZIP member,
 blocks path traversal, extracts locally, and removes archives after success:
 
 ```bash
-PYTHONPATH=src python scripts/download_openslr52.py
-PYTHONPATH=src python scripts/index_openslr52.py
+PYTHONPATH=src python scripts/data/download_openslr52.py
+PYTHONPATH=src python scripts/data/index_openslr52.py
 ```
 
 Fingerprint every completed snapshot:
 
 ```bash
-PYTHONPATH=src python scripts/inventory_sources.py
+PYTHONPATH=src python scripts/data/inventory_sources.py
 ```
 
 Do not fingerprint active `.part` files; the inventory deliberately ignores
@@ -64,7 +65,7 @@ them.
 ## Automatic audit
 
 Pass every upstream Parquet shard with its original split name to
-`scripts/prepare_data.py`. Use `--allow-invalid` only for the exploratory run:
+`scripts/data/prepare_data.py`. Use `--allow-invalid` only for the exploratory run:
 it still records every violation and does not authorize training.
 
 The audit records encoded and decoded-audio SHA-256 hashes. Decoded hashes find
@@ -76,7 +77,7 @@ After all individual audits finish, combine their manifests and measure exact
 cross-source overlap before creating any split:
 
 ```bash
-PYTHONPATH=src python scripts/combine_manifests.py \
+PYTHONPATH=src python scripts/data/combine_manifests.py \
   --manifest reports/dataset-audit/openslr52-upstream/manifest.parquet \
   --manifest reports/dataset-audit/youtube-upstream/manifest.parquet \
   --manifest reports/dataset-audit/bizbrains-upstream/manifest.parquet \
@@ -91,11 +92,11 @@ The validation/test rows are candidates—not gold data—until a native reviewe
 accepts or corrects them. All other rows from those speakers stay out of train:
 
 ```bash
-PYTHONPATH=src python scripts/build_dataset_v1.py \
+PYTHONPATH=src python scripts/data/build_dataset_v1.py \
   --manifest reports/dataset-audit/openslr52-upstream/manifest.parquet \
   --output-dir data/versions/v1
 
-PYTHONPATH=src python scripts/build_gold_review_queue.py \
+PYTHONPATH=src python scripts/review/build_gold_review_queue.py \
   --manifest data/versions/v1/manifest.parquet \
   --output reports/review/gold-v1-candidates.parquet
 ```
@@ -103,7 +104,7 @@ PYTHONPATH=src python scripts/build_gold_review_queue.py \
 Build a deterministic, self-contained queue from an audit manifest:
 
 ```bash
-PYTHONPATH=src python scripts/build_review_queue.py \
+PYTHONPATH=src python scripts/review/build_review_queue.py \
   --manifest reports/dataset-audit/combined/manifest.parquet \
   --output reports/review/initial.parquet \
   --quota 100
@@ -113,7 +114,7 @@ The queue contains audio bytes so review does not depend on the source files
 remaining mounted. Start the local UI:
 
 ```bash
-PYTHONPATH=src streamlit run scripts/review_app.py -- \
+PYTHONPATH=src streamlit run scripts/review/review_app.py -- \
   --queue reports/review/initial.parquet \
   --output reports/review/adjudications-v1.jsonl
 ```
@@ -131,7 +132,7 @@ command fails on missing candidates, unknown IDs, invalid accepted transcripts,
 or an existing non-empty output directory:
 
 ```bash
-PYTHONPATH=src python scripts/finalize_dataset.py \
+PYTHONPATH=src python scripts/data/finalize_dataset.py \
   --manifest data/versions/v1/manifest.parquet \
   --adjudications reports/review/gold-v1-adjudications.jsonl \
   --output-dir data/versions/v2
@@ -141,19 +142,20 @@ For optional GPT spelling/format suggestions, export ID-aligned UTF-8 TSV
 batches. Suggestions are never applied as ground truth without audio review:
 
 ```bash
-PYTHONPATH=src python scripts/export_transcripts_for_gpt.py \
+PYTHONPATH=src python scripts/review/export_transcripts_for_gpt.py \
   --queue reports/review/gold-v1-candidates.parquet \
   --output-dir reports/review/gpt-suggestions/input
 ```
 
 Returned batches are structurally validated and classified with
-`scripts/analyze_gpt_suggestions.py`. The UI discovers the resulting
+`scripts/review/analyze_gpt_suggestions.py`. The UI discovers the resulting
 `suggestions.parquet` automatically and offers changed text for one-click
 acceptance only after listening to the audio.
 
 An explicitly owner-approved suggestion pass can be converted to a complete
-overlay with `scripts/apply_gpt_suggestions.py`. Existing native audio reviews
-override text-only suggestions. See `REVIEW_PROVENANCE.md`; never describe a
+overlay with `scripts/review/apply_gpt_suggestions.py`. Existing native audio reviews
+override text-only suggestions. See [review provenance](review-provenance.md);
+never describe a
 text-only suggestion as audio-verified.
 
 ## Verified findings (2026-09-03 snapshots)
@@ -199,18 +201,19 @@ declared English correction in `configs/data/owner-text-overrides-v3.json` and
 five owner edits saved after v2 was frozen. The reproducible sequence is:
 
 ```bash
-PYTHONPATH=src python scripts/apply_text_overrides.py \
+PYTHONPATH=src python scripts/data/apply_text_overrides.py \
   --adjudications reports/review/gold-v1-owner-approved.jsonl \
   --overrides configs/data/owner-text-overrides-v3.json \
   --output reports/review/gold-v1-owner-approved-v3.jsonl
 
-PYTHONPATH=src python scripts/finalize_dataset.py \
+PYTHONPATH=src python scripts/data/finalize_dataset.py \
   --manifest data/versions/v1/manifest.parquet \
   --adjudications reports/review/gold-v1-owner-approved-v3.jsonl \
   --output-dir data/versions/v3
 ```
 
-The full-corpus silence and clipping audit is documented in `AUDIO_AUDIT.md`.
+The full-corpus silence and clipping audit is documented in
+[the audio audit](audio-audit.md).
 Fifty risk-stratified crop proposals were reviewed as safe, but a matched local
 training A/B showed worse early validation metrics and identical model FLOPs
 with cropping. Consequently v3 retains immutable source audio and the baseline
@@ -225,12 +228,12 @@ A self-contained native-listening queue contains all 295 disputed rows plus 100
 deterministically selected unchanged controls:
 
 ```bash
-PYTHONPATH=src python scripts/build_v4_review_queue.py \
+PYTHONPATH=src python scripts/review/build_v4_review_queue.py \
   --manifest data/versions/v3/manifest.parquet \
   --output reports/review/v4-evaluation-queue.parquet \
   --controls 100
 
-PYTHONPATH=src streamlit run scripts/review_app.py --server.port 8503 -- \
+PYTHONPATH=src streamlit run scripts/review/review_app.py --server.port 8503 -- \
   --queue reports/review/v4-evaluation-queue.parquet \
   --output reports/review/v4-evaluation-adjudications.jsonl \
   --suggestions reports/review/v4-control-gpt/analysis/suggestions.parquet
@@ -244,7 +247,7 @@ Mark unusable audio as `Bad audio` and unresolved speech as `Uncertain`.
 All 395 queued rows were reviewed by listening to their audio. Freeze v4 with:
 
 ```bash
-PYTHONPATH=src python scripts/finalize_dataset_v4.py \
+PYTHONPATH=src python scripts/data/finalize_dataset_v4.py \
   --manifest data/versions/v3/manifest.parquet \
   --queue reports/review/v4-evaluation-queue.parquet \
   --adjudications reports/review/v4-evaluation-adjudications.jsonl \

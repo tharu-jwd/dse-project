@@ -1,6 +1,6 @@
 import pytest
 
-from scripts.refine_transcripts_bedrock import parse_json_array, validate
+from scripts.refinement.refine_transcripts_bedrock import parse_json_array, validate
 
 
 def test_parse_and_validate_id_aligned_response() -> None:

@@ -12,13 +12,13 @@ uses whitespace-delimited words. Report both metrics as ratios or percentages,
 never as an unlabeled bare number.
 
 ```bash
-PYTHONPATH=src python scripts/predict.py \
+PYTHONPATH=src python scripts/evaluation/predict.py \
   --model openai/whisper-small \
   --manifest data/versions/v4/manifest.parquet \
   --split validation \
   --output runs/untouched-small/validation-predictions.parquet
 
-PYTHONPATH=src python scripts/evaluate_predictions.py \
+PYTHONPATH=src python scripts/evaluation/evaluate_predictions.py \
   --predictions runs/untouched-small/validation-predictions.parquet \
   --output-dir runs/RUN_ID/evaluation
 ```

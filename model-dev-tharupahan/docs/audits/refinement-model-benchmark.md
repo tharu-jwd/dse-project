@@ -55,18 +55,18 @@ and the manual review burden before processing any training-label batch.
 ## Reproduction
 
 ```bash
-PYTHONPATH=src python scripts/export_verified_refinement_benchmark.py \
+PYTHONPATH=src python scripts/evaluation/export_verified_refinement_benchmark.py \
   --queue reports/review/v4-evaluation-queue.parquet \
   --adjudications reports/review/v4-evaluation-adjudications.jsonl \
   --input-output reports/label-refinement/verified-293-input.json \
   --truth-output reports/label-refinement/verified-293-truth.json
 
-PYTHONPATH=src python scripts/run_bedrock_refinement_batches.py \
+PYTHONPATH=src python scripts/refinement/run_bedrock_refinement_batches.py \
   --input reports/label-refinement/verified-293-input.json \
   --output-dir reports/label-refinement/verified-293-sonnet \
   --model global.anthropic.claude-sonnet-4-6 --batch-size 25
 
-PYTHONPATH=src python scripts/score_refinement_benchmark.py \
+PYTHONPATH=src python scripts/evaluation/score_refinement_benchmark.py \
   --truth reports/label-refinement/verified-293-truth.json \
   --predictions reports/label-refinement/verified-293-sonnet/combined.json \
   --output reports/label-refinement/verified-293-sonnet/score.json

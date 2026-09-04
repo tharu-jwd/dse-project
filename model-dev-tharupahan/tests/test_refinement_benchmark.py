@@ -1,7 +1,7 @@
 import pandas as pd
 
-from scripts.export_verified_refinement_benchmark import build_benchmark_rows
-from scripts.score_refinement_benchmark import score_benchmark
+from scripts.evaluation.export_verified_refinement_benchmark import build_benchmark_rows
+from scripts.evaluation.score_refinement_benchmark import score_benchmark
 
 
 def test_export_excludes_bad_audio_and_controls() -> None:

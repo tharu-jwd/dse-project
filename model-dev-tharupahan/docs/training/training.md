@@ -11,8 +11,8 @@ margin. Set the provider's displayed hourly price and a measured duration
 estimate after the capped pilot; do not guess these values before renting.
 
 ```bash
-PYTHONPATH=src python scripts/train.py \
-  --config configs/training/e001-wide-lora-r16-100-step-v4.json
+PYTHONPATH=src python scripts/training/train.py \
+  --config configs/training/experiments/e001-wide-lora-r16-100-step-v4.json
 ```
 
 Full runs require a reviewed `validation` split. Access to an unreviewed
@@ -24,13 +24,13 @@ do not change the selected split. The test split is never loaded by training.
 The local smoke and deliberate resume checks are:
 
 ```bash
-PYTHONPATH=src python scripts/train.py \
-  --config configs/training/tiny-cpu-smoke.json \
+PYTHONPATH=src python scripts/training/train.py \
+  --config configs/training/diagnostics/tiny-cpu-smoke.json \
   --smoke-train-rows 1 --smoke-validation-rows 1 \
   --allow-unreviewed-validation
 
-PYTHONPATH=src python scripts/train.py \
-  --config configs/training/tiny-cpu-resume-smoke.json \
+PYTHONPATH=src python scripts/training/train.py \
+  --config configs/training/diagnostics/tiny-cpu-resume-smoke.json \
   --smoke-train-rows 2 --smoke-validation-rows 1 \
   --allow-unreviewed-validation
 ```
@@ -42,14 +42,15 @@ Dataset v4 is the current frozen input. Original, untrimmed audio is the
 baseline. Dynamic boundary cropping is available through
 `crop_training_audio` and `crop_proposals`, but the local 50-step A/B produced a
 strong negative signal and no compute advantage, so it must remain disabled for
-the first Whisper-small pilot. See `AUDIO_AUDIT.md`.
+the first Whisper-small pilot. See [the audio audit](../data/audio-audit.md).
 
 Matched local A/B fixture configurations are
 `tiny-mps-v3-original-ab.json` and `tiny-mps-v3-trimmed-ab.json`. They are
 diagnostic experiments, not candidate models or project accuracy baselines.
 
 The isolated text-only label experiment is documented in
-`LABEL_REFINEMENT_AB.md`. Its four `tiny-mps-label-*` configurations compare
+[The label-refinement audit](../audits/label-refinement-ab.md) documents this.
+Its four `tiny-mps-label-*` configurations compare
 original versus Bedrock-proposed training labels separately for Sinhala-only
 and Latin-only rows. Dataset v3 and all validation references remained unchanged
 during that completed historical diagnostic.
@@ -70,7 +71,7 @@ T4 Colab runtime. Its upload cell requires:
 
 - `reports/colab/e001-train-v4-2000-audio.parquet`
 - `reports/colab/v4-validation-206-audio.parquet`
-- `scripts/run_e001_colab.py`
+- `scripts/training/run_e001_colab.py`
 
 The notebook mounts Drive and writes checkpoints under
 `MyDrive/sinhala-asr/e001-whisper-small-wide-lora-r16-100-step-v4`. It trains
