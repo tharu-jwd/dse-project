@@ -66,6 +66,7 @@ def finalize_v4_rows(
     finalized = []
     applied_edits = 0
     excluded = 0
+    heldout_unreviewed = 0
     for source in rows:
         row = dict(source)
         sample_id = str(row["sample_id"])
@@ -73,6 +74,10 @@ def finalize_v4_rows(
             original = canonicalize(str(row.get("text_original") or ""))
             row["text_canonical"] = original
             row["text_metric"] = metric_normalize(original)
+            if sample_id not in selected_ids:
+                row["dataset_split"] = "heldout_unreviewed"
+                row["exclusion_reason"] = "not_audio_reviewed_v4"
+                heldout_unreviewed += 1
         if sample_id in selected_ids:
             record = adjudications[sample_id]
             decision = str(record["decision"])
@@ -102,5 +107,6 @@ def finalize_v4_rows(
         "reviewed_rows": len(selected_ids),
         "audio_verified_edits": applied_edits,
         "audio_review_exclusions": excluded,
+        "heldout_unreviewed_rows": heldout_unreviewed,
         "dataset_fingerprint": hashlib.sha256(fingerprint_input.encode("utf-8")).hexdigest(),
     }

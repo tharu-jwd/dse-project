@@ -50,3 +50,20 @@ It retains the v2 split counts and speaker isolation: 182,665 train, 1,000
 validation, and 999 test rows, with zero speaker overlap. It also incorporates
 five owner edits already saved in the live review overlay after v2 was
 finalized, so six canonical transcripts differ from v2 in total.
+
+## v4 audio-verified evaluation references
+
+The native Sinhala reviewer listened to all 395 rows in the v4 queue: all 295
+evaluation references changed by the earlier text-only pass plus 100
+deterministic unchanged controls. The final decisions were 301 edited, 91
+correct, and three bad-audio exclusions. This yields 206 validation and 186 test
+references verified against audio.
+
+Among the 100 controls, 99 had usable audio and nine required transcript edits
+(9.09%). ChatGPT proposed four control changes: three were accepted and one was
+rejected; it also missed six of the corrections found by listening. Because
+this control error rate is material, the other 1,604 unheard evaluation-speaker
+rows are labeled `heldout_unreviewed` rather than included in gold evaluation.
+
+V4 does not modify the 182,665 training rows. Its fingerprint is
+`d232747fbf019f06a6449404d3d0251e8f4547ed02471482c07d85014c81abdb`.

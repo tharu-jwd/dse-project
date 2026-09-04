@@ -296,7 +296,7 @@ actual cloud cost.
 - [x] Download and fingerprint independently available upstream datasets
 - [x] Run source and cross-source audits on actual audio/transcript data
 - [x] Build the local adjudication UI and self-contained review queues
-- [x] Review and lock gold validation/test sets (dataset v3)
+- [x] Review and lock audio-verified validation/test sets (dataset v4)
 - [x] Generate deterministic speaker-disjoint v1 candidate splits
 - [x] Audit full-corpus boundary silence and clipping without modifying sources
 - [x] Test boundary trimming; reject it for the baseline after manual review and local A/B
@@ -311,8 +311,8 @@ actual cloud cost.
 - [x] First controlled preprocessing experiment (trimmed versus original audio)
 - [x] Controlled transcript-label refinement A/B (Sinhala-only and Latin-only;
   automatic text-only refinement rejected; dataset v3 remains unchanged)
-- [ ] Audio-verify 295 disputed evaluation references and 100 unchanged controls;
-  v4 queue and strict finalizer implemented, native review in progress
+- [x] Audio-verify 295 disputed evaluation references and 100 unchanged controls;
+  freeze 392 usable references as v4 and hold out 1,604 unheard rows
 - [x] Benchmark Bedrock-accessible transcript refiners against 293 audio-verified
   targets; Sonnet 4.6 is safest but does not reproduce the earlier ChatGPT pass
 - [ ] Model-training controlled experiments

@@ -186,7 +186,7 @@ over 40% combined boundary silence. This is not a reviewer rejection criterion.
 Raw clips remain immutable; conservative trimming with retained margins must be
 evaluated as an explicit preprocessing ablation.
 
-## Current frozen dataset
+## Frozen training dataset
 
 Dataset v3 supersedes v1 and v2 for new experiments. It contains 182,665 train,
 1,000 validation, 999 test, 626 heldout-unused, and 3 excluded rows. Its
@@ -216,7 +216,7 @@ training A/B showed worse early validation metrics and identical model FLOPs
 with cropping. Consequently v3 retains immutable source audio and the baseline
 training configuration leaves dynamic cropping disabled.
 
-## Dataset v4 evaluation-reference review
+## Dataset v4 audio-verified evaluation set
 
 Dataset v3 remains frozen. Because 295 validation/test references contain
 text-only revisions that were not verified against audio, v4 restores the
@@ -241,7 +241,7 @@ matches the audio. For disputed rows the UI also shows the previous v3 revision;
 use it only after listening confirms it. Otherwise edit the verified transcript.
 Mark unusable audio as `Bad audio` and unresolved speech as `Uncertain`.
 
-Only after all 395 rows are reviewed may v4 be frozen:
+All 395 queued rows were reviewed by listening to their audio. Freeze v4 with:
 
 ```bash
 PYTHONPATH=src python scripts/finalize_dataset_v4.py \
@@ -251,7 +251,20 @@ PYTHONPATH=src python scripts/finalize_dataset_v4.py \
   --output-dir data/versions/v4
 ```
 
-The finalizer refuses partial or extra decisions. It resets every validation and
-test reference to the normalized original, applies only audio-reviewed edits,
-and excludes reviewed bad/uncertain rows. Training rows, audio, and speaker
-assignments remain unchanged.
+The finalizer refuses partial or extra decisions. It resets reviewed validation
+and test references to the normalized original, applies only audio-reviewed
+edits, excludes reviewed bad/uncertain rows, and moves unheard evaluation rows
+to `heldout_unreviewed`. Training rows, audio, and speaker assignments remain
+unchanged.
+
+The completed review produced 392 usable evaluation references: 206 validation
+and 186 test. Three reviewed clips were excluded as bad audio. The remaining
+1,604 v3 evaluation-speaker clips were not heard and are therefore retained as
+`heldout_unreviewed`, not represented as gold evaluation data. The control
+sample found transcript edits in 9 of 99 usable rows (9.09%), which is why
+unheard rows were not kept in validation or test.
+
+V4 leaves all 182,665 training rows and their audio/transcript content
+unchanged. It also retains 626 `heldout_unused` rows and has six exclusions in
+total. Train, validation, and test remain speaker-disjoint. Its fingerprint is
+`d232747fbf019f06a6449404d3d0251e8f4547ed02471482c07d85014c81abdb`.

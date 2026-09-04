@@ -51,3 +51,17 @@ def test_finalizer_requires_complete_review() -> None:
         finalize_v4_rows(
             [row("a", "validation", "a", "a")], {"a"}, {}
         )
+
+
+def test_finalizer_holds_out_unreviewed_evaluation_rows() -> None:
+    finalized, summary = finalize_v4_rows(
+        [
+            row("reviewed", "validation", "a", "a"),
+            row("unreviewed", "test", "b", "b"),
+        ],
+        {"reviewed"},
+        {"reviewed": {"decision": "correct"}},
+    )
+    assert finalized[0]["dataset_split"] == "validation"
+    assert finalized[1]["dataset_split"] == "heldout_unreviewed"
+    assert summary["heldout_unreviewed_rows"] == 1
