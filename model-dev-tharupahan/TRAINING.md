@@ -57,3 +57,23 @@ during that completed historical diagnostic.
 Full-parameter fine-tuning is out of scope. Current pilots use wide-target LoRA
 over `q_proj`, `k_proj`, `v_proj`, `out_proj`, `fc1`, and `fc2`, while the base
 Whisper-small weights remain frozen.
+
+## Free-Colab wide-LoRA pilot
+
+The first adapter pilot is intentionally bounded to 100 optimizer steps over a
+deterministic 2,000-row v4 sample. The sample contains 1,925 Sinhala-only and 75
+Latin-only rows, covers all 471 training speakers, and totals 2.42 audio hours.
+It is a pipeline/learning-signal and throughput measurement, not a final model.
+
+Open `notebooks/whisper-small-wide-lora-pilot.ipynb` in a T4 Colab runtime. Its
+upload cell requires:
+
+- `reports/colab/v4-training-pilot-2000.parquet`
+- `reports/colab/v4-validation-colab.parquet`
+- `scripts/colab_wide_lora_pilot.py`
+
+The notebook mounts Drive and writes checkpoints under
+`MyDrive/sinhala-asr/wide-lora-100-v1`. It trains rank-16 wide LoRA with frozen
+base weights, effective batch size 16, and learning rate `5e-5`, then generates
+predictions for the same 206-row v4 validation split using the frozen baseline
+decoding settings. The test split is neither packaged nor accessed.
