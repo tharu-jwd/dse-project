@@ -1,7 +1,8 @@
 # Sinhala ASR — Tharupahan
 
-Clean, reproducible Sinhala ASR development built independently from the
-historical `model-development/` implementation. See
+Clean, reproducible Sinhala ASR development. The superseded team implementation
+was audited and removed from this branch; it remains available in Git history
+and the branches where it was developed. See
 [the project plan](docs/project/plan.md) for the
 decisions, quality gates, experiment sequence, and GPU cost controls.
 The complete documentation map is in [docs/README.md](docs/README.md).
@@ -55,24 +56,8 @@ parameters, but outputs remain unusable. The next experiment is a larger
 nested-data adapter pilot with standalone-English evaluation;
 full-parameter fine-tuning is out of scope.
 
-## Audit historical splits
-
-For historical investigation, this builds a row-level manifest and fails if it finds
-invalid samples or cross-split leakage:
-
-```bash
-sinhala-asr-prepare \
-  --input train=../model-development/data/stratified/train.parquet \
-  --input validation=../model-development/data/stratified/validation.parquet \
-  --input test=../model-development/data/stratified/test.parquet \
-  --output-dir reports/dataset-audit
-```
-
-Outputs:
-
-- `manifest.parquet`: one auditable row per input sample
-- `summary.json`: machine-readable counts, fingerprints, and violations
-- `summary.md`: human-readable audit report
-
-Use `--allow-invalid` only while investigating a failed audit. It does not hide
-violations from the reports.
+Historical split and model claims have already been captured in the
+[historical audit](docs/audits/historical-audit.md). Current dataset
+reproduction and validation commands are maintained in the
+[dataset guide](docs/data/dataset.md); they do not depend on the removed legacy
+directory.

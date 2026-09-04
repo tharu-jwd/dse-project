@@ -24,9 +24,11 @@ alongside strict metrics but cannot replace them. Standalone English retention
 is desirable rather than a hard acceptance condition; code-switched English in
 Sinhala samples remains part of the primary task and is never silently removed.
 
-Existing checkpoints and results are historical comparison baselines only.
-`model-development/` remains read-only reference material; code is copied from
-it only after review.
+Existing checkpoints and results are historical comparison baselines only. The
+superseded `model-development/` tree was audited, its relevant evidence was
+captured in the historical audit, and it was removed from this branch. It
+remains recoverable from Git history and the team branches; the clean pipeline
+has no runtime dependency on it.
 
 See [the historical audit](../audits/historical-audit.md) for the evidence-graded run
 history, contradictions, evaluation policy, and experiment rationale.

@@ -38,18 +38,6 @@ youtubeData/
 #upload media
 /storage/
 
-# Local LoRA checkpoints (large binary artifacts, not part of the repo)
-model-development/checkpoints/*
-!model-development/checkpoints/.gitkeep
-
-# Local ASR datasets and generated evaluation output
-model-development/data/stratified/
-model-development/evaluation/results/generated/
-
-# Reproducible per-sample ASR reports (keep compact summaries in Git)
-model-development/evaluation/results/*_predictions.csv
-model-development/evaluation/results/error_analysis/*_errors_by_severity.csv
-
 # Clean Sinhala ASR rebuild: local data, models, and generated run artifacts
 model-dev-tharupahan/data/
 model-dev-tharupahan/checkpoints/
