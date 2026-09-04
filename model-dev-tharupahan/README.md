@@ -27,9 +27,20 @@ The versioned Sinhala transcription rules are in [TEXT_POLICY.md](TEXT_POLICY.md
 The current GPU-credit allocation and experiment rationale are in
 [COMPUTE_PLAN.md](COMPUTE_PLAN.md).
 
-## Audit existing splits
+## Current state
 
-The first implemented gate builds a row-level manifest and fails if it finds
+Dataset v3 is the frozen working dataset: 182,665 train, 1,000 validation, and
+999 locked test rows, with zero speaker overlap. Transcript provenance is in
+`REVIEW_PROVENANCE.md`; audio findings are in `AUDIO_AUDIT.md`. A controlled
+local ablation found no benefit from boundary trimming, so the first real
+baseline uses immutable, original audio.
+
+The next experiment is untouched `openai/whisper-small` inference on v3
+validation, followed by the detailed comparison protocol in `EVALUATION.md`.
+
+## Audit historical splits
+
+For historical investigation, this builds a row-level manifest and fails if it finds
 invalid samples or cross-split leakage:
 
 ```bash

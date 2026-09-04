@@ -14,7 +14,7 @@ never as an unlabeled bare number.
 ```bash
 PYTHONPATH=src python scripts/predict.py \
   --model openai/whisper-small \
-  --manifest data/versions/v2/manifest.parquet \
+  --manifest data/versions/v3/manifest.parquet \
   --split validation \
   --output runs/untouched-small/validation-predictions.parquet
 
@@ -35,3 +35,24 @@ Suspected reference/audio faults must be confirmed in the native-review UI.
 Validation predictions may be used for recipe and checkpoint selection. Test
 predictions must not be generated until the candidate, normalization version,
 and decoding configuration have been frozen.
+
+## Explaining metric changes
+
+Every experiment comparison must record the run IDs, starting checkpoint,
+dataset fingerprint, split, seed, preprocessing, decoding settings, and the one
+intended factor changed. Report strict and canonical WER/CER for both runs,
+their absolute and relative changes, paired confidence intervals, and separate
+insertion, deletion, and substitution counts.
+
+Break changes down by at least language class, duration, and transcript length;
+add source, speaker, code-switch, named-entity, or other slices when relevant.
+Retain sample-level improvements and regressions so the aggregate movement can
+be traced to concrete utterances and error categories. If WER and CER disagree,
+or one subgroup improves while another regresses, state that explicitly.
+
+Call a result improved or regressed only when the paired evidence supports that
+conclusion. A small movement inside the confidence interval is `inconclusive`,
+not an improvement. Distinguish demonstrated causes from plausible mechanisms:
+a controlled one-factor ablation can support attribution; an uncontrolled
+comparison can only establish association. No WER/CER change may be reported
+without an accompanying comparison record and explanation status.

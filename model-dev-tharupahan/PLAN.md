@@ -299,14 +299,15 @@ actual cloud cost.
 - [x] Review and lock gold validation/test sets (dataset v3)
 - [x] Generate deterministic speaker-disjoint v1 candidate splits
 - [x] Audit full-corpus boundary silence and clipping without modifying sources
-- [x] Generate a conservative, non-destructive boundary-trim proposal
+- [x] Test boundary trimming; reject it for the baseline after manual review and local A/B
 - [x] Implement strict/canonical metrics, error labels, subgroups, and confidence intervals
 - [x] Implement local Whisper training, prediction, and reporting paths
 - [x] Enforce configuration-based cloud cost and test-set access gates
 - [ ] Evaluation and detailed error reports
-- [ ] Configuration-driven training
-- [ ] Local smoke and checkpoint-resume tests
+- [x] Configuration-driven training
+- [x] Local smoke and checkpoint-resume tests
 - [ ] Capped GPU pilot and cost estimate
 - [ ] Approved full baseline
-- [ ] Controlled experiments
+- [x] First controlled preprocessing experiment (trimmed versus original audio)
+- [ ] Model-training controlled experiments
 - [ ] Final test, deployment benchmark, and model card

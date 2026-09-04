@@ -1,6 +1,6 @@
 # Compute and Experiment Gate
 
-Last verified 2026-09-03. The [GitHub Student Pack offer](https://education.github.com/pack)
+Last verified 2026-09-04. The [GitHub Student Pack offer](https://education.github.com/pack)
 currently states 5 Camber GPU hours, 40 CPU hours, and 50 GB storage per month.
 [Camber's pricing page](https://www.cambercloud.com/pricing) states one credit is
 USD 1 and lists its smallest on-demand GPU engine at 3 credits/hour. Product
@@ -15,10 +15,17 @@ It is enough to measure one capped smoke/pilot and possibly run one selected
 recipe, depending on observed throughput. The code therefore refuses a run
 whose `hourly_price_usd × estimated_hours × 1.25` exceeds its configured cap.
 
+## Current readiness
+
+Dataset v3 is frozen and fingerprinted, transcript review is locked, audio
+quality has been audited, local train/save/evaluate checks pass, and the
+trimmed-versus-original preprocessing A/B is complete. Original audio won that
+ablation. No meaningful Whisper-small baseline or paid GPU run has occurred.
+
 ## Allocation
 
-1. Spend no GPU time before the 2,000 gold candidates are reviewed and v2 is
-   locked. Local train/save/resume/predict/evaluate smoke tests already pass.
+1. Run the untouched `openai/whisper-small` validation baseline locally before
+   spending GPU credit. Use dataset v3 and do not access the locked test split.
 2. Use at most 15 minutes of included time for environment, mixed precision,
    data-loader, checkpoint upload/download, and deliberate-resume validation.
 3. Use at most 45 additional minutes for a 500–1,000-step Whisper-small pilot.
@@ -30,7 +37,7 @@ whose `hourly_price_usd × estimated_hours × 1.25` exceeds its configured cap.
 5. Do not start a second recipe unless the measured plan leaves enough balance
    to finish it. Never use paid credits merely to debug data or code.
 
-Upload only the frozen v2 audio/manifest required by the provider. The local
+Upload only the frozen v3 audio/manifest required by the provider. The local
 source snapshots remain canonical. Download checkpoints, trainer state,
 predictions, metrics, and run metadata before terminating the job.
 

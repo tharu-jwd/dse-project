@@ -1,6 +1,6 @@
 {
   "model_name": "openai/whisper-small",
-  "manifest": "data/versions/v1/manifest.parquet",
+  "manifest": "data/versions/v3/manifest.parquet",
   "output_dir": "runs/small-full-pilot",
   "method": "full",
   "max_steps": 500,
@@ -17,5 +17,6 @@
   "dataloader_num_workers": 2,
   "hourly_price_usd": 0.0,
   "estimated_hours": 0.0,
-  "maximum_cost_usd": 0.0
+  "maximum_cost_usd": 0.0,
+  "crop_training_audio": false
 }

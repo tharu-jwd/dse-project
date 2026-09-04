@@ -185,3 +185,33 @@ Boundary-silence analysis of the 2,000 v1 gold candidates uses 20 ms frames at
 over 40% combined boundary silence. This is not a reviewer rejection criterion.
 Raw clips remain immutable; conservative trimming with retained margins must be
 evaluated as an explicit preprocessing ablation.
+
+## Current frozen dataset
+
+Dataset v3 supersedes v1 and v2 for new experiments. It contains 182,665 train,
+1,000 validation, 999 test, 626 heldout-unused, and 3 excluded rows. Its
+fingerprint is
+`5cee7c7b91f5d7cab5ce10bab2ba85f6b18d49e1ab24fbeb50751d0fc374c31a`.
+Train, validation, and test have zero speaker overlap.
+
+V2 applied the complete owner-approved transcript overlay. V3 adds the
+declared English correction in `configs/data/owner-text-overrides-v3.json` and
+five owner edits saved after v2 was frozen. The reproducible sequence is:
+
+```bash
+PYTHONPATH=src python scripts/apply_text_overrides.py \
+  --adjudications reports/review/gold-v1-owner-approved.jsonl \
+  --overrides configs/data/owner-text-overrides-v3.json \
+  --output reports/review/gold-v1-owner-approved-v3.jsonl
+
+PYTHONPATH=src python scripts/finalize_dataset.py \
+  --manifest data/versions/v1/manifest.parquet \
+  --adjudications reports/review/gold-v1-owner-approved-v3.jsonl \
+  --output-dir data/versions/v3
+```
+
+The full-corpus silence and clipping audit is documented in `AUDIO_AUDIT.md`.
+Fifty risk-stratified crop proposals were reviewed as safe, but a matched local
+training A/B showed worse early validation metrics and identical model FLOPs
+with cropping. Consequently v3 retains immutable source audio and the baseline
+training configuration leaves dynamic cropping disabled.
