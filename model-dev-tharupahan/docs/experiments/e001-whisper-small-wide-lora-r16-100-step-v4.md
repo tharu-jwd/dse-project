@@ -21,6 +21,13 @@ The adapter and checkpoints are stored under
 used the same 206 v4 rows and
 guarded decoding as the untouched baseline. The test split remained locked.
 
+The original final adapter was subsequently exported into the local ignored
+experiment artifacts for English-retention evaluation. Its
+`adapter_model.safetensors` SHA-256 is
+`bca0ffc1b949eb63f7ed8fd66703f84853bfe678dfee5923c1d0c184b3e00a68`;
+the adapter configuration SHA-256 is
+`4069bfd4d4bf48afa60e10e445ed73e301c3cb54491e78a3a74068b978c34c9b`.
+
 ## Paired result
 
 | Metric | Untouched | LoRA 100 | Absolute change | Relative change |
@@ -45,6 +52,30 @@ model produced an exact transcript among the 206 rows, and LoRA predictions
 remain unusable.
 
 This run validates the adapter implementation, memory fit, throughput, and a
-positive learning signal. It does not validate English retention: v4 validation
-contains only two Latin-only clips. The next experiment should use a larger
-nested training subset and must add a fixed standalone-English evaluation set.
+positive learning signal. V4 validation itself contains only two Latin-only
+clips, so standalone English retention was subsequently measured on the full
+2,620-row LibriSpeech test-clean benchmark.
+
+## English retention follow-up
+
+| Canonical metric | Untouched | E001 | E001 minus untouched |
+|---|---:|---:|---:|
+| WER | 4.2338% | 4.2978% | +0.0640 pp |
+| CER | 1.9240% | 1.9288% | +0.0048 pp |
+
+The paired 95% interval for WER change is -0.0375 to +0.1597 percentage
+points; the CER interval is -0.0766 to +0.0675 points. Both include zero, so
+this experiment provides no evidence that the E001 LoRA adapter damaged or
+improved standalone English recognition. Substitutions increased by 49,
+deletions fell by seven, and insertions fell by eight; the net change was 34
+word errors across 53,120 reference words.
+
+The first English-adapter attempt failed before inference because Colab's
+preinstalled `torchao==0.10.0` was incompatible with PEFT. Its logs were
+preserved. After removing that unused optional package, attempt 002 completed
+all rows in 690.66 seconds on a T4. Prediction SHA-256:
+`4fd512f7048020cbdd1891859efad3dae1f613c3a6bfb641274e7173883538be`.
+
+This result is specific to the 100-step parameter-efficient adapter. It does
+not contradict the historical evidence that the team's full-parameter
+fine-tunes damaged English capability.
