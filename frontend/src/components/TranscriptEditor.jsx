@@ -11,36 +11,55 @@ import VoiceMeter from './VoiceMeter'
 const formatTime = (seconds) =>
   `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`
 
-export function ConfidenceText({ segment, threshold }) {
+function highlightMatches(text, term) {
+  if (!term?.trim()) return text
+  const pattern = new RegExp(`(${term.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
+  const parts = text.split(pattern)
+  if (parts.length === 1) return text
+  return parts.map((part, index) =>
+    pattern.test(part) && part.toLowerCase() === term.trim().toLowerCase() ? (
+      <mark className="search-match" key={index}>
+        {part}
+      </mark>
+    ) : (
+      <span key={index}>{part}</span>
+    ),
+  )
+}
+
+export function ConfidenceText({ segment, threshold, highlightTerm, showConfidence = true }) {
   if (!segment.words?.length) {
     // A confidence of exactly 0 with no per-word data means no score was
     // ever recorded for this segment (e.g. live/note recordings) rather than
     // a genuinely bad transcription, so it should not be flagged as low.
-    const flagged = segment.confidence > 0 && segment.confidence < threshold
+    const flagged = showConfidence && segment.confidence > 0 && segment.confidence < threshold
     return (
       <span className={flagged ? 'low-confidence' : ''}>
-        {segment.text}
+        {highlightMatches(segment.text, highlightTerm)}
         {flagged && <span className="sr-only"> (low confidence)</span>}
       </span>
     )
   }
   return (
     <>
-      {segment.words.map((word, index) => (
-        <span
-          key={`${word.text}-${index}`}
-          className={word.confidence < threshold ? 'low-confidence' : ''}
-        >
-          {word.confidence < threshold && (
-            <span className="confidence-mark" aria-hidden="true">
-              ?
-            </span>
-          )}
-          {word.text}
-          {index < segment.words.length - 1 ? ' ' : ''}
-          {word.confidence < threshold && <span className="sr-only"> (low confidence)</span>}
-        </span>
-      ))}
+      {segment.words.map((word, index) => {
+        // Same zero-confidence exemption as the segment fallback above -
+        // a word with no real score (0) should never render as "low
+        // confidence", only a word scored below the threshold should.
+        const flagged = showConfidence && word.confidence > 0 && word.confidence < threshold
+        return (
+          <span key={`${word.text}-${index}`} className={flagged ? 'low-confidence' : ''}>
+            {flagged && (
+              <span className="confidence-mark" aria-hidden="true">
+                ?
+              </span>
+            )}
+            {highlightMatches(word.text, highlightTerm)}
+            {index < segment.words.length - 1 ? ' ' : ''}
+            {flagged && <span className="sr-only"> (low confidence)</span>}
+          </span>
+        )
+      })}
     </>
   )
 }
@@ -246,6 +265,25 @@ export default function TranscriptEditor({
     setCurrentTime(seconds)
   }
   const exportFormats = transcript.type === 'LECTURE' ? ['txt', 'docx', 'pdf'] : ['txt', 'docx']
+  // Confidence scores only ever exist for uploaded/recorded lectures (the
+  // Whisper batch pipeline). Notes and quiz answers are either live-streamed
+  // (never scored) or edited right in this same space before submission, so
+  // the confidence UI is noise there - show it for lectures only.
+  const showConfidence = transcript.type === 'LECTURE'
+  const matchCount = useMemo(() => {
+    const term = searchWord.trim().toLowerCase()
+    if (!term) return 0
+    return transcript.segments.reduce((sum, segment) => {
+      const text = segment.text.toLowerCase()
+      let count = 0
+      let index = text.indexOf(term)
+      while (index !== -1) {
+        count += 1
+        index = text.indexOf(term, index + term.length)
+      }
+      return sum + count
+    }, 0)
+  }, [searchWord, transcript.segments])
   const stats = useMemo(() => {
     const words = transcript.segments.reduce(
       (sum, segment) => sum + segment.text.trim().split(/\s+/).filter(Boolean).length,
@@ -427,7 +465,8 @@ export default function TranscriptEditor({
       <div className="editor-layout">
         <section className="segments" aria-label={t('editor.segmentsLabel')}>
           {transcript.segments.map((segment, index) => {
-            const isLow = segment.confidence > 0 && segment.confidence < confidenceThreshold
+            const isLow =
+              showConfidence && segment.confidence > 0 && segment.confidence < confidenceThreshold
             return (
               <article className={`segment ${isLow ? 'segment--review' : ''}`} key={segment.id}>
                 <div className="segment__gutter">
@@ -455,7 +494,12 @@ export default function TranscriptEditor({
                 </div>
                 <div className="segment__body">
                   <div className="confidence-preview" lang="si">
-                    <ConfidenceText segment={segment} threshold={confidenceThreshold} />
+                    <ConfidenceText
+                      segment={segment}
+                      threshold={confidenceThreshold}
+                      highlightTerm={searchWord}
+                      showConfidence={showConfidence}
+                    />
                   </div>
                   <label htmlFor={`segment-${segment.id}`} className="sr-only">
                     {t('editor.editSegmentN', index + 1)}
@@ -532,6 +576,11 @@ export default function TranscriptEditor({
                 placeholder={t('editor.searchPlaceholder')}
                 disabled={transcript.status === 'FINALIZED'}
               />
+              {searchWord.trim() && (
+                <p className="search-match-count">
+                  {matchCount ? t('editor.matchesFound', matchCount) : t('editor.noMatchesFound')}
+                </p>
+              )}
               <label htmlFor="replace-word">{t('editor.replaceWith')}</label>
               <input
                 id="replace-word"
@@ -550,32 +599,34 @@ export default function TranscriptEditor({
               </button>
             </div>
           )}
-          <div className="confidence-control">
-            <h3>
-              <Icon name="alert" size={15} /> {t('editor.confidenceThreshold')}
-            </h3>
-            <label htmlFor={`threshold-${transcript.id}`}>
-              <span>
-                <small>{t('editor.flagWordsBelow', Math.round(confidenceThreshold * 100))}</small>
-              </span>
-              <output>{Math.round(confidenceThreshold * 100)}%</output>
-            </label>
-            <input
-              id={`threshold-${transcript.id}`}
-              type="range"
-              min="0.5"
-              max="0.95"
-              step="0.05"
-              value={confidenceThreshold}
-              onChange={(e) => updatePreference('confidenceThreshold', Number(e.target.value))}
-            />
-            <p>
-              <span className="low-confidence low-confidence--sample">
-                <span className="confidence-mark">?</span>word
-              </span>{' '}
-              {t('editor.needsReview')}
-            </p>
-          </div>
+          {!compact && showConfidence && (
+            <div className="confidence-control">
+              <h3>
+                <Icon name="alert" size={15} /> {t('editor.confidenceThreshold')}
+              </h3>
+              <label htmlFor={`threshold-${transcript.id}`}>
+                <span>
+                  <small>{t('editor.flagWordsBelow', Math.round(confidenceThreshold * 100))}</small>
+                </span>
+                <output>{Math.round(confidenceThreshold * 100)}%</output>
+              </label>
+              <input
+                id={`threshold-${transcript.id}`}
+                type="range"
+                min="0.5"
+                max="0.95"
+                step="0.05"
+                value={confidenceThreshold}
+                onChange={(e) => updatePreference('confidenceThreshold', Number(e.target.value))}
+              />
+              <p>
+                <span className="low-confidence low-confidence--sample">
+                  <span className="confidence-mark">?</span>word
+                </span>{' '}
+                {t('editor.needsReview')}
+              </p>
+            </div>
+          )}
         </aside>
       </div>
       {compact && (

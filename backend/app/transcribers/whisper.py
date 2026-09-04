@@ -110,16 +110,31 @@ class WhisperTranscriber:
         audio,
     ) -> list[TranscriptionSegmentResult]:
         segments: list[TranscriptionSegmentResult] = []
+        audio_duration = len(audio) / SAMPLE_RATE
 
-        for chunk in output.get("chunks", []):
-            timestamp = chunk.get("timestamp")
-            chunk_text = chunk.get("text", "").strip()
-            if not timestamp or timestamp[0] is None or not chunk_text:
-                continue
+        chunks = [
+            chunk
+            for chunk in output.get("chunks", [])
+            if chunk.get("timestamp")
+            and chunk["timestamp"][0] is not None
+            and chunk.get("text", "").strip()
+        ]
+
+        for index, chunk in enumerate(chunks):
+            timestamp = chunk["timestamp"]
+            chunk_text = chunk["text"].strip()
 
             start = float(timestamp[0])
-            end = float(timestamp[1] if timestamp[1] is not None else start)
-            end = max(start, end)
+            end = timestamp[1]
+            if end is None:
+                # No closing timestamp token for this chunk (common on the
+                # last chunk, or when generation stops early) - falling
+                # back to `end = start` would hand _score_segment a
+                # zero-length audio slice, which always yields empty
+                # confidence/words. Use the next chunk's start, or the end
+                # of the audio, so there is real audio left to re-score.
+                end = chunks[index + 1]["timestamp"][0] if index + 1 < len(chunks) else audio_duration
+            end = max(start, float(end))
 
             text, confidence, words = chunk_text, 0.0, []
             try:

@@ -458,6 +458,8 @@ export const translations = {
   'editor.replaceWith': { en: 'Replace with', si: 'මෙයින් ප්‍රතිස්ථාපනය කරන්න' },
   'editor.replacePlaceholder': { en: 'e.g. proton', si: 'උදා. proton' },
   'editor.executeReplace': { en: 'Execute replace', si: 'ප්‍රතිස්ථාපනය ක්‍රියාත්මක කරන්න' },
+  'editor.matchesFound': { en: (n) => `${n} match${n === 1 ? '' : 'es'} found`, si: (n) => `ගැලපීම් ${n}ක් හමු විය` },
+  'editor.noMatchesFound': { en: 'No matches found', si: 'ගැලපීම් හමු නොවීය' },
   'editor.confidenceThreshold': { en: 'Confidence threshold', si: 'විශ්වාසනීයත්ව සීමාව' },
   'editor.flagWordsBelow': { en: (p) => `Flag words below ${p}%`, si: (p) => `${p}%ට වඩා අඩු වචන සලකුණු කරන්න` },
   'editor.needsReview': { en: 'Needs review', si: 'සමාලෝචනය අවශ්‍යයි' },

@@ -2524,6 +2524,17 @@ textarea:focus-visible {
   font-weight: 800;
   vertical-align: 0.13em;
 }
+.search-match {
+  border-radius: 3px;
+  background: rgba(255, 214, 92, 0.55);
+  color: inherit;
+  padding: 0 1px;
+}
+.search-match-count {
+  margin: -6px 0 10px;
+  font-size: 0.72rem;
+  color: var(--muted, #9aa3af);
+}
 .export-box > strong {
   display: block;
   margin-bottom: 10px;
