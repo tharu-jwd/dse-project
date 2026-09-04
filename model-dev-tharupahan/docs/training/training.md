@@ -59,6 +59,11 @@ Full-parameter fine-tuning is out of scope. Current pilots use wide-target LoRA
 over `q_proj`, `k_proj`, `v_proj`, `out_proj`, `fc1`, and `fc2`, while the base
 Whisper-small weights remain frozen.
 
+Colab execution and storage isolation for E002 onward are defined in
+[the Colab CLI policy](colab-cli.md). Google Drive is not mounted; verified
+artifacts are downloaded into `reports/experiments/eNNN-...` before the
+disposable runtime is stopped.
+
 ## Free-Colab wide-LoRA pilot
 
 The first adapter pilot is intentionally bounded to 100 optimizer steps over a
@@ -73,7 +78,7 @@ T4 Colab runtime. Its upload cell requires:
 - `reports/colab/v4-validation-206-audio.parquet`
 - `scripts/training/run_e001_colab.py`
 
-The notebook mounts Drive and writes checkpoints under
+As a historical exception, the E001 notebook mounted Drive and wrote checkpoints under
 `MyDrive/sinhala-asr/e001-whisper-small-wide-lora-r16-100-step-v4`. It trains
 rank-16 wide LoRA with frozen
 base weights, effective batch size 16, and learning rate `5e-5`, then generates

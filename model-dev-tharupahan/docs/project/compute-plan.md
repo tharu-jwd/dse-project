@@ -18,9 +18,9 @@ whose `hourly_price_usd × estimated_hours × 1.25` exceeds its configured cap.
 ## Current readiness
 
 Dataset v4 is frozen and fingerprinted, transcript review is locked, audio
-quality has been audited, local train/save/evaluate checks pass, and the
-trimmed-versus-original preprocessing A/B is complete. Original audio won that
-ablation. No meaningful Whisper-small baseline or paid GPU run has occurred.
+quality has been audited, and local train/save/evaluate checks pass. The
+untouched Whisper-small validation baseline and E001 wide-LoRA pilot are
+complete on free Colab; no paid GPU run has occurred.
 
 ## Allocation
 
@@ -41,6 +41,8 @@ ablation. No meaningful Whisper-small baseline or paid GPU run has occurred.
 Upload only the frozen v4 audio/manifest required by the provider. The local
 source snapshots remain canonical. Download checkpoints, trainer state,
 predictions, metrics, and run metadata before terminating the job.
+For E002 onward, do not mount Google Drive. Use the isolated CLI workflow in
+[the Colab operations policy](../training/colab-cli.md).
 
 ## Experiment order and English retention
 

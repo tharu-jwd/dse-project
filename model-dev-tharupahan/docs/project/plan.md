@@ -42,8 +42,9 @@ history, contradictions, evaluation policy, and experiment rationale.
    planned cost, and actual cost.
 5. Training and evaluation paths must be configurable; no machine-specific or
    hard-coded cloud paths.
-6. Training must be resumable and important checkpoints must be synchronized to
-   durable storage before a cloud instance is terminated.
+6. Training must be resumable. From E002 onward, Colab jobs do not mount Google
+   Drive: checkpoints are downloaded into the experiment's local artifact
+   directory and verified before a cloud instance is terminated.
 7. Generated datasets, checkpoints, predictions, and reports are not committed
    unless they are deliberately selected compact reference artifacts.
 
@@ -269,6 +270,10 @@ to a training provider, and download run records, predictions, and important
 checkpoints before terminating it. Do not use a stopped GPU volume as long-term
 storage. Record the instance type and displayed hourly price at run start, and
 terminate compute automatically after success or error.
+
+For Colab specifically, follow [the CLI isolation policy](../training/colab-cli.md):
+use only `/content/sinhala-asr-job` remotely, never mount Drive, and keep durable
+per-experiment artifacts under `reports/experiments/eNNN-...` locally.
 
 ## Completion criteria
 

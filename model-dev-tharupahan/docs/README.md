@@ -15,6 +15,7 @@
 ## Model development
 
 - [Training operations](training/training.md)
+- [Colab CLI and storage safety](training/colab-cli.md)
 - [Evaluation protocol](evaluation/evaluation.md)
 - [Experiment registry](experiments/README.md)
 
