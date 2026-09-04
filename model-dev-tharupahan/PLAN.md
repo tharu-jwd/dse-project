@@ -309,5 +309,7 @@ actual cloud cost.
 - [ ] Capped GPU pilot and cost estimate
 - [ ] Approved full baseline
 - [x] First controlled preprocessing experiment (trimmed versus original audio)
+- [x] Controlled transcript-label refinement A/B (Sinhala-only and Latin-only;
+  automatic text-only refinement rejected; dataset v3 remains unchanged)
 - [ ] Model-training controlled experiments
 - [ ] Final test, deployment benchmark, and model card

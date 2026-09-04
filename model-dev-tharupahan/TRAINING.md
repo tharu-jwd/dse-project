@@ -47,3 +47,8 @@ the first Whisper-small pilot. See `AUDIO_AUDIT.md`.
 Matched local A/B fixture configurations are
 `tiny-mps-v3-original-ab.json` and `tiny-mps-v3-trimmed-ab.json`. They are
 diagnostic experiments, not candidate models or project accuracy baselines.
+
+The isolated text-only label experiment is documented in
+`LABEL_REFINEMENT_AB.md`. Its four `tiny-mps-label-*` configurations compare
+original versus Bedrock-proposed training labels separately for Sinhala-only
+and Latin-only rows. Dataset v3 and all validation references remain unchanged.

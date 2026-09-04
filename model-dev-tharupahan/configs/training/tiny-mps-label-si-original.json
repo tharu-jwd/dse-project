@@ -1,0 +1,21 @@
+{
+  "model_name": "openai/whisper-tiny",
+  "manifest": "data/experiments/label-refinement-sonnet-ab/sinhala_only-original.parquet",
+  "output_dir": "runs/label-refinement/si-original",
+  "method": "full",
+  "max_steps": 50,
+  "learning_rate": 1e-5,
+  "train_batch_size": 4,
+  "eval_batch_size": 4,
+  "gradient_accumulation_steps": 2,
+  "eval_steps": 25,
+  "save_steps": 25,
+  "logging_steps": 5,
+  "fp16": false,
+  "bf16": false,
+  "gradient_checkpointing": false,
+  "dataloader_num_workers": 0,
+  "hourly_price_usd": 0.0,
+  "estimated_hours": 0.0,
+  "maximum_cost_usd": 0.0
+}

@@ -23,6 +23,8 @@ ignored by Git.
 Prediction scoring and error-analysis rules are in
 [EVALUATION.md](EVALUATION.md).
 Training, resume, and cost-gate commands are in [TRAINING.md](TRAINING.md).
+The completed text-only label experiment and its rejected automatic-refinement
+decision are in [LABEL_REFINEMENT_AB.md](LABEL_REFINEMENT_AB.md).
 The versioned Sinhala transcription rules are in [TEXT_POLICY.md](TEXT_POLICY.md).
 The current GPU-credit allocation and experiment rationale are in
 [COMPUTE_PLAN.md](COMPUTE_PLAN.md).
