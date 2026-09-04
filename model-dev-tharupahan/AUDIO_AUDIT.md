@@ -20,11 +20,12 @@ The initial -40 dBFS proposal, with 250 ms leading and 400 ms trailing margins,
 was rejected after listening showed that it could truncate low-volume speech.
 It must not be used for training.
 
-The replacement non-destructive proposal uses -50 dBFS and retains 750 ms at
-both boundaries. It would reduce 223.63 hours to 202.29 hours, saving 21.34
-hours (9.5%). These are still heuristic boundaries, not approved training
-inputs. They must pass a fresh listening check and a controlled
-trimmed-versus-original smoke experiment.
+The current recheck proposal keeps the quieter -50 dBFS threshold but restores
+the original margins: 250 ms at the beginning and 400 ms at the end. It would
+reduce 223.63 hours to 179.53 hours, saving 44.10 hours (19.7%). The temporary
+750 ms padding proposal was not adopted. These are still heuristic boundaries,
+not approved training inputs. They must pass a fresh listening check and a
+controlled trimmed-versus-original smoke experiment.
 
 ## Clipping
 
