@@ -317,6 +317,8 @@ actual cloud cost.
 - [x] Local smoke and checkpoint-resume tests
 - [x] Capped 100-step free-Colab wide-LoRA pilot and measured throughput
 - [x] Untouched Whisper-small v4 validation baseline
+- [x] Freeze the full LibriSpeech test-clean English-retention benchmark and
+  run the untouched Whisper-small English baseline
 - [x] First controlled preprocessing experiment (trimmed versus original audio)
 - [x] Controlled transcript-label refinement A/B (Sinhala-only and Latin-only;
   automatic text-only refinement rejected; dataset v3 remains unchanged)

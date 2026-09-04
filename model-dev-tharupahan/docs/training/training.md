@@ -88,3 +88,17 @@ decoding settings. The test split is neither packaged nor accessed.
 The setup deliberately uninstalls Colab's optional `torchao` package. The
 preinstalled `torchao==0.10.0` is incompatible with current PEFT and prevents
 adapter injection; this pilot does not use quantization and does not need it.
+
+## E002 preparation
+
+E002 keeps the E001 adapter architecture and optimization settings while
+increasing the deterministic nested training bundle to 10,000 rows and the
+budget to 500 steps. The bundle contains all 2,000 E001 rows, 9,625
+Sinhala/non-Latin rows, 375 Latin-only rows, all 471 training speakers, and
+12.08 audio hours. Its local transport SHA-256 is
+`33591d057a50a732173eba4dee3d91cfe6be79913510606330f65a665f3fefd3`.
+
+Training cannot begin until the untouched and E001 models have both been
+evaluated on the frozen English-retention benchmark. E002 uses disposable
+Colab storage and the supervised background-job procedure; it does not reuse
+the historical E001 Drive-mounted implementation.

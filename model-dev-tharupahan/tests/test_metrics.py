@@ -1,4 +1,9 @@
-from sinhala_asr.evaluation.metrics import edit_counts, evaluate_rows, strict_normalize
+from sinhala_asr.evaluation.metrics import (
+    edit_counts,
+    evaluate_rows,
+    paired_delta_interval,
+    strict_normalize,
+)
 
 
 def test_edit_counts_distinguish_operations() -> None:
@@ -35,3 +40,25 @@ def test_evaluation_reports_strict_canonical_and_subgroups() -> None:
 
 def test_strict_normalization_only_collapses_whitespace_and_nfc() -> None:
     assert strict_normalize("  මම\n  යමි. ") == "මම යමි."
+
+
+def test_paired_delta_interval_detects_consistent_improvement() -> None:
+    baseline, _ = evaluate_rows(
+        [
+            {"reference": "one two", "prediction": "wrong wrong"},
+            {"reference": "three four", "prediction": "wrong wrong"},
+        ],
+        bootstrap_iterations=0,
+    )
+    candidate, _ = evaluate_rows(
+        [
+            {"reference": "one two", "prediction": "one two"},
+            {"reference": "three four", "prediction": "three four"},
+        ],
+        bootstrap_iterations=0,
+    )
+    interval = paired_delta_interval(
+        baseline, candidate, "strict", iterations=20, seed=7
+    )
+    assert interval["wer"] == [-1.0, -1.0]
+    assert interval["cer"][1] < 0

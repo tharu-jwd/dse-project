@@ -8,7 +8,11 @@ and result report.
 |---|---|---|---|
 | E000 | Untouched Whisper-small on v4 validation | Complete | [E000](e000-whisper-small-zero-shot-v4.md) |
 | E001 | Whisper-small wide LoRA rank 16, 100 steps, v4 pilot | Complete | [E001](e001-whisper-small-wide-lora-r16-100-step-v4.md) |
-| E002 | Larger nested-data adapter pilot with English retention | Planned | Pending |
+| E002 | Whisper-small wide LoRA rank 16, 500 steps, nested v4 data | Prepared | Pending |
+
+Before E002 training, the fixed 2,620-row LibriSpeech test-clean benchmark is
+run against untouched Whisper-small and the E001 adapter. The same benchmark is
+then run after every later adapter experiment.
 
 ## Naming rules
 

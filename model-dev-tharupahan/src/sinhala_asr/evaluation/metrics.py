@@ -98,7 +98,7 @@ def bootstrap_interval(
     iterations: int = 1000,
     seed: int = 20260903,
 ) -> dict[str, list[float]]:
-    if not rows:
+    if not rows or iterations <= 0:
         return {"wer": [0.0, 0.0], "cer": [0.0, 0.0]}
     rng = random.Random(seed)
     values: dict[str, list[float]] = {"wer": [], "cer": []}
@@ -107,6 +107,39 @@ def bootstrap_interval(
         metrics = aggregate(sampled, prefix)
         values["wer"].append(float(metrics["wer"]))
         values["cer"].append(float(metrics["cer"]))
+    result = {}
+    for metric, samples in values.items():
+        samples.sort()
+        result[metric] = [
+            samples[int(0.025 * (len(samples) - 1))],
+            samples[int(0.975 * (len(samples) - 1))],
+        ]
+    return result
+
+
+def paired_delta_interval(
+    baseline: Sequence[dict[str, Any]],
+    candidate: Sequence[dict[str, Any]],
+    prefix: str,
+    *,
+    iterations: int = 1000,
+    seed: int = 20260903,
+) -> dict[str, list[float]]:
+    """Bootstrap candidate-minus-baseline WER/CER on aligned rows."""
+    if len(baseline) != len(candidate):
+        raise ValueError("paired samples must have the same length")
+    if not baseline:
+        return {"wer": [0.0, 0.0], "cer": [0.0, 0.0]}
+    rng = random.Random(seed)
+    values: dict[str, list[float]] = {"wer": [], "cer": []}
+    for _ in range(iterations):
+        indices = [rng.randrange(len(baseline)) for _ in baseline]
+        baseline_metrics = aggregate([baseline[index] for index in indices], prefix)
+        candidate_metrics = aggregate([candidate[index] for index in indices], prefix)
+        for metric in values:
+            values[metric].append(
+                float(candidate_metrics[metric]) - float(baseline_metrics[metric])
+            )
     result = {}
     for metric, samples in values.items():
         samples.sort()

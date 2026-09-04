@@ -36,6 +36,27 @@ Validation predictions may be used for recipe and checkpoint selection. Test
 predictions must not be generated until the candidate, normalization version,
 and decoding configuration have been frozen.
 
+## English retention benchmark
+
+Standalone English retention uses the complete 2,620-row LibriSpeech
+[`test.clean` split](https://huggingface.co/datasets/openslr/librispeech_asr)
+from `openslr/librispeech_asr` (CC BY 4.0), not English rows from the Sinhala
+corpus. The immutable upstream Parquet SHA-256 is
+`7113aa4c3cf963fb54697145719a7725f984c8836d1c494a554cbb9f1a017df0`.
+The prepared benchmark contains 5.403 hours from 40 speakers.
+
+The preparation script verifies that source hash, expected row count, 16-kHz
+mono audio, and non-empty embedded bytes. It records a semantic content
+fingerprint over sample/speaker/chapter IDs, reference text, and each audio
+hash. That content fingerprint—not a version-dependent Parquet serialization
+hash—defines equality across local and Colab copies.
+
+Every adapter is compared with untouched `openai/whisper-small` on these exact
+rows using English transcription prompts and paired bootstrap intervals. This
+benchmark is evaluation-only and is never mixed into Sinhala training unless a
+later, separately documented English-replay experiment explicitly introduces a
+licensed training split.
+
 ## Explaining metric changes
 
 Every experiment comparison must record the run IDs, starting checkpoint,
