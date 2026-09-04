@@ -31,11 +31,16 @@ The current GPU-credit allocation and experiment rationale are in
 
 ## Current state
 
-Dataset v3 is the frozen working dataset: 182,665 train, 1,000 validation, and
+Dataset v3 is the frozen training source: 182,665 train, 1,000 validation, and
 999 locked test rows, with zero speaker overlap. Transcript provenance is in
 `REVIEW_PROVENANCE.md`; audio findings are in `AUDIO_AUDIT.md`. A controlled
 local ablation found no benefit from boundary trimming, so the first real
 baseline uses immutable, original audio.
+
+The v4 native-listening review is now rebuilding trustworthy evaluation
+references from normalized OpenSLR text. It covers all 295 disputed v3
+references plus 100 unchanged controls; v3 remains immutable until that review
+is complete.
 
 The next experiment is untouched `openai/whisper-small` inference on v3
 validation, followed by the detailed comparison protocol in `EVALUATION.md`.

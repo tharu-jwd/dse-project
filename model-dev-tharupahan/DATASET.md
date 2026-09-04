@@ -215,3 +215,42 @@ Fifty risk-stratified crop proposals were reviewed as safe, but a matched local
 training A/B showed worse early validation metrics and identical model FLOPs
 with cropping. Consequently v3 retains immutable source audio and the baseline
 training configuration leaves dynamic cropping disabled.
+
+## Dataset v4 evaluation-reference review
+
+Dataset v3 remains frozen. Because 295 validation/test references contain
+text-only revisions that were not verified against audio, v4 restores the
+conservatively normalized OpenSLR transcript as the neutral starting reference.
+A self-contained native-listening queue contains all 295 disputed rows plus 100
+deterministically selected unchanged controls:
+
+```bash
+PYTHONPATH=src python scripts/build_v4_review_queue.py \
+  --manifest data/versions/v3/manifest.parquet \
+  --output reports/review/v4-evaluation-queue.parquet \
+  --controls 100
+
+PYTHONPATH=src streamlit run scripts/review_app.py --server.port 8503 -- \
+  --queue reports/review/v4-evaluation-queue.parquet \
+  --output reports/review/v4-evaluation-adjudications.jsonl
+```
+
+In this queue, `Correct` means the displayed normalized OpenSLR transcript
+matches the audio. For disputed rows the UI also shows the previous v3 revision;
+use it only after listening confirms it. Otherwise edit the verified transcript.
+Mark unusable audio as `Bad audio` and unresolved speech as `Uncertain`.
+
+Only after all 395 rows are reviewed may v4 be frozen:
+
+```bash
+PYTHONPATH=src python scripts/finalize_dataset_v4.py \
+  --manifest data/versions/v3/manifest.parquet \
+  --queue reports/review/v4-evaluation-queue.parquet \
+  --adjudications reports/review/v4-evaluation-adjudications.jsonl \
+  --output-dir data/versions/v4
+```
+
+The finalizer refuses partial or extra decisions. It resets every validation and
+test reference to the normalized original, applies only audio-reviewed edits,
+and excludes reviewed bad/uncertain rows. Training rows, audio, and speaker
+assignments remain unchanged.

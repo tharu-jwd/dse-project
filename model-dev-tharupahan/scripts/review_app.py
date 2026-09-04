@@ -167,6 +167,32 @@ def main() -> None:
             )
             st.audio(audio, autoplay=play_requested)
         suggestion = suggestions.get(sample_id)
+        previous_v3 = row.get("previous_v3_transcript")
+        if isinstance(previous_v3, str) and previous_v3 != original_text:
+            st.info(
+                "Previous v3 text-only revision (not audio-verified):\n\n"
+                f"{previous_v3}"
+            )
+
+            def use_previous_v3() -> None:
+                st.session_state[text_key] = previous_v3
+                save_adjudication(
+                    output_path,
+                    {
+                        "sample_id": sample_id,
+                        "decision": "edited",
+                        "text_original": original_text,
+                        "text_corrected": previous_v3,
+                        "notes": "Selected previous v3 revision after checking audio.",
+                        "queue_path": str(queue_path),
+                    },
+                )
+
+            st.button(
+                "Use previous v3 version after checking audio",
+                on_click=use_previous_v3,
+                key=f"use-v3-{sample_id}",
+            )
         if suggestion and suggestion["suggested_transcript"] != original_text:
             st.info(
                 f"GPT text-only suggestion ({suggestion['confidence']}, "

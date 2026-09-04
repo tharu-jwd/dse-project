@@ -311,5 +311,7 @@ actual cloud cost.
 - [x] First controlled preprocessing experiment (trimmed versus original audio)
 - [x] Controlled transcript-label refinement A/B (Sinhala-only and Latin-only;
   automatic text-only refinement rejected; dataset v3 remains unchanged)
+- [ ] Audio-verify 295 disputed evaluation references and 100 unchanged controls;
+  v4 queue and strict finalizer implemented, native review in progress
 - [ ] Model-training controlled experiments
 - [ ] Final test, deployment benchmark, and model card
