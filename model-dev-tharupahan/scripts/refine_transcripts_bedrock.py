@@ -62,11 +62,17 @@ def validate(
         ).strip():
             raise ValueError(f"missing change metadata for {sample_id}")
         if str(row["corrected"]) == expected[sample_id]:
-            raise ValueError(f"unchanged row returned as a correction: {sample_id}")
+            # Some providers include explicit unchanged rows despite the sparse
+            # instruction. Treat them as omissions rather than false changes.
+            continue
         row["original"] = expected[sample_id]
         row["changed"] = True
         seen.add(sample_id)
-    changes = {str(row["sample_id"]): row for row in result}
+    changes = {
+        str(row["sample_id"]): row
+        for row in result
+        if str(row["sample_id"]) in seen
+    }
     return [
         changes.get(
             str(row["sample_id"]),

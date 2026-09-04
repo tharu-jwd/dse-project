@@ -39,7 +39,7 @@ def test_parser_uses_last_valid_array() -> None:
     assert parse_json_array('[{"bad": true}] reconsidering: []') == []
 
 
-def test_validation_rejects_unchanged_claim() -> None:
+def test_validation_treats_unchanged_claim_as_no_change() -> None:
     source = [{"sample_id": "a", "original": "hello"}]
     result = [
         {
@@ -50,5 +50,5 @@ def test_validation_rejects_unchanged_claim() -> None:
             "confidence": "high",
         }
     ]
-    with pytest.raises(ValueError, match="unchanged row"):
-        validate(source, result)
+    validated = validate(source, result)
+    assert validated[0]["changed"] is False

@@ -313,5 +313,7 @@ actual cloud cost.
   automatic text-only refinement rejected; dataset v3 remains unchanged)
 - [ ] Audio-verify 295 disputed evaluation references and 100 unchanged controls;
   v4 queue and strict finalizer implemented, native review in progress
+- [x] Benchmark Bedrock-accessible transcript refiners against 293 audio-verified
+  targets; Sonnet 4.6 is safest but does not reproduce the earlier ChatGPT pass
 - [ ] Model-training controlled experiments
 - [ ] Final test, deployment benchmark, and model card
