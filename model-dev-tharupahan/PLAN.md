@@ -171,18 +171,18 @@ Generate machine-readable tables and a human-readable Markdown or HTML report.
 
 ## Phase 4: training
 
-Begin with one reproducible `openai/whisper-small` baseline. Support full and
-LoRA training behind the same configuration schema. Track strict/canonical
+Begin with one reproducible `openai/whisper-small` baseline. Support LoRA/DoRA
+training behind the same configuration schema. Track strict/canonical
 validation metrics, loss, learning rate, gradient norm, throughput, peak memory,
 checkpoint identity, and wall time.
 
 Initial controlled experiments after evaluating the untouched model:
 
-1. Clean full fine-tune from official `openai/whisper-small`, selecting a
+1. Wide-target LoRA or DoRA from official `openai/whisper-small`, selecting a
    conservative learning rate through short pilots.
-2. Bilingual replay using the winning recipe plus a fixed English rehearsal set
+2. Bilingual replay using the adapter recipe plus a fixed English rehearsal set
    and the available Sinhala-English code-switched samples.
-3. Wide-target LoRA or DoRA comparison on the same frozen data.
+3. Adapter target-width and learning-rate comparison on the same frozen data.
 4. Low-learning-rate continuation of the historical 17% checkpoint only if its
    exact artifact, optimizer state, and dataset identity can be recovered.
 5. Augmentation ablations only after error analysis shows the matching need.
@@ -307,7 +307,7 @@ actual cloud cost.
 - [x] Configuration-driven training
 - [x] Local smoke and checkpoint-resume tests
 - [ ] Capped GPU pilot and cost estimate
-- [ ] Approved full baseline
+- [x] Untouched Whisper-small v4 validation baseline
 - [x] First controlled preprocessing experiment (trimmed versus original audio)
 - [x] Controlled transcript-label refinement A/B (Sinhala-only and Latin-only;
   automatic text-only refinement rejected; dataset v3 remains unchanged)

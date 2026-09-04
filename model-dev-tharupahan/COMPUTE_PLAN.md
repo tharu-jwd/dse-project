@@ -17,7 +17,7 @@ whose `hourly_price_usd × estimated_hours × 1.25` exceeds its configured cap.
 
 ## Current readiness
 
-Dataset v3 is frozen and fingerprinted, transcript review is locked, audio
+Dataset v4 is frozen and fingerprinted, transcript review is locked, audio
 quality has been audited, local train/save/evaluate checks pass, and the
 trimmed-versus-original preprocessing A/B is complete. Original audio won that
 ablation. No meaningful Whisper-small baseline or paid GPU run has occurred.
@@ -38,7 +38,7 @@ ablation. No meaningful Whisper-small baseline or paid GPU run has occurred.
 5. Do not start a second recipe unless the measured plan leaves enough balance
    to finish it. Never use paid credits merely to debug data or code.
 
-Upload only the frozen v3 audio/manifest required by the provider. The local
+Upload only the frozen v4 audio/manifest required by the provider. The local
 source snapshots remain canonical. Download checkpoints, trainer state,
 predictions, metrics, and run metadata before terminating the job.
 
@@ -57,10 +57,11 @@ Accordingly, run one factor at a time:
 
 1. untouched Whisper-small on frozen validation, including Sinhala-only and
    code-switched slices;
-2. clean Sinhala full fine-tune;
-3. the same winning recipe with a fixed, licensed English replay slice plus
+2. clean Sinhala wide-target LoRA/DoRA;
+3. the same adapter recipe with a fixed, licensed English replay slice plus
    Sinhala–English code-switched data;
-4. wide-target LoRA/DoRA under the same data and step budget.
+4. adapter target-width and learning-rate ablations under the same data and
+   step budget.
 
 Measure English before and after every candidate on the same fixed English set.
 Do not delete English words from Sinhala references or metrics: that would make

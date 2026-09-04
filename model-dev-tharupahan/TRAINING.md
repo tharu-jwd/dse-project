@@ -12,7 +12,7 @@ estimate after the capped pilot; do not guess these values before renting.
 
 ```bash
 PYTHONPATH=src python scripts/train.py \
-  --config configs/training/small-full-pilot.json
+  --config configs/training/small-wide-lora-pilot.json
 ```
 
 Full runs require a reviewed `validation` split. Access to an unreviewed
@@ -38,7 +38,7 @@ PYTHONPATH=src python scripts/train.py \
 These configurations use no paid compute. The primary controlled experiment
 starts from `openai/whisper-small`; `whisper-tiny` is only a pipeline fixture.
 
-Dataset v3 is the current frozen input. Original, untrimmed audio is the
+Dataset v4 is the current frozen input. Original, untrimmed audio is the
 baseline. Dynamic boundary cropping is available through
 `crop_training_audio` and `crop_proposals`, but the local 50-step A/B produced a
 strong negative signal and no compute advantage, so it must remain disabled for
@@ -51,4 +51,9 @@ diagnostic experiments, not candidate models or project accuracy baselines.
 The isolated text-only label experiment is documented in
 `LABEL_REFINEMENT_AB.md`. Its four `tiny-mps-label-*` configurations compare
 original versus Bedrock-proposed training labels separately for Sinhala-only
-and Latin-only rows. Dataset v3 and all validation references remain unchanged.
+and Latin-only rows. Dataset v3 and all validation references remained unchanged
+during that completed historical diagnostic.
+
+Full-parameter fine-tuning is out of scope. Current pilots use wide-target LoRA
+over `q_proj`, `k_proj`, `v_proj`, `out_proj`, `fc1`, and `fc2`, while the base
+Whisper-small weights remain frozen.

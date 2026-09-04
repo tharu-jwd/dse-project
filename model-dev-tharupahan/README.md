@@ -27,6 +27,7 @@ The completed text-only label experiment and its rejected automatic-refinement
 decision are in [LABEL_REFINEMENT_AB.md](LABEL_REFINEMENT_AB.md).
 The audio-verified comparison of accessible Bedrock transcript refiners is in
 [REFINEMENT_MODEL_BENCHMARK.md](REFINEMENT_MODEL_BENCHMARK.md).
+The untouched Whisper-small result is in [BASELINE.md](BASELINE.md).
 The versioned Sinhala transcription rules are in [TEXT_POLICY.md](TEXT_POLICY.md).
 The current GPU-credit allocation and experiment rationale are in
 [COMPUTE_PLAN.md](COMPUTE_PLAN.md).
@@ -41,8 +42,9 @@ provenance is in `REVIEW_PROVENANCE.md`; audio findings are in
 `AUDIO_AUDIT.md`. A controlled local ablation found no benefit from boundary
 trimming, so the first real baseline uses immutable, original audio.
 
-The next experiment is untouched `openai/whisper-small` inference on v4
-validation, followed by the detailed comparison protocol in `EVALUATION.md`.
+Untouched `openai/whisper-small` scored 141.74% strict WER and 92.52% strict CER
+on v4 validation with repetition-safe decoding. The next experiment is a
+capped wide-target LoRA/DoRA pilot; full-parameter fine-tuning is out of scope.
 
 ## Audit historical splits
 
