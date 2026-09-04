@@ -63,7 +63,22 @@ def main() -> None:
     proposals = pd.read_parquet(args.proposals.expanduser().resolve())
     frame = manifest.merge(proposals, on="sample_id", validate="one_to_one")
     frame = frame[frame.dataset_split.isin(["train", "validation", "test"])].copy()
-    chosen = select_rows(frame, args.quota, args.seed)
+    heldout_each = min(10, args.quota // 10)
+    quotas = {
+        "validation": heldout_each,
+        "test": heldout_each,
+        "train": args.quota - 2 * heldout_each,
+    }
+    chosen = pd.concat(
+        [
+            select_rows(
+                frame[frame.dataset_split == split], split_quota, args.seed + offset
+            )
+            for offset, (split, split_quota) in enumerate(quotas.items())
+            if split_quota
+        ],
+        ignore_index=True,
+    )
     source_tables: dict[str, list[dict]] = {}
     output_rows = []
     for row in chosen.to_dict("records"):
