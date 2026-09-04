@@ -27,6 +27,72 @@ stopped until required outputs are present locally and their hashes are
 recorded. Unexpected free-tier termination can lose only the current bounded
 stage, never an earlier verified checkpoint.
 
+## Failure containment and recovery
+
+Training runs as a supervised background process rather than one long blocking
+CLI request. Every experiment has immutable attempt directories:
+
+```text
+reports/experiments/eNNN-.../
+  attempts/attempt-001/
+    events.jsonl
+    remote-stdout.log
+    session.json
+    resolved-config.json
+    failure.json              # only after a failure
+  checkpoints/checkpoint-N/
+  latest-verified.json
+```
+
+Before training, the operator verifies input hashes, available disk, GPU type,
+package versions, adapter/base parameter counts, and a two-step smoke run. A
+failed preflight does not begin the measured experiment.
+
+During training:
+
+1. Write structured progress and heartbeat events at least every five steps.
+2. Save adapter, optimizer, scheduler, trainer, scaler, and RNG state every 25
+   steps for short pilots. At E001 throughput this limits uncheckpointed work
+   to roughly two minutes.
+3. Write a `COMPLETE` marker only after every checkpoint file is closed.
+4. Package only a checkpoint bearing that marker, calculate its SHA-256 on the
+   runtime, and download it immediately to a local `.partial` path.
+5. Recalculate the hash locally, verify required files and recorded step, then
+   atomically rename it into `checkpoints/checkpoint-N/` and update
+   `latest-verified.json`.
+6. Poll session state, process state, disk use, heartbeat age, and logs. Never
+   treat a quiet CLI call as proof that training is healthy.
+
+Failure handling is explicit:
+
+- **Training process exits:** download logs and any completed checkpoint, write
+  `failure.json` with exit code and last verified step, then stop the runtime.
+- **CLI transport fails but runtime is alive:** reconnect and inspect status;
+  do not launch a duplicate process. Retry transport operations with bounded
+  backoff.
+- **Runtime disappears:** record the lost step interval, allocate a fresh
+  session, upload the latest locally verified checkpoint, and resume with the
+  same optimizer, scheduler, RNG state, dataset order, and resolved config.
+- **GPU unavailable/quota exhausted:** leave the experiment pending. Do not
+  repeatedly allocate sessions or change hardware silently.
+- **OOM:** preserve evidence and stop. Batch size may change only in a new
+  documented attempt, with gradient accumulation adjusted to preserve effective
+  batch size; it is not an automatic hidden retry.
+- **Bad sample/data exception:** record the sample ID and stop. Never skip it
+  silently; any exclusion requires a new auditable dataset decision.
+- **NaN/divergence:** retain the preceding checkpoint and metrics. Hyperparameter
+  changes require a new attempt/configuration rather than overwriting the run.
+
+Only infrastructure/transport failures may auto-resume, with at most two
+automatic attempts. Model, data, OOM, and numerical failures require diagnosis
+first. Resumption is verified by checking that the first reported global step
+is the saved step and that optimizer/scheduler state loaded successfully.
+
+After success, predictions, metrics, final adapter, logs, resolved config, and
+checkpoint hashes are downloaded and verified. Session termination occurs in a
+final cleanup step after verification; on any exception the operator captures
+available evidence before issuing `colab stop`.
+
 ## CLI setup
 
 The local operator uses `google-colab-cli==0.6.0`. That release is incompatible

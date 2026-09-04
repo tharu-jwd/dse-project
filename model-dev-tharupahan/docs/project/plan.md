@@ -45,6 +45,9 @@ history, contradictions, evaluation policy, and experiment rationale.
 6. Training must be resumable. From E002 onward, Colab jobs do not mount Google
    Drive: checkpoints are downloaded into the experiment's local artifact
    directory and verified before a cloud instance is terminated.
+   Follow the heartbeat, checkpoint-completion, attempt-log, bounded-retry, and
+   deterministic-resume procedure in
+   [the Colab CLI policy](../training/colab-cli.md).
 7. Generated datasets, checkpoints, predictions, and reports are not committed
    unless they are deliberately selected compact reference artifacts.
 
