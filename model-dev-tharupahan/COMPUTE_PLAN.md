@@ -24,8 +24,9 @@ ablation. No meaningful Whisper-small baseline or paid GPU run has occurred.
 
 ## Allocation
 
-1. Run the untouched `openai/whisper-small` validation baseline locally before
-   spending GPU credit. Use dataset v3 and do not access the locked test split.
+1. Run the untouched `openai/whisper-small` v4 validation baseline on a free
+   Colab T4 before spending GPU credit. Use dataset v4 and do not access the
+   locked test split.
 2. Use at most 15 minutes of included time for environment, mixed precision,
    data-loader, checkpoint upload/download, and deliberate-resume validation.
 3. Use at most 45 additional minutes for a 500–1,000-step Whisper-small pilot.

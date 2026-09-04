@@ -14,7 +14,7 @@ never as an unlabeled bare number.
 ```bash
 PYTHONPATH=src python scripts/predict.py \
   --model openai/whisper-small \
-  --manifest data/versions/v3/manifest.parquet \
+  --manifest data/versions/v4/manifest.parquet \
   --split validation \
   --output runs/untouched-small/validation-predictions.parquet
 
