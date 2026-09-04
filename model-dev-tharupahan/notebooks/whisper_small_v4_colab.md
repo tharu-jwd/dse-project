@@ -36,7 +36,7 @@ from transformers import WhisperForConditionalGeneration, WhisperProcessor
 
 MODEL = "openai/whisper-small"
 BATCH_SIZE = 8
-MAX_NEW_TOKENS = 225
+MAX_NEW_TOKENS = 64
 rows = pq.read_table("v4-validation-colab.parquet").to_pylist()
 assert len(rows) == 206
 
@@ -64,6 +64,7 @@ with torch.inference_mode():
             features.input_features.to("cuda", dtype=torch.float16),
             attention_mask=features.attention_mask.to("cuda"),
             max_new_tokens=MAX_NEW_TOKENS,
+            no_repeat_ngram_size=3,
         )
         predictions.extend(processor.tokenizer.batch_decode(generated, skip_special_tokens=True))
         print(f"{min(start + BATCH_SIZE, len(rows))}/{len(rows)}")
@@ -80,6 +81,7 @@ Path("whisper-small-v4-validation-runtime.json").write_text(json.dumps({
     "gpu": torch.cuda.get_device_name(0),
     "batch_size": BATCH_SIZE,
     "max_new_tokens": MAX_NEW_TOKENS,
+    "no_repeat_ngram_size": 3,
     "runtime_seconds": time.monotonic() - started,
 }, indent=2) + "\n")
 ```
