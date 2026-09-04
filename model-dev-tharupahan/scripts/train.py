@@ -24,7 +24,11 @@ from transformers import (
 
 from sinhala_asr.evaluation.metrics import score_pair, strict_normalize
 from sinhala_asr.training.config import TrainConfig
-from sinhala_asr.training.dataset import ManifestAudioDataset, load_training_rows
+from sinhala_asr.training.dataset import (
+    ManifestAudioDataset,
+    load_crop_bounds,
+    load_training_rows,
+)
 
 
 @dataclass
@@ -67,6 +71,7 @@ def main() -> None:
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--smoke-train-rows", type=int)
     parser.add_argument("--smoke-validation-rows", type=int)
+    parser.add_argument("--allow-unreviewed-validation", action="store_true")
     args = parser.parse_args()
     config_path = args.config.expanduser().resolve()
     config = TrainConfig.load(config_path)
@@ -74,8 +79,16 @@ def main() -> None:
     output_dir = Path(config.output_dir).expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     train_rows, validation_rows = load_training_rows(
-        manifest, allow_unreviewed_validation=args.smoke_validation_rows is not None
+        manifest, allow_unreviewed_validation=args.allow_unreviewed_validation
     )
+    crop_bounds = None
+    if config.crop_training_audio:
+        crop_bounds = load_crop_bounds(
+            Path(str(config.crop_proposals)).expanduser().resolve()
+        )
+        missing = {str(row["sample_id"]) for row in train_rows} - set(crop_bounds)
+        if missing:
+            raise ValueError(f"crop proposals missing {len(missing)} training samples")
     if args.smoke_train_rows:
         train_rows = train_rows[: args.smoke_train_rows]
     if args.smoke_validation_rows:
@@ -94,6 +107,10 @@ def main() -> None:
         "cuda_available": torch.cuda.is_available(),
         "mps_available": torch.backends.mps.is_available(),
     }
+    if config.crop_training_audio:
+        metadata["crop_proposals_sha256"] = fingerprint(
+            Path(str(config.crop_proposals)).expanduser().resolve()
+        )
     (output_dir / "run-metadata.json").write_text(
         json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
@@ -172,7 +189,7 @@ def main() -> None:
     trainer = Seq2SeqTrainer(
         model=model,
         args=training_args,
-        train_dataset=ManifestAudioDataset(train_rows),
+        train_dataset=ManifestAudioDataset(train_rows, crop_bounds=crop_bounds),
         eval_dataset=ManifestAudioDataset(validation_rows),
         data_collator=WhisperCollator(processor),
         compute_metrics=compute_metrics,

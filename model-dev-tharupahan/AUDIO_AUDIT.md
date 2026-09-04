@@ -23,6 +23,18 @@ audits were discarded at the project owner's request. These are heuristic
 boundaries, not approved training inputs. They must pass the listening check
 and a controlled trimmed-versus-original smoke experiment.
 
+The owner reviewed 50 risk-stratified proposals: 30 train, 10 validation, and
+10 test. All 50 were marked safe, including all 20 most aggressive proposals
+in the queue. No reviewed crop was marked as cutting speech or uncertain.
+
+Matched one-step Whisper-tiny CPU smoke runs completed for original and
+dynamically cropped training audio. Both trained, evaluated against untouched
+validation audio, reported metrics, and saved their model successfully. This
+proves the crop plumbing, not an accuracy benefit. Both runs reported identical
+model FLOPs because the current Whisper feature extractor pads inputs to a
+fixed 30-second feature shape. Cropping may improve alignment, but it should not
+be claimed as a GPU-compute saving unless a later measured GPU pilot proves it.
+
 ## Clipping
 
 The peak check flagged 916 clips at or above 0.999 amplitude. A severity scan
@@ -33,7 +45,6 @@ clips. They remain in v3.
 
 ## Next gate
 
-Before paid full training, listen to a stratified sample of proposed crop
-boundaries, then run otherwise identical short experiments with original and
-proposed-cropped audio. Enable cropping only if it reduces compute without
-worsening strict validation WER/CER or introducing boundary truncation errors.
+Before paid full training, run otherwise identical GPU pilots with original and
+proposed-cropped training audio. Enable cropping only if it does not worsen
+strict validation WER/CER or introduce boundary truncation errors.

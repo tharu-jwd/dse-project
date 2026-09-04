@@ -35,6 +35,8 @@ class TrainConfig:
     lora_rank: int = 16
     lora_alpha: int = 32
     lora_dropout: float = 0.05
+    crop_training_audio: bool = False
+    crop_proposals: str | None = None
 
     @classmethod
     def load(cls, path: Path) -> "TrainConfig":
@@ -59,6 +61,8 @@ class TrainConfig:
                 raise ValueError(f"{name} must be positive")
         if self.fp16 and self.bf16:
             raise ValueError("fp16 and bf16 cannot both be enabled")
+        if self.crop_training_audio and not self.crop_proposals:
+            raise ValueError("crop_training_audio requires crop_proposals")
         if min(self.hourly_price_usd, self.estimated_hours, self.maximum_cost_usd) < 0:
             raise ValueError("cost fields cannot be negative")
         if self.planned_cost_usd > self.maximum_cost_usd:

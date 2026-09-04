@@ -15,9 +15,14 @@ from sinhala_asr.data.manifest import _audio_bytes, _first_present
 
 
 class ManifestAudioDataset(Dataset):
-    def __init__(self, rows: list[dict[str, Any]]) -> None:
+    def __init__(
+        self,
+        rows: list[dict[str, Any]],
+        crop_bounds: dict[str, tuple[float, float]] | None = None,
+    ) -> None:
         self.rows = rows
         self._sources: dict[str, list[dict[str, Any]]] = {}
+        self.crop_bounds = crop_bounds or {}
 
     def __len__(self) -> int:
         return len(self.rows)
@@ -42,11 +47,37 @@ class ManifestAudioDataset(Dataset):
             raise ValueError(
                 f"expected 16 kHz audio, found {sample_rate} Hz for {manifest_row['sample_id']}"
             )
+        sample_id = str(manifest_row["sample_id"])
+        if sample_id in self.crop_bounds:
+            start_seconds, end_seconds = self.crop_bounds[sample_id]
+            start = max(0, round(start_seconds * sample_rate))
+            end = min(len(samples), round(end_seconds * sample_rate))
+            if end <= start:
+                raise ValueError(
+                    f"invalid crop bounds for {sample_id}: {start_seconds}, {end_seconds}"
+                )
+            samples = samples[start:end]
         return {
             "audio": samples,
             "text": str(manifest_row["text_canonical"]),
-            "sample_id": str(manifest_row["sample_id"]),
+            "sample_id": sample_id,
         }
+
+
+def load_crop_bounds(path: Path) -> dict[str, tuple[float, float]]:
+    rows = pq.read_table(
+        path, columns=["sample_id", "crop_start_seconds", "crop_end_seconds"]
+    ).to_pylist()
+    bounds = {
+        str(row["sample_id"]): (
+            float(row["crop_start_seconds"]),
+            float(row["crop_end_seconds"]),
+        )
+        for row in rows
+    }
+    if len(bounds) != len(rows):
+        raise ValueError("crop proposals contain duplicate sample IDs")
+    return bounds
 
 
 def load_training_rows(
