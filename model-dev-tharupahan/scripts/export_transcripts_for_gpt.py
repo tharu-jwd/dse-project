@@ -9,6 +9,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from sinhala_asr.review.store import load_adjudications
+
 
 FIELDS = (
     "sample_id",
@@ -34,10 +36,19 @@ def main() -> None:
     parser.add_argument("--queue", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--batch-size", type=int, default=200)
+    parser.add_argument("--adjudications", type=Path)
+    parser.add_argument("--unreviewed-only", action="store_true")
     args = parser.parse_args()
     if args.batch_size <= 0:
         raise SystemExit("batch-size must be positive")
     queue = pd.read_parquet(args.queue.expanduser().resolve())
+    if args.unreviewed_only:
+        if not args.adjudications:
+            raise SystemExit("--unreviewed-only requires --adjudications")
+        reviewed = set(
+            load_adjudications(args.adjudications.expanduser().resolve())
+        )
+        queue = queue[~queue["sample_id"].astype(str).isin(reviewed)]
     rows = [
         {
             "sample_id": str(row.sample_id),
