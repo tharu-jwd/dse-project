@@ -16,11 +16,15 @@ trailing silence is 0.82 seconds. Of the retained clips, 101,839 have over one
 second of leading silence, 62,101 have over one second of trailing silence, and
 137,417 have more than 40% combined boundary silence.
 
-A non-destructive crop proposal retains 250 ms before detected speech and 400
-ms after it. It would reduce 223.63 hours to 144.45 hours, saving 79.19 hours
-(35.4%). These are heuristic boundaries, not approved training inputs. Quiet
-speech can fall below the energy threshold, so trimming must first pass a
-listening check and a controlled trimmed-versus-original smoke experiment.
+The initial -40 dBFS proposal, with 250 ms leading and 400 ms trailing margins,
+was rejected after listening showed that it could truncate low-volume speech.
+It must not be used for training.
+
+The replacement non-destructive proposal uses -50 dBFS and retains 750 ms at
+both boundaries. It would reduce 223.63 hours to 202.29 hours, saving 21.34
+hours (9.5%). These are still heuristic boundaries, not approved training
+inputs. They must pass a fresh listening check and a controlled
+trimmed-versus-original smoke experiment.
 
 ## Clipping
 
