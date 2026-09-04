@@ -77,3 +77,7 @@ The notebook mounts Drive and writes checkpoints under
 base weights, effective batch size 16, and learning rate `5e-5`, then generates
 predictions for the same 206-row v4 validation split using the frozen baseline
 decoding settings. The test split is neither packaged nor accessed.
+
+The setup deliberately uninstalls Colab's optional `torchao` package. The
+preinstalled `torchao==0.10.0` is incompatible with current PEFT and prevents
+adapter injection; this pilot does not use quantization and does not need it.
