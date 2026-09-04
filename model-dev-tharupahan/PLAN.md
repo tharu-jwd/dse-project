@@ -296,10 +296,12 @@ actual cloud cost.
 - [x] Download and fingerprint independently available upstream datasets
 - [x] Run source and cross-source audits on actual audio/transcript data
 - [x] Build the local adjudication UI and self-contained review queues
-- [ ] Review and lock gold validation/test sets
+- [x] Review and lock gold validation/test sets (dataset v3)
 - [x] Generate deterministic speaker-disjoint v1 candidate splits
+- [x] Audit full-corpus boundary silence and clipping without modifying sources
+- [x] Generate a conservative, non-destructive boundary-trim proposal
 - [x] Implement strict/canonical metrics, error labels, subgroups, and confidence intervals
-- [x] Pass local Whisper train/evaluate/save/resume and prediction/report smoke tests
+- [x] Implement local Whisper training, prediction, and reporting paths
 - [x] Enforce configuration-based cloud cost and test-set access gates
 - [ ] Evaluation and detailed error reports
 - [ ] Configuration-driven training
