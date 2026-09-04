@@ -35,6 +35,15 @@ model FLOPs because the current Whisper feature extractor pads inputs to a
 fixed 30-second feature shape. Cropping may improve alignment, but it should not
 be claimed as a GPU-compute saving unless a later measured GPU pilot proves it.
 
+A subsequent matched local MPS comparison used Whisper-tiny, the same first
+1,000 training rows, the same 100 finalized validation rows, identical seeds and
+hyperparameters, and 50 optimizer steps. At step 50, the original-audio run
+reported 178.9% WER and 337.0% CER; the cropped-training run reported 300.2% WER
+and 462.6% CER. These absolute error rates are not useful model estimates after
+such a short run, but cropping produced no evidence of benefit and a strong
+negative signal. Training runtime was also effectively unchanged (191.4 versus
+183.8 seconds) and model FLOPs were identical.
+
 ## Clipping
 
 The peak check flagged 916 clips at or above 0.999 amplitude. A severity scan
@@ -45,6 +54,6 @@ clips. They remain in v3.
 
 ## Next gate
 
-Before paid full training, run otherwise identical GPU pilots with original and
-proposed-cropped training audio. Enable cropping only if it does not worsen
-strict validation WER/CER or introduce boundary truncation errors.
+Use original, untrimmed audio for the first meaningful pilot. Keep dynamic
+cropping available only as an experimental switch; do not enable it in the
+baseline or claim compute savings from it.
