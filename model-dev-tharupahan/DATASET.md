@@ -232,7 +232,8 @@ PYTHONPATH=src python scripts/build_v4_review_queue.py \
 
 PYTHONPATH=src streamlit run scripts/review_app.py --server.port 8503 -- \
   --queue reports/review/v4-evaluation-queue.parquet \
-  --output reports/review/v4-evaluation-adjudications.jsonl
+  --output reports/review/v4-evaluation-adjudications.jsonl \
+  --suggestions reports/review/v4-control-gpt/analysis/suggestions.parquet
 ```
 
 In this queue, `Correct` means the displayed normalized OpenSLR transcript

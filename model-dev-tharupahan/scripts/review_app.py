@@ -20,12 +20,17 @@ from sinhala_asr.review.store import (
 )
 
 
-def parse_paths() -> tuple[Path, Path]:
+def parse_paths() -> tuple[Path, Path, Path | None]:
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--queue", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--suggestions", type=Path)
     args, _ = parser.parse_known_args()
-    return args.queue.expanduser().resolve(), args.output.expanduser().resolve()
+    return (
+        args.queue.expanduser().resolve(),
+        args.output.expanduser().resolve(),
+        args.suggestions.expanduser().resolve() if args.suggestions else None,
+    )
 
 
 def audio_value(row: pd.Series) -> bytes | str | None:
@@ -42,9 +47,9 @@ def audio_value(row: pd.Series) -> bytes | str | None:
 
 def main() -> None:
     st.set_page_config(page_title="Sinhala ASR Review", layout="wide")
-    queue_path, output_path = parse_paths()
+    queue_path, output_path, explicit_suggestions = parse_paths()
     queue = load_queue(queue_path)
-    suggestion_path = (
+    suggestion_path = explicit_suggestions or (
         queue_path.parent / "gpt-suggestions" / "analysis" / "suggestions.parquet"
     )
     suggestions = (
