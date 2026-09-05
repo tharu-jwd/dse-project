@@ -218,7 +218,7 @@ def stage_inputs(sinhala: Path, english_source: Path, teacher_path: Path) -> Pat
 
 
 def main() -> None:
-    runtime = one_file("run_e002_colab.py").parent
+    runtime = one_file("whisper-small--model.safetensors").parent
     sinhala = one_file("sinhala-manifest.json").parent
     english_source = one_file("train-manifest.json").parent
     teacher_path = one_file("e004-english-teacher-labels.parquet")
