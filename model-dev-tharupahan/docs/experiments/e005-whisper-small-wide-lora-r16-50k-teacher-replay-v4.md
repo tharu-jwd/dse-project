@@ -101,9 +101,11 @@ match against the real local dataset mirrors before the fix was pushed.
 
 ## Training and Sinhala validation
 
-Kernel version 3 completed all 1,736 steps on a single Kaggle Tesla T4 (the
-frozen recipe anticipated two devices; only one was assigned, which explains
-the longer-than-planned wall time rather than any correctness change).
+Kernel version 3 completed all 1,736 steps on Kaggle's two Tesla T4 devices as
+planned: `trainer_state.json` records `train_batch_size: 8` (per-device 4 x 2
+GPUs), giving the intended effective batch 32 once gradient accumulation (4)
+is applied; `run-metadata.json`'s single `"gpu": "Tesla T4"` field only names
+device 0 and is not evidence of a single-device run.
 Training took 10,461.35 seconds (~2h54m) and Sinhala validation generation
 took 61.01 seconds. Peak allocated GPU memory was 1,801,439,744 bytes. Mean
 training loss was 2.9544 over the full 0.9999 effective epoch. All 14
