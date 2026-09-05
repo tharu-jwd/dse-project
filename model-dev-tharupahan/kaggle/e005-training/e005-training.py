@@ -209,7 +209,7 @@ def stage_inputs(sinhala: Path, english_source: Path, teacher_path: Path) -> Pat
         "gradient_accumulation_steps": 4,
         "save_steps": 124,
         "logging_steps": 10,
-        "git_commit": "cbd008c93ce5f29f9eda9a5788b1bc98f9691e18",
+        "git_commit": "f65e81f9aae2e18c2759ec5bd3be2e087adc28b0",
         "tracked_config": "configs/training/experiments/e005-wide-lora-r16-50k-teacher-replay-v4.json",
     }
     config_path = LOCAL_INPUT / "e005-job-config.json"
