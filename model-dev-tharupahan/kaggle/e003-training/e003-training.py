@@ -12,7 +12,6 @@ from pathlib import Path
 
 INPUTS = Path("/kaggle/input")
 WORK = Path("/kaggle/working")
-RUNTIME = INPUTS / "sinhala-asr-e003-runtime"
 OUTPUT = WORK / "e003-training"
 LOCAL_INPUT = WORK / "e003-input"
 MODEL = WORK / "whisper-small"
@@ -26,7 +25,18 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def install_runtime() -> None:
+def find_runtime() -> Path:
+    candidates = [
+        path.parent
+        for path in INPUTS.rglob("whisper-small--model.safetensors")
+        if (path.parent / "run_e002_colab.py").is_file()
+    ]
+    if len(candidates) != 1:
+        raise RuntimeError(f"expected one E003 runtime dataset, found {candidates}")
+    return candidates[0]
+
+
+def install_runtime(runtime: Path) -> None:
     subprocess.run(
         [sys.executable, "-m", "pip", "uninstall", "-y", "torchao"],
         check=True,
@@ -40,7 +50,7 @@ def install_runtime() -> None:
             "--no-index",
             "--no-deps",
             "--find-links",
-            str(RUNTIME),
+            str(runtime),
             "transformers==5.16.1",
             "peft==0.20.0",
             "huggingface-hub==1.30.0",
@@ -52,7 +62,7 @@ def install_runtime() -> None:
     )
 
 
-def stage_inputs() -> Path:
+def stage_inputs(runtime: Path) -> Path:
     manifests = list(INPUTS.rglob("train-manifest.json"))
     if len(manifests) != 1:
         raise RuntimeError(f"expected one E003 train manifest, found {manifests}")
@@ -60,7 +70,7 @@ def stage_inputs() -> Path:
     shutil.rmtree(LOCAL_INPUT, ignore_errors=True)
     shutil.rmtree(MODEL, ignore_errors=True)
     MODEL.mkdir()
-    for asset in RUNTIME.glob("whisper-small--*"):
+    for asset in runtime.glob("whisper-small--*"):
         (MODEL / asset.name.removeprefix("whisper-small--")).symlink_to(asset)
     if not (MODEL / "model.safetensors").is_file():
         raise RuntimeError("offline Whisper-small model is incomplete")
@@ -77,8 +87,9 @@ def stage_inputs() -> Path:
 
 
 def main() -> None:
-    install_runtime()
-    config = stage_inputs()
+    runtime = find_runtime()
+    install_runtime(runtime)
+    config = stage_inputs(runtime)
     environment = os.environ.copy()
     environment.update(
         {
@@ -90,7 +101,7 @@ def main() -> None:
         }
     )
     subprocess.run(
-        [sys.executable, str(RUNTIME / "run_e002_colab.py")],
+        [sys.executable, str(runtime / "run_e002_colab.py")],
         check=True,
         env=environment,
     )
