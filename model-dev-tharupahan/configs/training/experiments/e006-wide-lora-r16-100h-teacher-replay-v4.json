@@ -36,6 +36,6 @@
   "estimated_hours": 5.0,
   "maximum_cost_usd": 0.0,
   "crop_training_audio": false,
-  "git_commit": null,
+  "git_commit": "4019661eeb60e9a5aeadfefa5312d54556de2e08",
   "tracked_config": "configs/training/experiments/e006-wide-lora-r16-100h-teacher-replay-v4.json"
 }
