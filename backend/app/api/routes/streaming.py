@@ -169,19 +169,19 @@ async def _run_session(websocket: WebSocket, user: User) -> None:
 
     mode = start_message.get("mode")
 
-    if mode not in ("NOTE", "COMMAND"):
+    if mode not in TRANSCRIPT_TYPE_BY_MODE and mode != "COMMAND":
         await websocket.send_json(
-            {"type": "error", "message": "Only NOTE and COMMAND modes are currently supported."}
+            {"type": "error", "message": "Only NOTE, EXAM and COMMAND modes are currently supported."}
         )
         await websocket.close(code=status.WS_1003_UNSUPPORTED_DATA)
         return
 
     transcript_id: UUID | None = None
-    if mode == "NOTE":
+    if mode in TRANSCRIPT_TYPE_BY_MODE:
         title = start_message.get("title") or "Untitled note"
         try:
             transcript_id = await asyncio.to_thread(
-                create_live_transcript, user, title, TRANSCRIPT_TYPE_BY_MODE["NOTE"]
+                create_live_transcript, user, title, TRANSCRIPT_TYPE_BY_MODE[mode]
             )
         except DuplicateTranscriptTitleError as error:
             await websocket.send_json({"type": "error", "message": str(error)})
@@ -228,7 +228,7 @@ async def _run_session(websocket: WebSocket, user: User) -> None:
     # ticker task for it at all.
     ticker = (
         asyncio.create_task(_window_ticker(websocket, buffer, state, transcript_id))
-        if mode == "NOTE"
+        if mode != "COMMAND"
         else None
     )
     vad = get_vad()
@@ -382,9 +382,10 @@ async def _process_window(
         await _emit_final(
             websocket, buffer, state, transcript_id, text, result.avg_logprob, audio
         )
-    elif state["mode"] == "NOTE":
-        # Partial previews only matter for the dictation flow - COMMAND
-        # mode has no note text to show the client mid-utterance.
+    elif state["mode"] != "COMMAND":
+        # Partial previews only matter for the dictation flow (NOTE and
+        # EXAM) - COMMAND mode has no note text to show the client
+        # mid-utterance.
         await websocket.send_json(
             {"type": "partial", "text": text, "segment": state["segment_order"]}
         )

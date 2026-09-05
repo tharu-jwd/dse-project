@@ -130,6 +130,13 @@ def resolve_command(
             decision = CommandDecision(
                 "execute", fuzzy_id, fuzzy_id, fuzzy_score, embedding_id, embedding_score, True
             )
+        elif fuzzy_score is not None and fuzzy_score >= settings.voice_command_fuzzy_exact_override:
+            # The words themselves matched almost exactly - trust that
+            # over a disagreeing embedding rather than asking the
+            # student to repeat a command they already said clearly.
+            decision = CommandDecision(
+                "execute", fuzzy_id, fuzzy_id, fuzzy_score, embedding_id, embedding_score, False
+            )
         else:
             decision = CommandDecision(
                 "confirm", None, fuzzy_id, fuzzy_score, embedding_id, embedding_score, False

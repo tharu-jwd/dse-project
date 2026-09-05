@@ -97,6 +97,20 @@ export default function TranscriptEditor({
   const voice = useVoiceCommands({
     onCommand: (command) => {
       if (transcript.status === 'FINALIZED') return
+      // The confirm dialog takes priority over the normal per-command
+      // routing below: once it's open, "submit" said again confirms it
+      // and "cancel" dismisses it, rather than either doing nothing or
+      // (for "submit") just re-opening the same dialog.
+      if (confirmFinalize) {
+        if (command === 'submit') {
+          setConfirmFinalize(false)
+          finalize()
+        } else if (command === 'cancel') {
+          setConfirmFinalize(false)
+          showCommandFeedback(t('editor.finalizeCancelled'))
+        }
+        return
+      }
       if (command === 'save') {
         if (!dirty) {
           showCommandFeedback(t('editor.nothingToSave'))
@@ -632,28 +646,30 @@ export default function TranscriptEditor({
       {compact && (
         <div className="compact-editor-actions">
           <span>{dirty ? t('editor.unsavedAnswerEdits') : t('editor.answerTranscriptSaved')}</span>
-          <button className="button button--secondary" disabled={!dirty || saving} onClick={save}>
-            {t('editor.saveCorrection')}
+          <button
+            className="button button--primary"
+            disabled={saving}
+            onClick={() => (dirty ? save() : onTranscriptChange?.(transcript))}
+          >
+            {saving ? (
+              <span className="spinner spinner--small" />
+            ) : (
+              <Icon name="check" size={17} />
+            )}{' '}
+            {t('editor.saveAnswer')}
           </button>
-          {transcript.status !== 'FINALIZED' && (
-            <button
-              className="button button--primary"
-              disabled={saving}
-              onClick={() => setConfirmFinalize(true)}
-            >
-              {t('editor.useThisAnswer')}
-            </button>
-          )}
         </div>
       )}
-      <ConfirmDialog
-        open={confirmFinalize}
-        title={compact ? t('editor.useSpokenAnswerTitle') : t('editor.finalizeTranscriptTitle')}
-        message={t('editor.finalizeMessage')}
-        confirmLabel={compact ? t('editor.useAnswer') : t('editor.finalizeTranscript')}
-        onCancel={() => setConfirmFinalize(false)}
-        onConfirm={finalize}
-      />
+      {!compact && (
+        <ConfirmDialog
+          open={confirmFinalize}
+          title={t('editor.finalizeTranscriptTitle')}
+          message={t('editor.finalizeMessage')}
+          confirmLabel={t('editor.finalizeTranscript')}
+          onCancel={() => setConfirmFinalize(false)}
+          onConfirm={finalize}
+        />
+      )}
     </div>
   )
 }

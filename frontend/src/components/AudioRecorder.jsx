@@ -7,7 +7,7 @@ import { Alert } from './UI'
 const time = (seconds) =>
   `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
 
-export default function AudioRecorder({ onUse, disabled = false }) {
+export default function AudioRecorder({ onUse, disabled = false, showUpload = true }) {
   const { t } = useLanguage()
   const uploadId = useId()
   const [state, setState] = useState('idle')
@@ -163,7 +163,7 @@ export default function AudioRecorder({ onUse, disabled = false }) {
           </>
         )}
       </div>
-      {state === 'idle' && (
+      {state === 'idle' && showUpload && (
         <>
           <p className="recorder__divider">{t('recorder.orUpload')}</p>
           <FileUpload

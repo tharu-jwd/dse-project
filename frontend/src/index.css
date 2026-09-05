@@ -3274,6 +3274,14 @@ textarea:focus-visible {
 .enrollment-feedback.is-rejected {
   color: var(--warning);
 }
+.enrollment-review {
+  margin-top: 8px;
+}
+.enrollment-review audio {
+  width: 100%;
+  max-width: 260px;
+  height: 32px;
+}
 .manage-list article {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;

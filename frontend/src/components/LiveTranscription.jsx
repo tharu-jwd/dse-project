@@ -48,7 +48,13 @@ function escapeHtml(text) {
 const VOICE_BAR_COUNT = 9
 const VOICE_THRESHOLD = 0.02
 
-export default function LiveTranscription({ title, onSessionEnd, disabled = false }) {
+export default function LiveTranscription({
+  title,
+  onSessionEnd,
+  disabled = false,
+  mode = 'NOTE',
+  autoStart = false,
+}) {
   const { t } = useLanguage()
   const [status, setStatus] = useState('idle') // idle | connecting | recording | stopping | error
   const [error, setError] = useState('')
@@ -206,7 +212,7 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
         processor.connect(silentGain)
         silentGain.connect(audioCtx.destination)
 
-        socket.send(JSON.stringify({ type: 'start', title: title.trim(), mode: 'NOTE' }))
+        socket.send(JSON.stringify({ type: 'start', title: title.trim(), mode }))
         setStatus('recording')
         intervalRef.current = window.setInterval(() => setSeconds((value) => value + 1), 1000)
         startMeterLoop()
@@ -285,6 +291,15 @@ export default function LiveTranscription({ title, onSessionEnd, disabled = fals
       setError(t('live.connectFailed'))
     }
   }
+
+  // Voice-driven handoff: the quiz page's always-on command mic sets
+  // `autoStart` once it hears "answer", so this session starts itself
+  // instead of waiting for a click - it only fires once per handoff
+  // (guarded on `status === 'idle'`), not on every re-render.
+  useEffect(() => {
+    if (autoStart && status === 'idle' && !disabled) start()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart])
 
   const stop = () => {
     setStatus('stopping')

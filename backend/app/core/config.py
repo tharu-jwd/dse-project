@@ -61,6 +61,15 @@ class Settings(BaseSettings):
     voice_command_hotwords_enabled: bool = True
     voice_command_fuzzy_threshold: float = 80.0
     voice_command_destructive_threshold: float = 90.0
+    # A near-exact skeleton match on a short, distinctive command phrase
+    # (e.g. saying "next" and it transcribing to precisely "next") is
+    # about as certain as this system gets. Above this score, the fuzzy
+    # match is trusted outright even if the embedding path disagrees,
+    # rather than downgrading to "confirm" - without this, adding more
+    # short/similar-sounding commands (MCQ option numbers) made the
+    # embedding path noisy enough to routinely override otherwise-exact
+    # text matches for "next"/"previous", making them feel broken.
+    voice_command_fuzzy_exact_override: float = 95.0
     # avg_logprob is a per-token log probability (typically in [-1, 0] for
     # confident speech); below this, a borderline fuzzy score is rejected.
     voice_command_logprob_floor: float = -0.5

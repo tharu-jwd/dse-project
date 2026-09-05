@@ -30,6 +30,41 @@ class DuplicateTranscriptTitleError(ValueError):
     pass
 
 
+def replace_duplicate_title(
+    db: Session,
+    owner_id: UUID,
+    title: str,
+) -> None:
+    """If this owner already has a transcript with this exact title,
+    delete it so a fresh attempt can reuse the same title.
+
+    Covers a student mistakenly recording/uploading more than one answer
+    for the same quiz question, or retrying after an error - rather than
+    failing with a duplicate-title error, the new attempt simply replaces
+    whatever was stored before. A FINALIZED transcript is the one
+    exception: something the student has already locked in (or a teacher
+    has graded) is never silently destroyed by a same-titled retry.
+    """
+
+    existing = db.scalar(
+        select(Transcript).where(
+            Transcript.owner_id == owner_id,
+            func.lower(Transcript.title) == title.strip().lower(),
+        )
+    )
+
+    if existing is None:
+        return
+
+    if existing.status == "FINALIZED":
+        raise DuplicateTranscriptTitleError(
+            f'You already have a finalized transcript titled "{title.strip()}".'
+        )
+
+    db.delete(existing)
+    db.flush()
+
+
 def title_is_taken(
     db: Session,
     owner_id: UUID,
