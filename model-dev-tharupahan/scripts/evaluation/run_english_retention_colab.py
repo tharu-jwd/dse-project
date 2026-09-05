@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import io
 import json
+import os
 import platform
 import time
 from pathlib import Path
@@ -20,7 +21,7 @@ import transformers
 from peft import PeftModel
 from transformers import WhisperForConditionalGeneration, WhisperProcessor
 
-MODEL = "openai/whisper-small"
+MODEL = os.environ.get("SINHALA_ASR_MODEL", "openai/whisper-small")
 
 
 def file_hash(path: Path) -> str:
@@ -79,7 +80,7 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--adapter", type=Path)
     parser.add_argument(
-        "--variant", choices=("untouched", "e001", "e002"), required=True
+        "--variant", choices=("untouched", "e001", "e002", "e003"), required=True
     )
     parser.add_argument("--batch-size", type=int, default=8)
     args = parser.parse_args()
