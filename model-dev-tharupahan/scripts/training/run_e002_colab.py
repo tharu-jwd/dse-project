@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 import platform
 import tarfile
 import time
@@ -32,12 +33,12 @@ from transformers import (
 )
 
 MODEL = "openai/whisper-small"
-ROOT = Path("/content/sinhala-asr-job")
-INPUT = ROOT / "input"
-OUTPUT = ROOT / "output"
+ROOT = Path(os.environ.get("SINHALA_ASR_JOB_ROOT", "/content/sinhala-asr-job"))
+INPUT = Path(os.environ.get("SINHALA_ASR_INPUT_ROOT", str(ROOT / "input")))
+OUTPUT = Path(os.environ.get("SINHALA_ASR_OUTPUT_ROOT", str(ROOT / "output")))
 TRAIN_DIR = INPUT / "train"
 VALIDATION_BUNDLE = INPUT / "v4-validation-206-audio.parquet"
-JOB_CONFIG = INPUT / "job-config.json"
+JOB_CONFIG = Path(os.environ.get("SINHALA_ASR_JOB_CONFIG", str(INPUT / "job-config.json")))
 EVENTS = OUTPUT / "events.jsonl"
 STATUS = OUTPUT / "status.json"
 CHECKPOINT_INDEX = OUTPUT / "checkpoint-index.json"
