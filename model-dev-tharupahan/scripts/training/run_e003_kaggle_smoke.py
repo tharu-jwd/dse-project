@@ -13,8 +13,7 @@ from pathlib import Path
 
 WORK = Path("/kaggle/working")
 OUTPUT = WORK / "e003-smoke"
-SOURCE_INPUT = Path("/kaggle/input/sinhala-asr-e003-inputs")
-RUNTIME_ASSETS = Path("/kaggle/input/sinhala-asr-e003-runtime")
+RUNTIME_ASSETS = Path(__file__).resolve().parent
 RUNTIME_INPUT = WORK / "e003-input"
 MODEL = WORK / "whisper-small"
 
@@ -46,8 +45,10 @@ def run(config: Path) -> None:
 
 
 def main() -> None:
-    if not SOURCE_INPUT.is_dir():
-        raise SystemExit(f"Kaggle input dataset missing: {SOURCE_INPUT}")
+    manifests = list(Path("/kaggle/input").rglob("train-manifest.json"))
+    if len(manifests) != 1:
+        raise SystemExit(f"expected one E003 train manifest, found {manifests}")
+    source_input = manifests[0].parent
     shutil.rmtree(OUTPUT, ignore_errors=True)
     shutil.rmtree(RUNTIME_INPUT, ignore_errors=True)
     shutil.rmtree(MODEL, ignore_errors=True)
@@ -57,23 +58,23 @@ def main() -> None:
     if not (MODEL / "model.safetensors").is_file():
         raise SystemExit("offline Whisper-small model is incomplete")
     (RUNTIME_INPUT / "train").mkdir(parents=True)
-    manifest = SOURCE_INPUT / "train-manifest.json"
+    manifest = source_input / "train-manifest.json"
     expected_manifest = RUNTIME_INPUT / "train" / "manifest.json"
     expected_manifest.symlink_to(manifest)
     for shard in json.loads(manifest.read_text())["shards"]:
         (expected_manifest.parent / shard["name"]).symlink_to(
-            SOURCE_INPUT / shard["name"]
+            source_input / shard["name"]
         )
     (RUNTIME_INPUT / "v4-validation-206-audio.parquet").symlink_to(
-        SOURCE_INPUT / "v4-validation-206-audio.parquet"
+        source_input / "v4-validation-206-audio.parquet"
     )
-    phase_a = SOURCE_INPUT / "e003-smoke-phase-a-job-config.json"
+    phase_a = source_input / "e003-smoke-phase-a-job-config.json"
     run(phase_a)
     checkpoint = OUTPUT / "trainer/checkpoint-1"
     if not (checkpoint / "COMPLETE").is_file():
         raise SystemExit("phase A did not produce complete checkpoint 1")
     phase_b_config = json.loads(
-        (SOURCE_INPUT / "e003-smoke-phase-b-job-config.json").read_text()
+        (source_input / "e003-smoke-phase-b-job-config.json").read_text()
     )
     phase_b_config["resume_from_checkpoint"] = str(checkpoint)
     phase_b = WORK / "e003-smoke-phase-b-resolved.json"
