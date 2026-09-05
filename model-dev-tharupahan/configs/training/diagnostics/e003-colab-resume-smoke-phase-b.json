@@ -1,0 +1,23 @@
+{
+  "experiment": "e003-colab-resume-smoke",
+  "model_name": "openai/whisper-small",
+  "method": "lora",
+  "training_rows": 11111,
+  "sinhala_source_rows": 10000,
+  "english_replay_rows": 1111,
+  "training_bundle_sha256": "71de2a4fd6ecec0418b0810fabf000d8e4dd40f4427dca0e1b0216b0b7485368",
+  "validation_bundle_sha256": "c7a378a115dd953c50bfe6a2c550e28b5a5cc829dee79bdb29ccde1151e46ec2",
+  "seed": 20260903,
+  "resume_from_checkpoint": "/content/sinhala-asr-job/output/trainer/checkpoint-1",
+  "stop_after_step": null,
+  "skip_validation": true,
+  "max_steps": 2,
+  "learning_rate": 5e-5,
+  "train_batch_size": 4,
+  "eval_batch_size": 8,
+  "gradient_accumulation_steps": 4,
+  "save_steps": 1,
+  "logging_steps": 1,
+  "fp16": true,
+  "gradient_checkpointing": true
+}
