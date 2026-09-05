@@ -54,10 +54,15 @@ on v4 validation with repetition-safe decoding. E002 and E003 improved Sinhala
 but damaged standalone English. E004 established that replaying untouched-model
 English behavior targets retains the Sinhala gain while passing the frozen
 English gate: canonical English WER was 4.62% versus 4.23% untouched. Sinhala
-remained unusable at 95.48% canonical WER and 37.63% canonical CER. E005 is now
-scaling the same proven adapter and replay method to a nested 50,000-row,
-60.31-hour Sinhala-source subset for approximately one effective epoch.
-Full-parameter fine-tuning remains out of scope.
+remained unusable at 95.48% canonical WER and 37.63% canonical CER. E005 scaled
+the same proven adapter and replay method to a nested 50,000-row, 60.31-hour
+Sinhala-source subset for one effective epoch: Sinhala canonical WER improved
+materially to 88.39% (canonical CER 32.24%; paired 95% interval excludes zero
+on both), and the English-retention gate continued to pass at 4.52% canonical
+WER versus 4.23% untouched, statistically equivalent to E004's English result.
+Sinhala remains far above the under-10% target. Per the project's decision
+rule, scale is a promising axis; E006 is expected to continue scaling the
+Sinhala training subset. Full-parameter fine-tuning remains out of scope.
 
 Historical split and model claims have already been captured in the
 [historical audit](docs/audits/historical-audit.md). Current dataset

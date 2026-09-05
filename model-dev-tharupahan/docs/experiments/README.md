@@ -11,7 +11,7 @@ and result report.
 | E002 | Whisper-small wide LoRA rank 16, 500 steps, nested v4 data | Complete | [Sinhala improved; English-retention gate failed](e002-whisper-small-wide-lora-r16-500-step-v4.md) |
 | E003 | E002 recipe with 10% raw-reference English replay | Complete | [Sinhala improved; English retention failed](e003-whisper-small-wide-lora-r16-english-replay-v4.md) |
 | E004 | E003 recipe with untouched-model teacher-target English replay | Complete | [English retention passed; Sinhala remained far above target](e004-whisper-small-wide-lora-r16-teacher-replay-v4.md) |
-| E005 | E004 teacher replay scaled to 50k Sinhala rows and one effective epoch | Prepared | [Awaiting private Kaggle training](e005-whisper-small-wide-lora-r16-50k-teacher-replay-v4.md) |
+| E005 | E004 teacher replay scaled to 50k Sinhala rows and one effective epoch | Complete | [Sinhala improved materially; English retention passed](e005-whisper-small-wide-lora-r16-50k-teacher-replay-v4.md) |
 The fixed 2,620-row LibriSpeech test-clean benchmark is evaluated after every
 adapter experiment without changing its references or normalization protocol.
 

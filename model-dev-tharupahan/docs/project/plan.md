@@ -328,6 +328,8 @@ actual cloud cost.
   freeze 392 usable references as v4 and hold out 1,604 unheard rows
 - [x] Benchmark Bedrock-accessible transcript refiners against 293 audio-verified
   targets; Sonnet 4.6 is safest but does not reproduce the earlier ChatGPT pass
-- [ ] Model-training controlled experiments (first 100-step pilot completed;
-  larger nested-data pilot and English-retention evaluation remain)
+- [ ] Model-training controlled experiments (E000-E005 complete through the
+  50,000-row/60.31-hour nested Sinhala-data tier with passing English
+  retention; further data-scale tiers toward the full 182,665-row/220.88-hour
+  dataset remain)
 - [ ] Final test, deployment benchmark, and model card
