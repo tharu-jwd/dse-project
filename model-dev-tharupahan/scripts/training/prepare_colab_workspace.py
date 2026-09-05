@@ -14,7 +14,8 @@ import torch
 root = Path("/content/sinhala-asr-job")
 if root.exists() and any(root.iterdir()):
     raise SystemExit(f"refusing to reuse non-empty workspace: {root}")
-(root / "input" / "train").mkdir(parents=True, exist_ok=True)
+(root / "input" / "train" / "e002").mkdir(parents=True, exist_ok=True)
+(root / "input" / "train" / "english-replay").mkdir(parents=True, exist_ok=True)
 (root / "output").mkdir(parents=True, exist_ok=True)
 subprocess.run([sys.executable, "-m", "pip", "uninstall", "-y", "torchao"], check=True)
 disk = shutil.disk_usage(root)

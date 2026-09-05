@@ -62,6 +62,14 @@ experiment attempt was consumed. In accordance with the two-retry infrastructure
 limit, preparation stopped without launching training; a later allocation may
 retry the unchanged smoke configuration.
 
+Once a T4 is available, `stage_e003_colab.py` locally re-hashes all 14 shards,
+creates the isolated remote workspace and uploads the manifest, validation set,
+resolved config and exact runner scripts. It deliberately does not launch the
+job. After phase A reaches checkpoint 1, `resume_e003_smoke_colab.py` refuses to
+continue unless the remote process has exited successfully, then installs the
+phase-B config and launches the resume. This replaces manual file-by-file
+staging while retaining explicit preflight and phase boundaries.
+
 ## Decision rule
 
 The thresholds are frozen before training. E003 must retain at least 75% of
