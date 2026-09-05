@@ -24,6 +24,8 @@ def main() -> None:
     job_script = args.job_script
     if job_script is None:
         candidates = [
+            Path("/content/prepare_librispeech_replay_colab.py"),
+            Path("/content/run_e003_colab.py"),
             Path("/content/run_e002_colab.py"),
             Path("/content/run_english_adapter_job_colab.py"),
             Path("/content/run_english_e001_job_colab.py"),

@@ -80,7 +80,11 @@ class EmbeddedAudioDataset(Dataset):
         waveform, rate = sf.read(io.BytesIO(row["audio"]), dtype="float32")
         if rate != 16000 or waveform.ndim != 1:
             raise ValueError(f"unexpected audio format: {row['sample_id']}")
-        return {"audio": waveform, "text": row[self.text_column]}
+        return {
+            "audio": waveform,
+            "text": row[self.text_column],
+            "decoder_language": row.get("decoder_language") or "si",
+        }
 
 
 @dataclass
@@ -94,11 +98,16 @@ class WhisperCollator:
             return_attention_mask=True,
             return_tensors="pt",
         )
-        encoded = self.processor.tokenizer(
-            [feature["text"] for feature in features],
-            padding=True,
-            return_tensors="pt",
-        )
+        label_features = []
+        for feature in features:
+            self.processor.tokenizer.set_prefix_tokens(
+                language=feature["decoder_language"], task="transcribe"
+            )
+            label_features.append(
+                {"input_ids": self.processor.tokenizer(feature["text"]).input_ids}
+            )
+        encoded = self.processor.tokenizer.pad(label_features, return_tensors="pt")
+        self.processor.tokenizer.set_prefix_tokens(language="si", task="transcribe")
         labels = encoded.input_ids.masked_fill(encoded.attention_mask.ne(1), -100)
         if (labels[:, 0] == self.processor.tokenizer.bos_token_id).all():
             labels = labels[:, 1:]
@@ -162,7 +171,7 @@ def load_and_verify_inputs(config: dict[str, Any]) -> tuple[list[dict], list[dic
         if sha256(path) != shard["sha256"]:
             raise ValueError(f"training shard hash mismatch: {path.name}")
         tables.append(pq.read_table(path))
-    train = pa.concat_tables(tables).to_pylist()
+    train = pa.concat_tables(tables, promote_options="default").to_pylist()
     if len(train) != int(config["training_rows"]):
         raise ValueError("training row count mismatch")
     if sha256(VALIDATION_BUNDLE) != config["validation_bundle_sha256"]:
@@ -174,7 +183,11 @@ def load_and_verify_inputs(config: dict[str, Any]) -> tuple[list[dict], list[dic
 
 
 def generate_validation(
-    model: Any, processor: Any, rows: list[dict], batch_size: int
+    model: Any,
+    processor: Any,
+    rows: list[dict],
+    batch_size: int,
+    experiment: str,
 ) -> float:
     model.config.use_cache = True
     model.gradient_checkpointing_disable()
@@ -214,7 +227,7 @@ def generate_validation(
         pa.Table.from_pylist(
             [
                 {key: value for key, value in row.items() if key != "audio"}
-                | {"prediction": prediction, "model": f"{MODEL}+e002"}
+                | {"prediction": prediction, "model": f"{MODEL}+{experiment}"}
                 for row, prediction in zip(rows, predictions)
             ]
         ),
@@ -302,7 +315,11 @@ def main() -> None:
         evaluation_seconds = 0.0
         if not config.get("skip_validation", False):
             evaluation_seconds = generate_validation(
-                model, processor, validation_rows, int(config["eval_batch_size"])
+                model,
+                processor,
+                validation_rows,
+                int(config["eval_batch_size"]),
+                str(config.get("experiment", "e002")),
             )
         metadata = {
             "base_model": MODEL,

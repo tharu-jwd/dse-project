@@ -102,3 +102,18 @@ Training cannot begin until the untouched and E001 models have both been
 evaluated on the frozen English-retention benchmark. E002 uses disposable
 Colab storage and the supervised background-job procedure; it does not reuse
 the historical E001 Drive-mounted implementation.
+
+## E003 preparation
+
+E003 is a controlled replay experiment prompted by E002's English regression.
+It retains all 10,000 E002 rows and adds 1,111 deterministic,
+speaker-balanced LibriSpeech train-clean-100 rows, exactly 10.00% of the
+11,111-row pool. Sinhala-source rows retain a Sinhala decoder prefix; replay
+rows use an English decoder prefix. The training runner defaults missing prefix
+metadata to Sinhala, preserving E002 compatibility.
+
+LibriSpeech replay is prepared on a CPU-only disposable runtime and transferred
+in four hash-verified shards. E003 reuses the ten verified E002 shards rather
+than rebuilding one monolithic local bundle. Before real training, a two-step
+GPU smoke must verify mixed-schema loading, per-row token prefixes, finite loss,
+checkpoint packaging and resume compatibility.
