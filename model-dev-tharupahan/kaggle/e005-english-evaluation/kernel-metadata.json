@@ -1,0 +1,20 @@
+{
+  "id": "tharupahan/sinhala-asr-e005-english-evaluation",
+  "title": "Sinhala ASR E005 English Evaluation",
+  "code_file": "e005-english-evaluation.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_internet": "false",
+  "machine_shape": "NvidiaTeslaT4",
+  "dataset_sources": [
+    "tharupahan/sinhala-asr-e003-runtime",
+    "tharupahan/sinhala-asr-e003-english-evaluation-inputs"
+  ],
+  "competition_sources": [],
+  "kernel_sources": [
+    "tharupahan/sinhala-asr-e005-50k-teacher-replay-training"
+  ],
+  "model_sources": []
+}
