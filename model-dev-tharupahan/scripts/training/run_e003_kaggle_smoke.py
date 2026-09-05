@@ -14,6 +14,7 @@ from pathlib import Path
 WORK = Path("/kaggle/working")
 OUTPUT = WORK / "e003-smoke"
 SOURCE_INPUT = Path("/kaggle/input/sinhala-asr-e003-inputs")
+RUNTIME_ASSETS = Path("/kaggle/input/sinhala-asr-e003-runtime")
 RUNTIME_INPUT = WORK / "e003-input"
 
 
@@ -33,10 +34,11 @@ def run(config: Path) -> None:
             "SINHALA_ASR_INPUT_ROOT": str(RUNTIME_INPUT),
             "SINHALA_ASR_OUTPUT_ROOT": str(OUTPUT),
             "SINHALA_ASR_JOB_CONFIG": str(config),
+            "SINHALA_ASR_MODEL": str(RUNTIME_ASSETS / "whisper-small"),
         }
     )
     subprocess.run(
-        [sys.executable, str(SOURCE_INPUT / "run_e002_colab.py")],
+        [sys.executable, str(RUNTIME_ASSETS / "run_e002_colab.py")],
         check=True,
         env=environment,
     )

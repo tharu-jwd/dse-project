@@ -32,7 +32,7 @@ from transformers import (
     WhisperProcessor,
 )
 
-MODEL = "openai/whisper-small"
+MODEL = os.environ.get("SINHALA_ASR_MODEL", "openai/whisper-small")
 ROOT = Path(os.environ.get("SINHALA_ASR_JOB_ROOT", "/content/sinhala-asr-job"))
 INPUT = Path(os.environ.get("SINHALA_ASR_INPUT_ROOT", str(ROOT / "input")))
 OUTPUT = Path(os.environ.get("SINHALA_ASR_OUTPUT_ROOT", str(ROOT / "output")))
