@@ -45,6 +45,24 @@ def main() -> None:
     for prefix in ("strict", "canonical"):
         old = aggregate(baseline, prefix)
         new = aggregate(candidate, prefix)
+        row_changes = {}
+        for unit in ("word", "character"):
+            differences = [
+                int(new_row[f"{prefix}_{unit}_errors"])
+                - int(old_row[f"{prefix}_{unit}_errors"])
+                for old_row, new_row in zip(baseline, candidate)
+            ]
+            row_changes[unit] = {
+                "improved": sum(change < 0 for change in differences),
+                "tied": sum(change == 0 for change in differences),
+                "regressed": sum(change > 0 for change in differences),
+            }
+        operation_deltas = {
+            f"{unit}_{operation}": int(new[f"{unit}_{operation}"])
+            - int(old[f"{unit}_{operation}"])
+            for unit in ("word", "character")
+            for operation in ("substitutions", "deletions", "insertions")
+        }
         summary[prefix] = {
             "baseline": old,
             "candidate": new,
@@ -58,6 +76,8 @@ def main() -> None:
                 prefix,
                 iterations=args.bootstrap_iterations,
             ),
+            "operation_deltas": operation_deltas,
+            "row_changes": row_changes,
         }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(

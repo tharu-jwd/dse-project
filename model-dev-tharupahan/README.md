@@ -52,9 +52,11 @@ trimming, so the first real baseline uses immutable, original audio.
 Untouched `openai/whisper-small` scored 141.74% strict WER and 92.52% strict CER
 on v4 validation with repetition-safe decoding. The completed 100-step
 wide-LoRA pilot reduced strict WER to 114.26% while using 2.61% trainable
-parameters, but outputs remain unusable. The next experiment is a larger
-nested-data adapter pilot with standalone-English evaluation;
-full-parameter fine-tuning is out of scope.
+parameters, but outputs remain unusable. E002 then showed a large Sinhala gain
+at 500 steps while causing measurable English regression. The next experiment
+adds controlled English/code-switched replay rather than simply extending the
+same Sinhala-dominant recipe.
+Full-parameter fine-tuning remains out of scope.
 
 Historical split and model claims have already been captured in the
 [historical audit](docs/audits/historical-audit.md). Current dataset

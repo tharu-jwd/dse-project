@@ -1,0 +1,11 @@
+{
+  "variant": "e002",
+  "adapter_archive_sha256": "029b9214d037d7d2754483edb548680d7cf2233e7c339d85bb338d326910550e",
+  "benchmark_source_sha256": "7113aa4c3cf963fb54697145719a7725f984c8836d1c494a554cbb9f1a017df0",
+  "rows": 2620,
+  "language": "en",
+  "task": "transcribe",
+  "batch_size": 8,
+  "max_new_tokens": 128,
+  "no_repeat_ngram_size": 3
+}

@@ -2,8 +2,8 @@
 
 ## Status
 
-Ready to run; E002 training has not started. The untouched/E001
-English-retention gate and deliberate checkpoint-resume smoke both passed.
+Complete. E002 substantially improved Sinhala over E001, but failed the
+English-retention gate and remains far above the Sinhala acceptance target.
 
 ## Question
 
@@ -97,13 +97,87 @@ preflight. Observed compute plus checkpoint packaging projects the 500-step run
 at roughly 40 minutes, leaving substantial margin within an ordinary free-T4
 session. The run is therefore cleared to start without paid compute.
 
+## Training and Sinhala validation
+
+The 500-step run completed on a free Colab T4 from source commit `9e0b898`.
+Training took 2,079.37 seconds and final validation generation took 66.58
+seconds. Peak allocated GPU memory was 1,310,765,568 bytes. Mean training loss
+was 3.9198; five-step window loss declined from 12.55 initially to roughly
+1.6–1.9 near completion, while recorded gradient norms remained finite.
+
+Every 25-step checkpoint through step 500 was packaged with adapter, optimizer,
+scheduler, trainer and RNG state, downloaded, SHA-verified, and installed into
+the local ignored experiment artifact tree. Final adapter archive SHA-256:
+`029b9214d037d7d2754483edb548680d7cf2233e7c339d85bb338d326910550e`.
+
+| Sinhala validation metric | E000 untouched | E001 step 100 | E002 step 500 |
+|---|---:|---:|---:|
+| Strict WER | 141.74% | 114.26% | 98.24% |
+| Strict CER | 92.52% | 83.79% | 42.42% |
+| Canonical WER | 141.21% | 114.18% | 97.53% |
+| Canonical CER | 92.44% | 83.86% | 41.43% |
+
+Against E001, E002 reduced strict WER by 16.01 percentage points (paired 95%
+interval -20.02 to -11.86) and strict CER by 41.37 points (-43.56 to -39.28).
+At character level, 205 of 206 rows improved and one regressed. At word level,
+105 improved, 73 tied, and 28 regressed. Word substitutions/deletions/insertions
+fell by 36/71/48; character substitutions/deletions/insertions fell by
+1,686/370/29.
+
+The learning signal is therefore strong and broad, especially at character
+level, but the adapter remains unusable: no validation row is exact and nearly
+every word sequence contains spelling or segmentation errors. The large gap
+between 98.24% WER and 42.42% CER means the model is increasingly producing
+recognizable Sinhala character sequences without yet forming enough exact
+reference words. This run does not approach the under-10% acceptance target.
+
 The experiment follows the failure containment and locally verified checkpoint
 procedure in [the Colab operations policy](../training/colab-cli.md). A failed
 attempt is retained separately and never overwritten.
 
+## English retention
+
+The final E002 adapter was evaluated on the same complete 2,620-row LibriSpeech
+test-clean benchmark and with the same inference path used for untouched
+Whisper-small and E001. The downloaded prediction file matched the runtime
+record at SHA-256
+`50c34a2c729a3cafa750aaab54a81b250ee1b6d7236d84135e8bcc4e9a072b5f`.
+
+| Canonical English metric | Untouched | E001 | E002 |
+|---|---:|---:|---:|
+| WER | 4.2338% | 4.2978% | 6.3535% |
+| CER | 1.9240% | 1.9288% | 2.8905% |
+
+Relative to untouched Whisper-small, E002 increased canonical WER by 2.1197
+percentage points (paired 95% interval +1.8070 to +2.4203) and canonical CER by
+0.9665 points (+0.7557 to +1.1718). Relative to E001, the corresponding changes
+were +2.0557 WER points (+1.7520 to +2.3786) and +0.9618 CER points (+0.7568 to
++1.1627). Against untouched at word level, 160 rows improved, 1,776 tied and
+684 regressed; at character level, 191 improved, 1,710 tied and 719 regressed.
+
+These intervals exclude zero and the degradation is practically meaningful.
+E002 therefore fails the English-retention gate. It does not show the severe
+English collapse reported for historical full-parameter tuning, but the
+additional Sinhala-only-dominant training from E001 to E002 caused measurable
+forgetting.
+
+## Conclusion and next controlled experiment
+
+E002 is useful evidence, not a release candidate: longer LoRA training on more
+v4 Sinhala data strongly improves Sinhala character recognition, yet exact
+word recognition remains poor and English retention worsens. Do not continue
+the same recipe for more steps.
+
+The next experiment should hold the E002 adapter architecture, learning rate,
+Sinhala subset and step budget fixed while adding a licensed English and
+code-switched replay mixture. Its purpose is to test whether replay recovers
+English retention without surrendering E002's Sinhala gain. The replay ratio
+must be frozen before training, and both the 206-row Sinhala validation set and
+the full English benchmark remain unchanged.
+
 ## Decision rule
 
-Proceed from E002 only if Sinhala validation improves beyond E001 without a
-practically unacceptable English regression. If English regresses, the next
+The decision rule fired on its second branch: Sinhala improved, but English
+regressed materially. E002 is rejected as a release candidate and the next
 controlled experiment adds licensed English/code-switched replay while holding
-the adapter, learning rate, Sinhala subset, and step budget constant.
+the remaining training variables constant.

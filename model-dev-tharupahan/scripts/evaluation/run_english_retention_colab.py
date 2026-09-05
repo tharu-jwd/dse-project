@@ -78,13 +78,15 @@ def main() -> None:
     parser.add_argument("--benchmark", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--adapter", type=Path)
-    parser.add_argument("--variant", choices=("untouched", "e001"), required=True)
+    parser.add_argument(
+        "--variant", choices=("untouched", "e001", "e002"), required=True
+    )
     parser.add_argument("--batch-size", type=int, default=8)
     args = parser.parse_args()
     if not torch.cuda.is_available():
         raise SystemExit("CUDA GPU is required")
-    if (args.variant == "e001") != (args.adapter is not None):
-        raise SystemExit("E001 requires --adapter; untouched must omit it")
+    if (args.variant != "untouched") != (args.adapter is not None):
+        raise SystemExit("adapter variants require --adapter; untouched must omit it")
 
     rows = pq.read_table(args.benchmark).to_pylist()
     if len(rows) != 2620:
