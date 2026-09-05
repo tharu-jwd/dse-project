@@ -80,12 +80,40 @@ def main() -> None:
             "--adapter",
             str(adapter),
             "--variant",
-            "e004",
+            # The frozen evaluator snapshot predates the E004 display label.
+            # Run its identical adapter path under the supported E003 label,
+            # then correct only provenance fields and filenames below.
+            "e003",
         ],
         check=True,
         env=environment,
     )
-    runtime_metadata = json.loads((OUTPUT / "e004-runtime.json").read_text())
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    old_predictions = OUTPUT / "e003-predictions.parquet"
+    predictions = OUTPUT / "e004-predictions.parquet"
+    table = pq.read_table(old_predictions)
+    model_index = table.schema.get_field_index("model")
+    table = table.set_column(
+        model_index,
+        "model",
+        pa.array([f"{MODEL}:e004"] * table.num_rows),
+    )
+    pq.write_table(table, predictions, compression="zstd")
+    old_predictions.unlink()
+    old_runtime = OUTPUT / "e003-runtime.json"
+    runtime_metadata = json.loads(old_runtime.read_text())
+    runtime_metadata.update(
+        {
+            "variant": "e004",
+            "predictions_sha256": sha256(predictions),
+        }
+    )
+    (OUTPUT / "e004-runtime.json").write_text(
+        json.dumps(runtime_metadata, indent=2) + "\n", encoding="utf-8"
+    )
+    old_runtime.unlink()
     result = {
         "state": "complete",
         "rows": runtime_metadata["rows"],
