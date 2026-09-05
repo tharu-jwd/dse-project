@@ -10,6 +10,7 @@ import platform
 import tarfile
 import time
 import traceback
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -127,7 +128,9 @@ class DurableCheckpointCallback(TrainerCallback):
             "adapter_model.safetensors",
             "optimizer.pt",
             "scheduler.pt",
+            "scaler.pt",
             "trainer_state.json",
+            "rng_state.pth",
         ]
         missing = [name for name in required if not (checkpoint / name).is_file()]
         if missing:
@@ -174,6 +177,11 @@ def load_and_verify_inputs(config: dict[str, Any]) -> tuple[list[dict], list[dic
     train = pa.concat_tables(tables, promote_options="default").to_pylist()
     if len(train) != int(config["training_rows"]):
         raise ValueError("training row count mismatch")
+    languages = Counter(row.get("decoder_language") or "si" for row in train)
+    if "english_replay_rows" in config and languages["en"] != int(
+        config["english_replay_rows"]
+    ):
+        raise ValueError(f"English replay row count mismatch: {dict(languages)}")
     if sha256(VALIDATION_BUNDLE) != config["validation_bundle_sha256"]:
         raise ValueError("validation bundle hash mismatch")
     validation = pq.read_table(VALIDATION_BUNDLE).to_pylist()
@@ -246,7 +254,13 @@ def main() -> None:
         config = json.loads(JOB_CONFIG.read_text())
         write_json(OUTPUT / "resolved-config.json", config)
         train_rows, validation_rows = load_and_verify_inputs(config)
-        event("preflight_complete", gpu=torch.cuda.get_device_name(0))
+        event(
+            "preflight_complete",
+            gpu=torch.cuda.get_device_name(0),
+            decoder_languages=dict(
+                Counter(row.get("decoder_language") or "si" for row in train_rows)
+            ),
+        )
 
         processor = WhisperProcessor.from_pretrained(
             MODEL, language="si", task="transcribe"

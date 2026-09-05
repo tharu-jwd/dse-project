@@ -57,7 +57,9 @@ shards; it does not duplicate or rewrite E002 audio locally.
 
 ## Decision rule
 
-E003 passes only if it preserves a meaningful portion of E002's Sinhala gain
-and its English canonical-WER delta versus untouched Whisper-small is no longer
-practically unacceptable. Report exact paired confidence intervals and error
-operations; do not select it from aggregate WER/CER alone.
+The thresholds are frozen before training. E003 must retain at least 75% of
+E002's improvement over E001 on both canonical Sinhala metrics: WER at or below
+101.69% and CER at or below 52.04%. Its English canonical WER may be at most
+0.50 percentage points above untouched Whisper-small, and the upper end of the
+paired 95% interval may be at most +1.00 point. Report exact paired confidence
+intervals and error operations; do not select it from aggregate WER/CER alone.
