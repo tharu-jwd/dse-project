@@ -50,12 +50,13 @@ ablation found no benefit from boundary
 trimming, so the first real baseline uses immutable, original audio.
 
 Untouched `openai/whisper-small` scored 141.74% strict WER and 92.52% strict CER
-on v4 validation with repetition-safe decoding. The completed 100-step
-wide-LoRA pilot reduced strict WER to 114.26% while using 2.61% trainable
-parameters, but outputs remain unusable. E002 then showed a large Sinhala gain
-at 500 steps while causing measurable English regression. The next experiment
-adds controlled English/code-switched replay rather than simply extending the
-same Sinhala-dominant recipe.
+on v4 validation with repetition-safe decoding. E002 and E003 improved Sinhala
+but damaged standalone English. E004 established that replaying untouched-model
+English behavior targets retains the Sinhala gain while passing the frozen
+English gate: canonical English WER was 4.62% versus 4.23% untouched. Sinhala
+remained unusable at 95.48% canonical WER and 37.63% canonical CER. E005 is now
+scaling the same proven adapter and replay method to a nested 50,000-row,
+60.31-hour Sinhala-source subset for approximately one effective epoch.
 Full-parameter fine-tuning remains out of scope.
 
 Historical split and model claims have already been captured in the

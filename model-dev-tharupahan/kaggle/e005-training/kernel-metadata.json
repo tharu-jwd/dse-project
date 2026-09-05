@@ -1,0 +1,21 @@
+{
+  "id": "tharupahan/sinhala-asr-e005-training",
+  "title": "Sinhala ASR E005 50k Teacher Replay Training",
+  "code_file": "e005-training.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_internet": "false",
+  "machine_shape": "NvidiaTeslaT4",
+  "dataset_sources": [
+    "tharupahan/sinhala-asr-e005-inputs",
+    "tharupahan/sinhala-asr-e003-inputs",
+    "tharupahan/sinhala-asr-e003-runtime"
+  ],
+  "competition_sources": [],
+  "kernel_sources": [
+    "tharupahan/sinhala-asr-e004-teacher-labels"
+  ],
+  "model_sources": []
+}
