@@ -16,6 +16,7 @@ OUTPUT = WORK / "e003-smoke"
 SOURCE_INPUT = Path("/kaggle/input/sinhala-asr-e003-inputs")
 RUNTIME_ASSETS = Path("/kaggle/input/sinhala-asr-e003-runtime")
 RUNTIME_INPUT = WORK / "e003-input"
+MODEL = WORK / "whisper-small"
 
 
 def sha256(path: Path) -> str:
@@ -34,7 +35,7 @@ def run(config: Path) -> None:
             "SINHALA_ASR_INPUT_ROOT": str(RUNTIME_INPUT),
             "SINHALA_ASR_OUTPUT_ROOT": str(OUTPUT),
             "SINHALA_ASR_JOB_CONFIG": str(config),
-            "SINHALA_ASR_MODEL": str(RUNTIME_ASSETS / "whisper-small"),
+            "SINHALA_ASR_MODEL": str(MODEL),
         }
     )
     subprocess.run(
@@ -49,6 +50,12 @@ def main() -> None:
         raise SystemExit(f"Kaggle input dataset missing: {SOURCE_INPUT}")
     shutil.rmtree(OUTPUT, ignore_errors=True)
     shutil.rmtree(RUNTIME_INPUT, ignore_errors=True)
+    shutil.rmtree(MODEL, ignore_errors=True)
+    MODEL.mkdir()
+    for source in RUNTIME_ASSETS.glob("whisper-small--*"):
+        (MODEL / source.name.removeprefix("whisper-small--")).symlink_to(source)
+    if not (MODEL / "model.safetensors").is_file():
+        raise SystemExit("offline Whisper-small model is incomplete")
     (RUNTIME_INPUT / "train").mkdir(parents=True)
     manifest = SOURCE_INPUT / "train-manifest.json"
     expected_manifest = RUNTIME_INPUT / "train" / "manifest.json"

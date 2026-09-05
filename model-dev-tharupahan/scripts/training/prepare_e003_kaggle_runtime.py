@@ -38,10 +38,9 @@ def sha256(path: Path) -> str:
 def main() -> None:
     if not (SNAPSHOT / "model.safetensors").is_file():
         raise SystemExit(f"complete Whisper-small snapshot missing: {SNAPSHOT}")
-    wheels = OUTPUT / "wheels"
-    model = OUTPUT / "whisper-small"
-    wheels.mkdir(parents=True, exist_ok=True)
-    model.mkdir(parents=True, exist_ok=True)
+    if OUTPUT.exists():
+        shutil.rmtree(OUTPUT)
+    OUTPUT.mkdir(parents=True)
     subprocess.run(
         [
             sys.executable,
@@ -49,7 +48,7 @@ def main() -> None:
             "pip",
             "download",
             "--dest",
-            str(wheels),
+            str(OUTPUT),
             "--only-binary=:all:",
             "--no-deps",
             "--platform=manylinux2014_x86_64",
@@ -60,7 +59,11 @@ def main() -> None:
     )
     for source in SNAPSHOT.iterdir():
         if source.is_file():
-            shutil.copy2(source, model / source.name, follow_symlinks=True)
+            shutil.copy2(
+                source,
+                OUTPUT / f"whisper-small--{source.name}",
+                follow_symlinks=True,
+            )
     for name in ("run_e002_colab.py", "run_e003_kaggle_smoke.py"):
         shutil.copy2(ROOT / "scripts/training" / name, OUTPUT / name)
     metadata = {

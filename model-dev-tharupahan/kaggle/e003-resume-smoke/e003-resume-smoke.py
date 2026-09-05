@@ -16,7 +16,7 @@ subprocess.run(
         "--no-index",
         "--no-deps",
         "--find-links",
-        str(runtime_root / "wheels"),
+        str(runtime_root),
         "transformers==5.16.1",
         "peft==0.20.0",
         "huggingface-hub==1.30.0",
