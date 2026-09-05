@@ -1,5 +1,5 @@
 {
-  "id": "tharupahan/sinhala-asr-e005-training",
+  "id": "tharupahan/sinhala-asr-e005-50k-teacher-replay-training",
   "title": "Sinhala ASR E005 50k Teacher Replay Training",
   "code_file": "e005-training.py",
   "language": "python",
