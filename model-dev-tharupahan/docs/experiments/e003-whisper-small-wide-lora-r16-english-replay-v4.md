@@ -58,10 +58,29 @@ shards; it does not duplicate or rewrite E002 audio locally.
 Four requests across three consecutive work cycles to allocate the prerequisite
 T4 smoke runtime returned HTTP 503 `Service Unavailable` before any session was
 created. `colab sessions` confirmed after each cycle that no request left a
-ghost allocation, so no GPU time or experiment attempt was consumed. In
-accordance with the bounded infrastructure-retry policy, automatic allocation
-is blocked until the owner establishes a T4 runtime in the Colab web UI or the
-allocation service recovers. The unchanged smoke configuration remains ready.
+ghost allocation, so no GPU time or experiment attempt was consumed.
+
+Kaggle was then added as the free-GPU fallback. Authentication, the official
+CLI, and the account quota were verified (30 GPU hours available). The private
+datasets `tharupahan/sinhala-asr-e003-inputs` and
+`tharupahan/sinhala-asr-e003-runtime` contain the hash-checked training inputs
+and an offline, pinned Whisper/Transformers/PEFT runtime respectively. The
+private kernel `tharupahan/sinhala-asr-e003-resume-smoke` is configured for a
+Tesla T4 and cannot start full training: it runs only the one-step/checkpoint/
+resume-to-step-two gate.
+
+Kaggle smoke versions 1-2 exposed unavailable outbound DNS and caused no
+training. Version 3 proved the offline dependency installation works, then
+exposed an incorrect assumption about Kaggle's dataset mount name. Version 4
+included manifest-based mount discovery and version 5 repeated it, but both
+were assigned workers on which `torch.cuda.is_available()` was false even
+though the server-returned kernel metadata recorded `enable_gpu: true` and
+`machine_shape: NvidiaTeslaT4`. The CUDA guard stopped both before their first
+optimizer step. Kaggle still reports 0.00 of 30.00 GPU hours used. Logs and
+structured failure records are preserved under the E003 attempt directory.
+This is currently an accelerator-allocation failure, not a training result.
+Do not submit the 500-step run until one bounded smoke run sees CUDA and proves
+checkpoint resumption.
 
 Once a T4 is available, `stage_e003_colab.py` locally re-hashes all 14 shards,
 creates the isolated remote workspace and uploads the manifest, validation set,
