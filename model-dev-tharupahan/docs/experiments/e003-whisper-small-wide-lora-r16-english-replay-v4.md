@@ -55,12 +55,13 @@ The mixed shard-manifest fingerprint is
 It references the ten unchanged, hash-verified E002 shards plus four replay
 shards; it does not duplicate or rewrite E002 audio locally.
 
-The first two attempts to allocate the prerequisite T4 smoke runtime returned
-HTTP 503 `Service Unavailable` before any session was created. `colab sessions`
-confirmed that neither request left a ghost allocation, so no GPU time or
-experiment attempt was consumed. In accordance with the two-retry infrastructure
-limit, preparation stopped without launching training; a later allocation may
-retry the unchanged smoke configuration.
+Four requests across three consecutive work cycles to allocate the prerequisite
+T4 smoke runtime returned HTTP 503 `Service Unavailable` before any session was
+created. `colab sessions` confirmed after each cycle that no request left a
+ghost allocation, so no GPU time or experiment attempt was consumed. In
+accordance with the bounded infrastructure-retry policy, automatic allocation
+is blocked until the owner establishes a T4 runtime in the Colab web UI or the
+allocation service recovers. The unchanged smoke configuration remains ready.
 
 Once a T4 is available, `stage_e003_colab.py` locally re-hashes all 14 shards,
 creates the isolated remote workspace and uploads the manifest, validation set,
