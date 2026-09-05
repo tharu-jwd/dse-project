@@ -82,6 +82,27 @@ This is currently an accelerator-allocation failure, not a training result.
 Do not submit the 500-step run until one bounded smoke run sees CUDA and proves
 checkpoint resumption.
 
+After the account owner completed Kaggle phone verification, smoke version 6
+received a real CUDA worker and reached the first model forward pass. It exposed
+a runner defect: the model was loaded as FP16 while the training feature tensor
+arrived as FP32. Version 7 showed that casting inside Transformers'
+`BatchFeature` was insufficient because Trainer reconstructed that custom
+container. The final correction returns a plain tensor dictionary and explicitly
+casts `input_features` to FP16.
+
+Kaggle smoke version 8 then passed the complete gate. Phase A created checkpoint
+1 with SHA-256
+`698095f85a388038d91ec4da2be54d95c8067f0ba90ebfdf11273c8caab9edc7`;
+a fresh process resumed it and created checkpoint 2 with SHA-256
+`47c8a05bc5404d76663b8ae39d9f3099cbd7cf18f648c01f06634fa709d74a83`.
+The hashes independently computed after downloading both archives match their
+checkpoint index. Structured job status is `complete`, and the resolved phase-B
+configuration hash is
+`1e3f60c573bac06eb42a1814e75f0707da8f30f42d5e0b2125f7d655bfcc7d13`.
+Kaggle reports only 0.08 of 30 GPU hours used after all allocation and smoke
+attempts. The resumability prerequisite is therefore satisfied; E003 may proceed
+to its controlled 500-step run.
+
 Once a T4 is available, `stage_e003_colab.py` locally re-hashes all 14 shards,
 creates the isolated remote workspace and uploads the manifest, validation set,
 resolved config and exact runner scripts. It deliberately does not launch the

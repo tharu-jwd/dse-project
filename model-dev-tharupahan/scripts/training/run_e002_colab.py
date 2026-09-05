@@ -100,6 +100,13 @@ class WhisperCollator:
             return_attention_mask=True,
             return_tensors="pt",
         )
+        # Return an ordinary mapping: Trainer recursively reconstructs custom
+        # BatchFeature objects and may coerce their floating tensors to FP32.
+        batch = dict(batch)
+        # The model is loaded directly as FP16 to fit Whisper-small plus the
+        # wide adapter on free 16 GB GPUs.  Trainer autocast is backend/version
+        # dependent, so make the feature dtype explicit before the first conv.
+        batch["input_features"] = batch["input_features"].to(torch.float16)
         label_features = []
         for feature in features:
             self.processor.tokenizer.set_prefix_tokens(
