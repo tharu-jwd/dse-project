@@ -142,6 +142,19 @@ its output out of the shared `--path` stash location (download what's
 needed first) before submitting the next job against that same path --
 don't wait to notice the next job stalling.
 
+## A `--gpu` job can sit `PENDING` for a long time, then auto-cancel
+
+Confirmed directly: a job submitted against an already-clean `--path` (not
+the accumulated-output bug above) sat `PENDING` for roughly 96 minutes, then
+transitioned to `CANCELLED` on its own -- no action taken on our end caused
+it. `camber job logs` on a cancelled job returns an API error (`job status
+is not completed, failed, or running`), not logs. No visible queue-position
+or capacity signal exists in this CLI to explain the wait or predict it.
+Likely GPU node capacity contention on Camber's side, not anything specific
+to this project's job. The fix is the same as for a stuck accumulated-
+output job: there is nothing to inspect or wait out productively, just
+resubmit and it may go through in the normal 1-3 minutes on the next try.
+
 ## GPU-hour budget: running total
 
 The 5 included hours are not exposed by any CLI command (see above) -- this
