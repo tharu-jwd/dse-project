@@ -171,8 +171,9 @@ free and excluded).
 | `25199` | E008 search, resubmitted against cleaned path | 66.0 min, ended `CANCELLED` (the `PENDING`-then-auto-cancel behavior documented above) |
 | `25203` | E009 corrected pilot rerun (`modules_to_save`/`ensure_weight_tying` fix) | 11.25 min, `COMPLETED` |
 | `25204` | E011 Omnilingual bake-off, CTC 300M, first Camber attempt | 6.0 min, `FAILED` (see below) |
-| **Total (2026-09-07)** | | **~3.86 hours** |
-| **Remaining of the 5-hour budget** | | **~1.14 hours** |
+| `25205` | E011 bake-off, second attempt (`-e .` + omnilingual-asr) | 0.5 min, `FAILED` (see below) |
+| **Total (2026-09-07)** | | **~3.87 hours** |
+| **Remaining of the 5-hour budget** | | **~1.13 hours** |
 
 Update this table (recompute from `camber job get <id> --output json` for
 every `--gpu` job since the last entry) whenever a new Camber job runs, not
@@ -185,13 +186,24 @@ Job `25204`'s `--cmd` only ran `pip install omnilingual-asr`, forgetting
 that `scripts/evaluation/run_omnilingual_bakeoff.py` also imports this
 project's own `sinhala_asr.training.dataset`, which needs `soundfile` --
 present in every other Camber job via `pip install -e '.[train]'`, absent
-here since this job never installs the project package at all. Fixed by
-installing both in one `pip install` call
-(`pip install -q -e '.' omnilingual-asr`, base extras only -- `train`'s
-transformers/peft/accelerate aren't needed for this script) so pip
-resolves one consistent dependency set, rather than two sequential installs
-each potentially undoing the other's version choices (the exact failure
-mode already seen twice on Kaggle for this same library).
+here since this job never installs the project package at all. First fix attempt (`pip install -q -e '.' omnilingual-asr`, installing
+the project's own package and the library together so pip resolves one
+consistent set) failed differently and faster (31 seconds): a real, hard
+version conflict --`sinhala-asr`'s own `pyproject.toml` pins
+`pyarrow>=15,<20`, while `omnilingual-asr` itself declares
+`pyarrow>=20.0.0` (confirmed via PyPI's own metadata) -- genuinely
+unresolvable together, not a version pip could pick around.
+
+The actual fix needs neither install to touch the other's pins: this
+script only ever needs `sinhala_asr` importable via `PYTHONPATH=src`
+(exactly how every job in this project already runs its scripts), never
+pip-*installed* as a package -- so nothing requires accepting the
+project's own `pyproject.toml` pin at all here. `pip install -q
+omnilingual-asr soundfile` (the one runtime dependency
+`sinhala_asr.training.dataset` needs beyond what omnilingual-asr already
+pulls) lets omnilingual-asr's own dependency resolution pick whatever
+pyarrow/numpy/pandas versions it wants, unconstrained by a project pin
+that was never actually load-bearing for this script.
 
 ## Verified end-to-end (2026-09-06)
 
