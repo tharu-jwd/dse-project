@@ -238,17 +238,26 @@ unit of time/risk, not by raw expected benefit alone:
    launch/queue overhead anyway. NEFTune (`TrainConfig.neftune_noise_alpha`)
    is available as a cheap addition to try alongside it, and unlike the
    search harness it is already wired into both the local and Kaggle training
-   paths. Status: running locally (8 trials, 100 steps each). Its first
-   attempt produced an invalid trial -- greedy eval-time decoding on an
-   undertrained 100-step checkpoint degenerated into a repeated-token loop
-   that pinned `eval_wer~=1.0`/pushed `eval_cer` past 100%, which would have
-   made every trial in the search look identically bad regardless of the
-   rank/LR under test. Found by direct reproduction, fixed in `train.py`
-   (`no_repeat_ngram_size=3` added to the eval generation config), and the
-   search restarted clean; see
-   [the E008 eval-repetition-bug audit](../audits/e008-eval-repetition-bug.md)
-   for the full root-cause trace. Does not affect E005/E006/E007, which train
-   to full length past this regime.
+   paths. Status: **complete**. Its first attempt produced an invalid trial
+   -- greedy eval-time decoding on an undertrained 100-step checkpoint
+   degenerated into a repeated-token loop that pinned `eval_wer~=1.0`/pushed
+   `eval_cer` past 100%, which would have made every trial in the search
+   look identically bad regardless of the rank/LR under test. Found by
+   direct reproduction, fixed in `train.py` (`no_repeat_ngram_size=3` added
+   to the eval generation config); see
+   [the E008 eval-repetition-bug audit](../audits/e008-eval-repetition-bug.md).
+   Does not affect E005/E006/E007, which train to full length past this
+   regime. Moved to Camber once the fix was verified; ran into a real
+   Camber-specific concurrency issue there (an earlier "abandoned" job kept
+   running remotely and wrote into the same shared Optuna study a later
+   resubmission also used) -- winning trial independently re-verified
+   despite it. **Result: rank=32, learning_rate~2.3e-4 beats this project's
+   historical default (rank=16, lr=5e-5) at this step budget** -- 101.14%
+   vs E001's real 114.26% strict WER at the same 100 steps. See
+   [the E008 rank/LR search results](../audits/e008-rank-lr-search.md) for
+   the full trial table and the concurrency finding. Worth using this
+   rank/LR for any future short-step-budget LoRA experiment on this recipe
+   instead of the E001 default.
 3. Tokenizer vocabulary extension -- add dedicated Sinhala subword tokens and
    resize the model's token embeddings before fine-tuning, rather than
    relying on the base model's byte-level fallback throughout. Moved ahead of

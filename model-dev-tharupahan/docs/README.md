@@ -28,6 +28,7 @@
 - [Refinement-model benchmark](audits/refinement-model-benchmark.md)
 - [E006 near-homophone error analysis](audits/e006-near-homophone-error-analysis.md)
 - [E008 eval-repetition-bug audit](audits/e008-eval-repetition-bug.md)
+- [E008 rank/LR search results](audits/e008-rank-lr-search.md)
 - [E009 tokenizer-extension audit](audits/e009-tokenizer-extension.md)
 - [External review: SPEAK-ASR/ASR-Finetune](audits/asr-finetune-external-review.md)
 - [External review: whisper-based-sinhala-asr](audits/whisper-based-sinhala-asr-external-review.md)

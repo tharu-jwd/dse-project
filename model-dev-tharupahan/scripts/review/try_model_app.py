@@ -47,21 +47,46 @@ ENGLISH_BENCHMARK = (
 # Each entry's adapter directory is the exact final-adapter this project
 # treats as that experiment's canonical, hash-verified result (see each
 # experiment's report in docs/experiments/). Missing directories are filtered
-# out at startup rather than shown as broken options.
-CANDIDATE_EXPERIMENTS: dict[str, Path | None] = {
-    "E000 -- untouched whisper-small": None,
-    "E001 -- wide LoRA, 100 steps, 2k rows": ROOT
-    / "reports/experiments/e001-whisper-small-wide-lora-r16-100-step-v4/artifacts/final-adapter",
-    "E002 -- wide LoRA, 500 steps, 10k rows": ROOT
-    / "reports/experiments/e002-whisper-small-wide-lora-r16-500-step-v4/artifacts/final-adapter",
-    "E003 -- + 10% raw-reference English replay": ROOT
-    / "reports/experiments/e003-english-replay-lora/attempts/kaggle-training-002/output/e003-training/final-adapter",
-    "E004 -- + teacher-target English replay": ROOT
-    / "reports/experiments/e004-teacher-behavior-replay/attempts/kaggle-training-001/output/e004-training/final-adapter",
-    "E005 -- scaled to 50k Sinhala rows": ROOT
-    / "reports/experiments/e005-scale-50k-teacher-replay/attempts/kaggle-training-003/output/e005-training/final-adapter",
-    "E006 -- scaled to 100 Sinhala hours": ROOT
-    / "reports/experiments/e006-scale-100h-teacher-replay/attempts/kaggle-training-001/output/e006-training/final-adapter",
+# out at startup rather than shown as broken options. "adapter" entries are
+# LoRA adapters merged onto BASE_MODEL at load time; "full" entries are a
+# complete, standalone model directory loaded as-is (no merge).
+CANDIDATE_EXPERIMENTS: dict[str, tuple[Path | None, str]] = {
+    "E000 -- untouched whisper-small": (None, "adapter"),
+    "E001 -- wide LoRA, 100 steps, 2k rows": (
+        ROOT / "reports/experiments/e001-whisper-small-wide-lora-r16-100-step-v4/artifacts/final-adapter",
+        "adapter",
+    ),
+    "E002 -- wide LoRA, 500 steps, 10k rows": (
+        ROOT / "reports/experiments/e002-whisper-small-wide-lora-r16-500-step-v4/artifacts/final-adapter",
+        "adapter",
+    ),
+    "E003 -- + 10% raw-reference English replay": (
+        ROOT / "reports/experiments/e003-english-replay-lora/attempts/kaggle-training-002/output/e003-training/final-adapter",
+        "adapter",
+    ),
+    "E004 -- + teacher-target English replay": (
+        ROOT / "reports/experiments/e004-teacher-behavior-replay/attempts/kaggle-training-001/output/e004-training/final-adapter",
+        "adapter",
+    ),
+    "E005 -- scaled to 50k Sinhala rows": (
+        ROOT / "reports/experiments/e005-scale-50k-teacher-replay/attempts/kaggle-training-003/output/e005-training/final-adapter",
+        "adapter",
+    ),
+    "E006 -- scaled to 100 Sinhala hours": (
+        ROOT / "reports/experiments/e006-scale-100h-teacher-replay/attempts/kaggle-training-001/output/e006-training/final-adapter",
+        "adapter",
+    ),
+    # Not one of this project's own experiments -- a third-party checkpoint
+    # (huggingface.co/Yohan2003/whisper-small-sinhala, run1: full fine-tune,
+    # all weights updated, not a LoRA adapter) kept here for direct
+    # qualitative comparison. Independently re-evaluated against this
+    # project's own frozen v4 validation set -- see
+    # docs/audits/yohan-checkpoint-evaluation.md for the measured numbers;
+    # the label below is intentionally explicit about whose model this is.
+    "EXTERNAL -- Yohan2003/whisper-small-sinhala (run1, full fine-tune)": (
+        Path("/Users/tharupahan/Code/ASR-prior-works/whisper-small-sinhala-yohan/models/run1"),
+        "full",
+    ),
 }
 
 # No standard phonetically-balanced Sinhala reading passage exists publicly
@@ -89,11 +114,12 @@ READ_ALOUD_PASSAGE_SAMPLE_IDS = [
 ]
 
 
-def available_experiments() -> dict[str, Path | None]:
+def available_experiments() -> dict[str, tuple[Path | None, str]]:
+    marker = {"adapter": "adapter_model.safetensors", "full": "model.safetensors"}
     return {
-        label: path
-        for label, path in CANDIDATE_EXPERIMENTS.items()
-        if path is None or (path / "adapter_model.safetensors").is_file()
+        label: (path, kind)
+        for label, (path, kind) in CANDIDATE_EXPERIMENTS.items()
+        if path is None or (path / marker[kind]).is_file()
     }
 
 
@@ -106,12 +132,22 @@ def pick_device() -> torch.device:
 
 
 @st.cache_resource(show_spinner=False)
-def load_processor() -> WhisperProcessor:
-    return WhisperProcessor.from_pretrained(BASE_MODEL)
+def load_processor(model_dir: str | None = None) -> WhisperProcessor:
+    # This project's own experiments all share BASE_MODEL's exact tokenizer
+    # (verified by construction -- none of E000-E006 touch the vocabulary).
+    # A "full" external model gets its own processor loaded from its own
+    # directory instead, since nothing here guarantees it matches.
+    return WhisperProcessor.from_pretrained(model_dir or BASE_MODEL)
 
 
 @st.cache_resource(show_spinner="Loading model (first use per experiment is slower)...")
-def load_model(adapter_dir: str | None) -> WhisperForConditionalGeneration:
+def load_model(model_path: str | None, kind: str) -> WhisperForConditionalGeneration:
+    if kind == "full" and model_path:
+        model = WhisperForConditionalGeneration.from_pretrained(model_path)
+        model.generation_config.forced_decoder_ids = None
+        model.to(pick_device()).eval()
+        return model
+    adapter_dir = model_path
     model = WhisperForConditionalGeneration.from_pretrained(BASE_MODEL)
     if adapter_dir:
         model = PeftModel.from_pretrained(model, adapter_dir)
@@ -148,7 +184,7 @@ def decode_audio(raw: bytes) -> tuple:
 
 
 def transcribe(samples, language: str) -> str:
-    processor = load_processor()
+    processor = st.session_state["_active_processor"]
     model = st.session_state["_active_model"]
     device = pick_device()
     features = processor.feature_extractor(
@@ -221,8 +257,10 @@ def main() -> None:
     language = st.sidebar.radio("Transcribe as", ["Sinhala", "English"], horizontal=True)
     lang_code = "si" if language == "Sinhala" else "en"
 
-    adapter_dir = experiments[label]
-    st.session_state["_active_model"] = load_model(str(adapter_dir) if adapter_dir else None)
+    model_path, kind = experiments[label]
+    path_str = str(model_path) if model_path else None
+    st.session_state["_active_model"] = load_model(path_str, kind)
+    st.session_state["_active_processor"] = load_processor(path_str if kind == "full" else None)
 
     tab_record, tab_upload, tab_val, tab_english = st.tabs(
         [
