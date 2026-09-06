@@ -173,8 +173,10 @@ free and excluded).
 | `25204` | E011 Omnilingual bake-off, CTC 300M, first Camber attempt | 6.0 min, `FAILED` (see below) |
 | `25205` | E011 bake-off, second attempt (`-e .` + omnilingual-asr) | 0.5 min, `FAILED` (see below) |
 | `25206` | E011 bake-off, third attempt (`omnilingual-asr soundfile` only) | 3.5 min, `FAILED` (see below) |
-| **Total (2026-09-07)** | | **~3.93 hours** |
-| **Remaining of the 5-hour budget** | | **~1.07 hours** |
+| `25207` | E011 bake-off, fourth attempt (LD_LIBRARY_PATH fix) | 3.9 min, `FAILED` -- same error, LD_LIBRARY_PATH wasn't the real cause (see below) |
+| `25209` | Diagnostic only: actual torch/torchaudio/cudart versions and files present | see below |
+| **Total (2026-09-07)** | | **~4.00 hours** |
+| **Remaining of the 5-hour budget** | | **~1.00 hour** |
 
 Update this table (recompute from `camber job get <id> --output json` for
 every `--gpu` job since the last entry) whenever a new Camber job runs, not
