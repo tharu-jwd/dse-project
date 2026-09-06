@@ -154,6 +154,20 @@ def main() -> None:
     if config.method == "lora":
         from peft import LoraConfig, get_peft_model
 
+        # Whisper ties its input embeddings and output projection
+        # (model.decoder.embed_tokens / proj_out share one weight matrix).
+        # Neither is in target_modules above, so get_peft_model() freezes
+        # them by default -- fine normally, but when extended_tokenizer_path
+        # has just added new, randomly-initialized rows to that matrix via
+        # resize_token_embeddings(), leaving them frozen means they can
+        # never learn anything: confirmed directly to cause severe training
+        # instability (the model falling back on unrelated tokens from its
+        # original pretraining, including a different script entirely) --
+        # see docs/audits/e009-tokenizer-extension.md. modules_to_save keeps
+        # them fully trainable (not LoRA-adapted, plain fine-tuned)
+        # alongside the adapters, the standard PEFT pattern for vocabulary
+        # extension.
+        modules_to_save = ["embed_tokens", "proj_out"] if config.extended_tokenizer_path else None
         model = get_peft_model(
             model,
             LoraConfig(
@@ -161,6 +175,14 @@ def main() -> None:
                 lora_alpha=config.lora_alpha,
                 lora_dropout=config.lora_dropout,
                 target_modules=["q_proj", "k_proj", "v_proj", "out_proj", "fc1", "fc2"],
+                modules_to_save=modules_to_save,
+                # Without this, PEFT creates two independent trainable
+                # copies of the tied embed_tokens/proj_out matrix instead
+                # of keeping them tied -- confirmed directly (verified via
+                # named_parameters()): with ensure_weight_tying=True there
+                # is exactly one shared trainable copy, matching the base
+                # model's own tie_word_embeddings=True architecture.
+                ensure_weight_tying=bool(config.extended_tokenizer_path),
             ),
         )
 
