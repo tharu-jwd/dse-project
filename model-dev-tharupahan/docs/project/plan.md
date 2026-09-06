@@ -281,13 +281,22 @@ for last: by the time that (expensive, effectively one-shot) run happens,
 every cheaper lever should already be tried and folded into the recipe
 going in, not discovered afterward:**
 
-1. Re-run E009's tokenizer pilot with the fix (~15-20 minutes, Camber).
-   Nearly free, and the one open unknown blocking items 3 and 4 below --
+1. Decoding-time check on the existing E007 adapter -- beam search
+   (`num_beams` > 1) instead of greedy decoding, re-scored on the frozen
+   206-row validation set. **Zero training cost** -- no GPU rental, no new
+   checkpoint, just re-running inference on what already exists, testable
+   locally in minutes. Ranks first regardless of anything else below
+   because it composes with every other item on this list: whichever
+   checkpoint eventually wins, beam search (or not) is a separate,
+   independent choice on top of it. Not yet tried at all -- every
+   evaluation in this project so far (E000-E010) has used greedy decoding.
+2. Re-run E009's tokenizer pilot with the fix (~15-20 minutes, Camber).
+   Nearly free, and the one open unknown blocking items 4 and 8 below --
    needs answering before tokenizer extension can be counted as one of the
    validated tricks to carry forward.
-2. Full-scale rerun of E007's recipe with the validated rank/LR (rank=32,
+3. Full-scale rerun of E007's recipe with the validated rank/LR (rank=32,
    learning_rate~2.3e-4) -- same cost as E007 itself (~11h Kaggle,
-   two-phase). Doesn't need to wait on item 1; already justified by E010's
+   two-phase). Doesn't need to wait on item 2; already justified by E010's
    evidence. Highest-confidence big-ticket item, because unlike the other
    levers it isn't a guess -- E010 demonstrated a real, consistent 5.5 to
    10.6 percentage-point gain at every checkpoint of a 500-step comparison.
@@ -295,47 +304,89 @@ going in, not discovered afterward:**
    lr=5e-5 default), so this also doubles as the first real controlled
    comparison against E007 at full scale, which E010's 500-step run
    doesn't substitute for.
-3. Full-scale tokenizer-extension experiment (~11h Kaggle) -- only if item
-   1 succeeds. Same cost class as item 2, smaller expected payoff by the
+4. Full-scale tokenizer-extension experiment (~11h Kaggle) -- only if item
+   2 succeeds. Same cost class as item 3, smaller expected payoff by the
    one real precedent available (~-0.7pp WER), though this project's own
    57.1% token-compression ratio beat that paper's, so it's plausible the
    real gain here exceeds -0.7pp.
-4. Combine every validated trick into one recipe -- rank/LR (item 2) plus
-   tokenizer extension if it holds (item 3) plus NEFTune
+5. DoRA bounded pilot -- this project's own Phase 4 plan always said "LoRA
+   or DoRA," but every experiment so far (E000-E010) used plain LoRA;
+   DoRA has never actually been tried. A short, bounded pilot (matching
+   the same 100-500-step diagnostic scale as E001/E008/E009, at the
+   already-validated rank/LR) is enough to see whether it meaningfully
+   beats plain LoRA before committing to a full-scale run -- do not
+   assume it helps just because published benchmarks report gains
+   elsewhere; this project's own data and language are the only evidence
+   that counts here.
+6. Augmentation bounded pilot -- speed/pitch perturbation, noise
+   injection, or SpecAugment. This project's own plan gated augmentation
+   "only after error analysis shows the matching need"; [the near-
+   homophone analysis](../audits/e006-near-homophone-error-analysis.md)
+   found most remaining error is "genuine, broader recognition failure,
+   not a small fixable confusion set" -- ambiguous evidence, consistent
+   with either a genuine need for more acoustic diversity (augmentation
+   could help) or a capacity/architecture ceiling (augmentation won't).
+   Needs new data-loading work before any pilot is even possible, a
+   bigger lift than items 3-5, so scoped as its own bounded check rather
+   than assumed useful.
+7. LM rescoring / n-best shallow fusion with a Sinhala language model --
+   no acoustic-model retraining at all, but real engineering to source or
+   build a usable Sinhala LM and wire up rescoring. Doesn't compete for
+   GPU training budget the way items 3-6 do. Plausibly the most direct
+   fix for the near-homophone confusions specifically (a language model
+   can down-weight an implausible substitution using context in a way an
+   acoustic-only model cannot), a different mechanism from every other
+   item on this list. Not yet scoped at all -- source/quality of an
+   available Sinhala LM is unknown.
+8. Combine every validated trick into one recipe -- rank/LR (item 3) plus
+   tokenizer extension if it holds (item 4) plus DoRA if it wins (item 5)
+   plus augmentation if it helps (item 6) plus NEFTune
    (`TrainConfig.neftune_noise_alpha`, already wired into both the local
    and Kaggle/Colab training paths via an optional job-config field, cheap
    to try, untested at Sinhala-adapter scale here). This is the actual
-   "exhausted the options" step, not items 2 or 3 individually -- the real
+   "exhausted the options" step, not any single item above -- the real
    predecessor to full-parameter training, not a substitute for it.
-5. A human-in-the-loop correction batch targeted specifically at rows
+   Decoding-time changes (items 1, 7) apply on top of whatever this
+   recipe produces rather than being part of the training recipe itself.
+9. A human-in-the-loop correction batch targeted specifically at rows
    containing the near-homophone confusions identified in the error
    analysis, rather than a random sample -- higher signal per reviewed
    row. Spends reviewer time, not GPU time, so it can run in parallel with
    any of the above rather than competing for the same budget; fold any
    resulting corrections into the training data before the full-parameter
    run, not after.
-6. Full-parameter fine-tuning -- **deliberately last.** Only start once
-   items 1-5 have reported back, so the recipe going in is whatever
-   combination of rank/LR, tokenizer extension, NEFTune, and corrected data
-   actually proved out, plus a real number for how much of the remaining
-   gap is architecture-limited (LoRA's ceiling) versus something a full
-   update could fix -- not a guess made before the cheaper options were
-   exhausted. Potentially the largest remaining lever: two independent
-   external pipelines show the same qualitative pattern (full fine-tune
-   reaching materially lower WER than this project's LoRA ceiling, even
-   under far less data/rigor) -- see
-   [the SPEAK-ASR/ASR-Finetune review](../audits/asr-finetune-external-review.md)
-   and
-   [the whisper-based-sinhala-asr review](../audits/whisper-based-sinhala-asr-external-review.md).
-   Neither is individually trustworthy (one has confirmed split leakage,
-   the other's split is simply unverifiable), and the historical
-   project's own leakage-tainted 17% number is a reason to check, not
-   evidence this will work -- but three independent codebases landing on
-   the same direction is a reason to take the pilot seriously once it's
-   this recipe's turn. A bounded feasibility/VRAM/step-time scoping pilot
-   (this project's own Gate B discipline) belongs immediately before the
-   real run, not run early just because it's cheap -- there's no reason to
-   spend even a small amount of time on it before it's actually needed.
+10. Full-parameter fine-tuning -- **deliberately last.** Only start once
+    items 1-9 have reported back, so the recipe going in is whatever
+    combination of tricks actually proved out, plus a real number for how
+    much of the remaining gap is architecture-limited (LoRA's ceiling)
+    versus something a full update could fix -- not a guess made before
+    the cheaper options were exhausted. Potentially the largest remaining
+    lever: two independent external pipelines show the same qualitative
+    pattern (full fine-tune reaching materially lower WER than this
+    project's LoRA ceiling, even under far less data/rigor) -- see
+    [the SPEAK-ASR/ASR-Finetune review](../audits/asr-finetune-external-review.md)
+    and
+    [the whisper-based-sinhala-asr review](../audits/whisper-based-sinhala-asr-external-review.md).
+    Neither is individually trustworthy (one has confirmed split leakage,
+    the other's split is simply unverifiable), and the historical
+    project's own leakage-tainted 17% number is a reason to check, not
+    evidence this will work -- but three independent codebases landing on
+    the same direction is a reason to take the pilot seriously once it's
+    this recipe's turn. A bounded feasibility/VRAM/step-time scoping pilot
+    (this project's own Gate B discipline) belongs immediately before the
+    real run, not run early just because it's cheap -- there's no reason
+    to spend even a small amount of time on it before it's actually
+    needed. Continuing training from a third-party checkpoint (e.g.
+    Yohan2003/whisper-small-sinhala's `run1`, which independently beats
+    this project's own E007 result on our frozen validation set) was
+    considered and explicitly ruled out -- external checkpoints are for
+    comparison only, never a training starting point.
+11. Whisper-medium -- this project's own plan already gated this "only
+    after the winning small-model recipe and budget review," which
+    effectively means only after item 10, not before it: trying every
+    lever on the confirmed base model before committing to a larger,
+    more expensive one is the same "exhaust the options first" reasoning
+    that puts full-parameter fine-tuning at item 10 rather than earlier.
 
 Before full-data recipe comparisons, measure a nested data learning curve using
 approximately 10, 25, 50, and 100 verified speech hours plus the full retained
