@@ -66,11 +66,43 @@ insertions, deletions), not a scoring artifact.
 This is real, useful evidence for a *later* optimization pass (tokenizer
 handling of these characters, or a correction batch targeted at rows
 containing these specific confusions rather than a random sample), but it is
-low-leverage relative to the gap between LoRA's current ceiling (~78-88% WER
-across E004-E006) and the historical full-parameter checkpoint's reported
-~17% WER (see [the historical audit](historical-audit.md), which treats that
-checkpoint as legitimate comparison evidence, not a trustworthy end-to-end
-system, and flags it as a possible continuation candidate). Address this only
-after a higher-leverage lever (recovering/continuing that checkpoint, or a
-properly scoped full-parameter pilot) has been tried, so the same fix is
-applied against a much lower baseline where it has proportionally more value.
+low-leverage relative to the other levers in
+[the plan's next-step priority order](../project/plan.md#next-step-priority-order-after-e006e007).
+Note the historical full-parameter checkpoint's reported ~17% WER is no longer
+usable even as a rough target -- [the historical audit](historical-audit.md)
+has since confirmed its evaluation split had pervasive speaker leakage.
+Address this near-homophone fix only after a higher-leverage lever (a properly
+scoped full-parameter pilot, or the cheaper rank/LR ablation) has been tried,
+so the same fix is applied against a much lower baseline where it has
+proportionally more value.
+
+## Addendum: informal live-speech pace observation (unverified, anecdotal)
+
+While interactively testing the models via `scripts/review/try_model_app.py`'s
+live-microphone tab, the project owner observed qualitatively different
+transcription behavior when reading the same content at a noticeably faster
+versus slower pace than normal (clips under 5 seconds each, well within the
+30-second input window and 64-token output cap used for official validation,
+so this is not the input/output truncation artifact that a longer multi-
+sentence recording would risk). No systematic recording, transcript logging,
+or quantified comparison was made -- this is a single informal observation,
+not a controlled test, and must not be treated as a confirmed model property.
+
+Hypothesized mechanism, grounded in but not independently verified beyond the
+finding above: the two most common confusion classes identified in this
+analysis -- vowel-length pairs (ෙ/ේ, ි/ී) and dental/retroflex consonant pairs
+(ල/ළ, ණ/න) -- are distinguished primarily by duration and formant cues that
+speaking pace directly affects. Faster speech compresses vowel duration,
+exactly the cue separating short and long vowel signs; unusually slow speech
+exaggerates duration the other way. Both move the acoustic signal away from
+whatever pace distribution the LoRA adapter's training data (OpenSLR52's
+natural reading pace) actually covers. Whisper's lack of an explicit
+voice-activity detector is also a documented source of hallucination/
+repetition around atypically long inter-word pauses in very slow speech.
+
+**Status: hypothesis, not evidence.** A cheap, no-GPU follow-on test would
+read the same fixed sentence(s) at a controlled set of paces (for example,
+three repeats each at self-rated slow/normal/fast), transcribe and score them
+the same way as any other prediction, and compare the resulting WER/CER and
+error-label breakdown like any other paired comparison. Not yet scheduled;
+lower priority than the items in the plan's next-step order.
