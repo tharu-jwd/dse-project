@@ -114,13 +114,17 @@ def main() -> None:
         raise ValueError(f"expected 206 validation rows, found {len(validation_rows)}")
     dataset = ManifestAudioDataset(validation_rows)
     items = [dataset[i] for i in range(len(dataset))]
-    # (channels, time) with channels=1 -- the pipeline's own resample step
-    # transposes between (channels, time) and (time, channels), so a plain
-    # 1-D array is ambiguous; explicit mono-channel-first avoids guessing
-    # which axis it assumes.
+    # Plain 1-D (time,) -- confirmed from the pipeline's own source
+    # (resample_to_16khz's channel/time transpose logic only runs when
+    # current_sample_rate != target_sample_rate, which is never true here
+    # since this project's audio is already 16 kHz, so that logic never
+    # even executes). A prior attempt's defensive (1, N) channels-first
+    # reshape was wrong and caused a real, confirmed failure downstream:
+    # the batch collation treated the leading size-1 axis as something
+    # other than channels, producing a Conv1d input of length 1 per item
+    # ("Calculated padded input size per channel: (1). Kernel size: (10)").
     audio_inputs = [
-        {"waveform": item["audio"].reshape(1, -1), "sample_rate": 16000}
-        for item in items
+        {"waveform": item["audio"], "sample_rate": 16000} for item in items
     ]
     langs = ["sin_Sinh"] * len(items)
     print(f"loaded {len(items)} validation rows", flush=True)

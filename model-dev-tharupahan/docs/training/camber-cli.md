@@ -175,8 +175,9 @@ free and excluded).
 | `25206` | E011 bake-off, third attempt (`omnilingual-asr soundfile` only) | 3.5 min, `FAILED` (see below) |
 | `25207` | E011 bake-off, fourth attempt (LD_LIBRARY_PATH fix) | 3.9 min, `FAILED` -- same error, LD_LIBRARY_PATH wasn't the real cause (see below) |
 | `25209` | Diagnostic only: actual torch/torchaudio/cudart versions and files present | 13.4 min, `COMPLETED` -- root cause confirmed (see below) |
-| **Total (2026-09-07)** | | **~4.23 hours** |
-| **Remaining of the 5-hour budget** | | **~0.77 hours (~46 min)** |
+| `25210` | E011 bake-off, fifth attempt (matched cu128 torch/torchaudio) | 3.2 min, `FAILED` -- CUDA mismatch fixed, but new bug: real model forward pass reached, then a shape error (see below) |
+| **Total (2026-09-07)** | | **~4.29 hours** |
+| **Remaining of the 5-hour budget** | | **~0.71 hours (~43 min)** |
 
 Update this table (recompute from `camber job get <id> --output json` for
 every `--gpu` job since the last entry) whenever a new Camber job runs, not
@@ -250,6 +251,28 @@ https://download.pytorch.org/whl/cu128`) **before** installing
 `omnilingual-asr`, so its own unconstrained `torch`/`torchaudio`
 requirements are already satisfied and it does not reinstall a mismatched
 pair.
+
+## E011 bake-off: the matched-CUDA fix worked -- then a real shape bug
+
+Job `25210`'s environment fix worked completely: `omnilingual_asr`
+imported cleanly, the model loaded, and inference actually started on
+real audio -- a first, well past every previous attempt's import-time
+crash. It then failed inside the model's own forward pass:
+`RuntimeError: Calculated padded input size per channel: (1). Kernel
+size: (10). Kernel size can't be greater than actual input size`, deep in
+wav2vec2's raw-waveform Conv1d feature extractor.
+
+Root cause, confirmed by reading `resample_to_16khz`'s actual source
+rather than guessing again: its channel/time transpose logic only runs
+when `current_sample_rate != target_sample_rate` -- never true here,
+since this project's audio is already 16 kHz, so that logic never
+executes at all. The `(1, N)` channels-first shape
+`scripts/evaluation/run_omnilingual_bakeoff.py` defensively passed
+(anticipating a transpose that never runs) was itself the bug: batch
+collation downstream apparently treats an unexpected leading size-1 axis
+as something other than a channel dimension, producing a length-1 input
+per item. Fixed by passing the plain 1-D `(time,)` array the dict-input
+path actually expects.
 
 ## Verified end-to-end (2026-09-06)
 
