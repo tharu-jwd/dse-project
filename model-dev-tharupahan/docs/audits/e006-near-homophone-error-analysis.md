@@ -39,6 +39,44 @@ reported E006 result.
   | ණ ↔ න | 17 | retroflex *ṇ* vs dental *n* |
   | ත ↔ ද | 10 | unvoiced vs voiced dental stop |
 
+## External grounding: these pairs are not just visually similar
+
+Checked against an independent reference -- Google's public Sinhala
+pronunciation-rules file
+([`si-si_FONIPA.txt`](https://github.com/google/language-resources/blob/master/si/si-si_FONIPA.txt),
+fetched and its raw rule lines verified directly, not taken from a summary):
+
+```
+ල → l;      ළ → l;      (both map to the same phoneme, /l/)
+ණ → n;      න → n;      (both map to the same phoneme, /n/)
+ත → t;      ථ → t;      (both map to the same phoneme, /t/)
+ද → d;      ධ → d;      (both map to the same phoneme, /d/)
+ෙ → e;      ේ → eː;     (distinct: short vs long e)
+ි → i; ී → iː; (distinct: short vs long i)
+```
+
+Two of the pairs this analysis found most confused --  ල/ළ and ණ/න -- are
+mapped to the **identical phoneme** by this reference, not merely similar
+ones. The file's own header describes it as a simplified phonetic
+transcription that intentionally merges some script-level distinctions, so
+this is not proof the two are truly indistinguishable in all careful
+phonetic analyses of Sinhala -- but it is independent evidence, from a
+source with no connection to this project, that they are close enough to
+collapse in a working phonetic model built for speech applications.
+
+This refines, not just confirms, the original hypothesis. The two vowel-length
+pairs (ෙ/ේ, ි/ී) remain genuine acoustic-duration contrasts -- exactly the
+kind of thing pace, training exposure, or acoustic-encoder capacity could
+plausibly affect. The two consonant pairs (ල/ළ, ණ/න) are a different, likely
+harder case: if a phoneme-level reference treats them as the same sound, no
+amount of acoustic training can teach a model to choose between them from
+audio alone in cases where they are genuinely homophonous -- the correct
+choice there depends on knowing *which word it is* (lexical/orthographic
+knowledge), not on hearing something more clearly. That points toward the
+decoder's language-modeling behavior and tokenization, not the audio encoder,
+as the more relevant lever for this specific pair of confusions -- worth
+keeping in mind for the tokenizer check already queued next.
+
 ## Counterfactual: how much WER/CER would forgiving these buy?
 
 Two counterfactuals, both computed on the same 206 rows with the same
