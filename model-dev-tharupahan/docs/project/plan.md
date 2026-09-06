@@ -204,15 +204,19 @@ Initial controlled experiments after evaluating the untouched model:
 5. Augmentation ablations only after error analysis shows the matching need.
 6. Whisper-medium only after the winning small-model recipe and budget review.
 
-### Next-step priority order after E006/E007
+### Next-step priority order after E007
 
-Once the nested data-scale curve (E004-E007) is measured, further scale is not
-expected to close the remaining gap to the under-10% target: the curve fit
-through E004-E006's three real points already implies diminishing returns, and
-[the near-homophone error analysis](../audits/e006-near-homophone-error-analysis.md)
-shows most of the remaining error is genuine, broader recognition failure, not
-a small fixable confusion set. Rank the next levers by expected benefit per
-unit of time/risk, not by raw expected benefit alone:
+The nested data-scale curve (E004-E007) is now fully measured, not just
+projected: canonical WER improved at every step (95.87% -> 89.57% -> 84.48%
+-> **81.71%** at E007, the complete 220.877-hour split), with English
+retention passing every time, and diminishing but still real returns at
+each stage. Further scale is not expected to close the remaining gap to the
+under-10% target -- the fitted curve already implied this before E007 ran,
+and E007's real result confirms it rather than overturning it. [The
+near-homophone error analysis](../audits/e006-near-homophone-error-analysis.md)
+shows most of the remaining error is genuine, broader recognition failure,
+not a small fixable confusion set. Rank the next levers by expected benefit
+per unit of time/risk, not by raw expected benefit alone:
 
 1. Cheap, no-GPU diagnostic checks first (for example, how Whisper's tokenizer
    encodes the specific Sinhala near-homophone character pairs identified in
@@ -256,8 +260,9 @@ unit of time/risk, not by raw expected benefit alone:
    vs E001's real 114.26% strict WER at the same 100 steps. See
    [the E008 experiment report](../experiments/e008-optuna-rank-lr-search-v4.md)
    (or [the underlying audit](../audits/e008-rank-lr-search.md) for the
-   full trial table and the concurrency finding). This search result is
-   not adopted on its own -- see item 2a below.
+   full trial table and the concurrency finding). This search result was
+   not adopted on its own -- validated by a real controlled comparison in
+   item 2a below, and now adopted.
 
 2a. Controlled validation of E008's finding (E010) -- **complete, finding
     validated**. A clean, single-job, no-concurrency-risk 500-step
