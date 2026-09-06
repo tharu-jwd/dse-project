@@ -218,128 +218,124 @@ shows most of the remaining error is genuine, broader recognition failure,
 not a small fixable confusion set. Rank the next levers by expected benefit
 per unit of time/risk, not by raw expected benefit alone:
 
-1. Cheap, no-GPU diagnostic checks first (for example, how Whisper's tokenizer
-   encodes the specific Sinhala near-homophone character pairs identified in
-   the error analysis) -- near-zero cost, do these before committing compute.
-   Done: `openai/whisper-small`'s tokenizer has **zero dedicated Sinhala
-   tokens** at all (every one of the 128 Sinhala Unicode codepoints is two raw
-   UTF-8 byte-level fallback tokens; none of the 51,865 vocabulary entries
-   decode to clean standalone Sinhala). See
-   [the near-homophone analysis](../audits/e006-near-homophone-error-analysis.md#tokenizer-check-whisper-small-has-zero-dedicated-sinhala-vocabulary)
-   for the full finding, including why ල/ළ specifically -- the single most
-   frequent confusion found -- gets no help from either the acoustic signal or
-   the token representation.
-2. Adapter target-width/rank ablation (item 3 above) -- cheap, bounded, reuses
-   the proven training pipeline; run this before considering full-parameter
-   work. Use `scripts/training/optuna_search.py` (an automated search over
-   rank and learning rate, replacing manual grid pilots) rather than
-   hand-picking a handful of points; see
-   [the training guide](../training/training.md#automated-hyperparameter-search-and-neftune)
-   for how it works, how it was smoke-tested, and why it should run locally
-   on this project's own hardware (MPS) against the real v4 data rather than
-   Kaggle -- it is not yet wired to drive Kaggle kernels, and Optuna trials
-   want to be fast and numerous, which fights against Kaggle's per-trial
-   launch/queue overhead anyway. NEFTune (`TrainConfig.neftune_noise_alpha`)
-   is available as a cheap addition to try alongside it, and unlike the
-   search harness it is already wired into both the local and Kaggle training
-   paths. Status: **complete**. Its first attempt produced an invalid trial
-   -- greedy eval-time decoding on an undertrained 100-step checkpoint
-   degenerated into a repeated-token loop that pinned `eval_wer~=1.0`/pushed
-   `eval_cer` past 100%, which would have made every trial in the search
-   look identically bad regardless of the rank/LR under test. Found by
-   direct reproduction, fixed in `train.py` (`no_repeat_ngram_size=3` added
-   to the eval generation config); see
-   [the E008 eval-repetition-bug audit](../audits/e008-eval-repetition-bug.md).
-   Does not affect E005/E006/E007, which train to full length past this
-   regime. Moved to Camber once the fix was verified; ran into a real
-   Camber-specific concurrency issue there (an earlier "abandoned" job kept
-   running remotely and wrote into the same shared Optuna study a later
-   resubmission also used) -- winning trial independently re-verified
-   despite it. **Result: rank=32, learning_rate~2.3e-4 beats this project's
-   historical default (rank=16, lr=5e-5) at this step budget** -- 101.14%
-   vs E001's real 114.26% strict WER at the same 100 steps. See
-   [the E008 experiment report](../experiments/e008-optuna-rank-lr-search-v4.md)
-   (or [the underlying audit](../audits/e008-rank-lr-search.md) for the
-   full trial table and the concurrency finding). This search result was
-   not adopted on its own -- validated by a real controlled comparison in
-   item 2a below, and now adopted.
+**Foundational findings (complete, feeding into the forward-looking order
+below):**
 
-2a. Controlled validation of E008's finding (E010) -- **complete, finding
-    validated**. A clean, single-job, no-concurrency-risk 500-step
-    comparison (5x E008's proxy scale) confirms rank=32, lr~2.345e-4 beats
-    the historical default (rank=16, lr=5e-5): final eval_wer 97.42% vs
-    102.89% (-5.47pp), eval_cer 33.13% vs 43.71% (-10.58pp), and the
-    candidate leads at every single eval checkpoint on loss and CER, not
-    just the final one. See
-    [the E010 report](../experiments/e010-rank-lr-validation-v4.md) for the
-    full trajectory. **Adopt rank=32, learning_rate~2.3e-4 as the default
-    for any future LoRA experiment on this recipe** (does not retroactively
-    change E001-E007's own results).
-3. Tokenizer vocabulary extension -- add dedicated Sinhala subword tokens and
-   resize the model's token embeddings before fine-tuning, rather than
-   relying on the base model's byte-level fallback throughout. Moved ahead of
-   the full-parameter pilot: two independent structural findings (the
-   phoneme-identity result above and the zero-Sinhala-vocabulary result)
-   converge on exactly this fix for this project's single worst-offending
-   confusion pair, making it a more targeted, better-diagnosed bet than the
-   full-parameter pilot below, and a smaller one -- it needs "only" a
-   tokenizer change plus a bounded pilot to confirm nothing destabilizes, not
-   a full retrain from scratch. Real precedent exists for this exact
-   technique on comparable non-Latin-script low-resource languages -- see
-   [the near-homophone analysis's external-precedent section](../audits/e006-near-homophone-error-analysis.md#external-precedent-for-this-exact-fix)
-   -- and says it is safe (no training instability reported even with plain
-   random initialization of the new tokens) but should be expected to yield a
-   modest improvement (roughly -0.7 percentage points WER in the closest
-   published study), not a breakthrough. Set expectations accordingly before
-   scoping the pilot. Status: build done, first pilot run done on Camber and
-   diagnosed unstable for a confirmed, fixable reason -- **not** the "modest
-   improvement" outcome expected. `scripts/training/extend_tokenizer.py`
-   trains 250 new tokens from the real v4 corpus and wires them into
-   `train.py`/`TrainConfig` via `extended_tokenizer_path`; measured a 57.1%
-   tokens-per-word reduction (10.214 -> 4.386) on real text, above the
-   external precedent's 30-61% range. The pilot run itself
-   (`configs/training/experiments/e009-tokenizer-extension-pilot-v4.json`,
-   same recipe as E001) came back with WER *rising* over training (169% ->
-   999% between step 50 and 100) and, on direct inspection of real
-   generated text, the model outputting actual Khmer script on two of four
-   sampled clips -- not the target language at all. Root cause confirmed
-   structurally, not guessed: this project's LoRA `target_modules`
-   (`q_proj,k_proj,v_proj,out_proj,fc1,fc2`) does not include Whisper's tied
-   embedding/output-projection layer, so the 250 newly-added token rows stay
-   frozen at their random initialization for the entire run -- exactly the
-   embedding-freezing risk flagged before building anything, now confirmed
-   for this project's specific LoRA recipe (the external paper's "no
-   instability" result came from full fine-tuning, where nothing is frozen,
-   so it never tested this failure mode). Fix applied and committed:
-   `modules_to_save=["embed_tokens", "proj_out"]` plus
-   `ensure_weight_tying=True` added to the LoRA config, verified directly
-   (every other experiment's LoRA config unchanged, same trainable param
-   count). See
-   [the E009 experiment report](../experiments/e009-tokenizer-extension-pilot-v4.md)
-   (or [the underlying audit](../audits/e009-tokenizer-extension.md) for
-   the full trace, including the earlier `add_tokens()` byte-remapping bug
-   and the Camber environment issues hit along the way). Second pilot run,
-   with the fix, not yet done.
-4. A properly scoped, bounded full-parameter fine-tuning pilot -- potentially
-   the largest remaining lever given LoRA's measured ceiling, but currently
-   out of scope per this plan and requires its own cost/scope review before
-   starting; do not treat the historical (leakage-tainted) 17% number as
-   evidence this will work, only as a reason to check. Two further,
-   independent external pipelines show the same qualitative pattern (full
-   fine-tune reaching materially lower WER than this project's LoRA ceiling,
-   even under far less data/rigor) -- see
+- Cheap, no-GPU diagnostic: how Whisper's tokenizer encodes the specific
+  Sinhala near-homophone character pairs identified in the error analysis.
+  Done: `openai/whisper-small`'s tokenizer has **zero dedicated Sinhala
+  tokens** at all (every one of the 128 Sinhala Unicode codepoints is two
+  raw UTF-8 byte-level fallback tokens; none of the 51,865 vocabulary
+  entries decode to clean standalone Sinhala). See
+  [the near-homophone analysis](../audits/e006-near-homophone-error-analysis.md#tokenizer-check-whisper-small-has-zero-dedicated-sinhala-vocabulary)
+  for the full finding, including why ල/ළ specifically -- the single most
+  frequent confusion found -- gets no help from either the acoustic signal
+  or the token representation.
+- Adapter rank/learning-rate search (E008) via
+  `scripts/training/optuna_search.py` -- **complete**. First attempt
+  produced an invalid trial (greedy eval-time decoding on an undertrained
+  100-step checkpoint degenerated into a repeated-token loop that pinned
+  `eval_wer~=1.0`; found by direct reproduction, fixed in `train.py`,
+  see [the E008 eval-repetition-bug audit](../audits/e008-eval-repetition-bug.md)).
+  Moved to Camber once fixed; hit a real concurrency bug there (an earlier
+  "abandoned" job kept running remotely and wrote into the same shared
+  Optuna study a later resubmission also used) -- winning trial
+  independently re-verified despite it. **Result: rank=32,
+  learning_rate~2.3e-4 beats this project's historical default (rank=16,
+  lr=5e-5)** -- 101.14% vs E001's real 114.26% strict WER at the same 100
+  steps. See [the E008 experiment report](../experiments/e008-optuna-rank-lr-search-v4.md).
+- Controlled validation of E008's finding (E010) -- **complete, finding
+  validated and adopted**. A clean, single-job, no-concurrency-risk
+  500-step comparison (5x E008's proxy scale) confirms rank=32,
+  lr~2.345e-4 beats the historical default at every single eval
+  checkpoint, not just the final one: eval_wer 97.42% vs 102.89% (-5.47pp),
+  eval_cer 33.13% vs 43.71% (-10.58pp). See
+  [the E010 report](../experiments/e010-rank-lr-validation-v4.md).
+- Tokenizer vocabulary extension (E009) -- **build done, first pilot found
+  unstable, fix applied, re-run pending.** Two independent structural
+  findings (phoneme identity + zero-Sinhala-vocabulary) motivated this fix
+  for the project's single worst-offending confusion pair, with real
+  external precedent for both safety and expected magnitude (roughly -0.7
+  percentage points WER in the closest published study). Built
+  `scripts/training/extend_tokenizer.py`: 250 new tokens from the real v4
+  corpus, 57.1% tokens-per-word reduction (10.214 -> 4.386), above the
+  external precedent's 30-61% range. First pilot came back with WER
+  *rising* over training (169% -> 999% between step 50 and 100) and the
+  model outputting actual Khmer script on two of four sampled clips.
+  Root cause confirmed structurally: this project's LoRA `target_modules`
+  doesn't include Whisper's tied embedding/output-projection layer, so the
+  250 new token rows stayed frozen at random initialization for the whole
+  run -- exactly the embedding-freezing risk flagged before building
+  anything, now confirmed for this project's LoRA recipe specifically (the
+  external paper's "no instability" result came from full fine-tuning,
+  where nothing is frozen, so it never tested this failure mode). Fix
+  applied and committed: `modules_to_save=["embed_tokens", "proj_out"]`
+  plus `ensure_weight_tying=True`, verified directly (every other
+  experiment's LoRA config unchanged, same trainable param count). See
+  [the E009 experiment report](../experiments/e009-tokenizer-extension-pilot-v4.md).
+  Second pilot run, with the fix, not yet done.
+
+**Forward-looking priority order, ranked by expected improvement per unit
+of training time -- decided explicitly to save full-parameter fine-tuning
+for last: by the time that (expensive, effectively one-shot) run happens,
+every cheaper lever should already be tried and folded into the recipe
+going in, not discovered afterward:**
+
+1. Re-run E009's tokenizer pilot with the fix (~15-20 minutes, Camber).
+   Nearly free, and the one open unknown blocking items 3 and 4 below --
+   needs answering before tokenizer extension can be counted as one of the
+   validated tricks to carry forward.
+2. Full-scale rerun of E007's recipe with the validated rank/LR (rank=32,
+   learning_rate~2.3e-4) -- same cost as E007 itself (~11h Kaggle,
+   two-phase). Doesn't need to wait on item 1; already justified by E010's
+   evidence. Highest-confidence big-ticket item, because unlike the other
+   levers it isn't a guess -- E010 demonstrated a real, consistent 5.5 to
+   10.6 percentage-point gain at every checkpoint of a 500-step comparison.
+   E007 itself never used this recipe (it used the E001-era rank=16,
+   lr=5e-5 default), so this also doubles as the first real controlled
+   comparison against E007 at full scale, which E010's 500-step run
+   doesn't substitute for.
+3. Full-scale tokenizer-extension experiment (~11h Kaggle) -- only if item
+   1 succeeds. Same cost class as item 2, smaller expected payoff by the
+   one real precedent available (~-0.7pp WER), though this project's own
+   57.1% token-compression ratio beat that paper's, so it's plausible the
+   real gain here exceeds -0.7pp.
+4. Combine every validated trick into one recipe -- rank/LR (item 2) plus
+   tokenizer extension if it holds (item 3) plus NEFTune
+   (`TrainConfig.neftune_noise_alpha`, already wired into both the local
+   and Kaggle/Colab training paths via an optional job-config field, cheap
+   to try, untested at Sinhala-adapter scale here). This is the actual
+   "exhausted the options" step, not items 2 or 3 individually -- the real
+   predecessor to full-parameter training, not a substitute for it.
+5. A human-in-the-loop correction batch targeted specifically at rows
+   containing the near-homophone confusions identified in the error
+   analysis, rather than a random sample -- higher signal per reviewed
+   row. Spends reviewer time, not GPU time, so it can run in parallel with
+   any of the above rather than competing for the same budget; fold any
+   resulting corrections into the training data before the full-parameter
+   run, not after.
+6. Full-parameter fine-tuning -- **deliberately last.** Only start once
+   items 1-5 have reported back, so the recipe going in is whatever
+   combination of rank/LR, tokenizer extension, NEFTune, and corrected data
+   actually proved out, plus a real number for how much of the remaining
+   gap is architecture-limited (LoRA's ceiling) versus something a full
+   update could fix -- not a guess made before the cheaper options were
+   exhausted. Potentially the largest remaining lever: two independent
+   external pipelines show the same qualitative pattern (full fine-tune
+   reaching materially lower WER than this project's LoRA ceiling, even
+   under far less data/rigor) -- see
    [the SPEAK-ASR/ASR-Finetune review](../audits/asr-finetune-external-review.md)
    and
    [the whisper-based-sinhala-asr review](../audits/whisper-based-sinhala-asr-external-review.md).
-   Neither is individually trustworthy (one has confirmed split leakage, the
-   other's split is simply unverifiable), but three independent codebases
-   landing on the same direction is a reason to weigh this pilot's scope, not
-   proof of a specific achievable number.
-5. A human-in-the-loop correction batch targeted specifically at rows
-   containing the near-homophone confusions identified in the error analysis,
-   rather than a random sample -- higher signal per reviewed row, but spends
-   reviewer time rather than compute, and is worth less before the recipe
-   itself is more settled.
+   Neither is individually trustworthy (one has confirmed split leakage,
+   the other's split is simply unverifiable), and the historical
+   project's own leakage-tainted 17% number is a reason to check, not
+   evidence this will work -- but three independent codebases landing on
+   the same direction is a reason to take the pilot seriously once it's
+   this recipe's turn. A bounded feasibility/VRAM/step-time scoping pilot
+   (this project's own Gate B discipline) belongs immediately before the
+   real run, not run early just because it's cheap -- there's no reason to
+   spend even a small amount of time on it before it's actually needed.
 
 Before full-data recipe comparisons, measure a nested data learning curve using
 approximately 10, 25, 50, and 100 verified speech hours plus the full retained
