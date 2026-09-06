@@ -65,18 +65,21 @@ WER versus 4.23% untouched, statistically equivalent to E004's English result.
 E006 then extended the same nested curve to 100.00 hours: canonical Sinhala WER
 improved materially again to 84.48% and CER to 28.74%, while English remained
 statistically equivalent to E005 and passed at 4.58% WER. Sinhala remains far
-above the under-10% target, but the curve has not plateaued. The final
-controlled point, the complete 220.88-hour v4 train split, is running as a
-checkpointed two-stage E007 run to stay safely below Kaggle's per-session
-limit: Phase A completed (step 4,077/6,342, healthy loss), Phase B is running.
-Three further levers are being explored in parallel rather than waiting on
-E007: an automated LoRA rank/learning-rate search (E008, complete as a search
-but not yet validated as a controlled result -- see E010), a Sinhala tokenizer
-vocabulary-extension pilot (E009, first attempt found unstable for a
-confirmed, now-fixed reason; re-run pending), and a controlled single-job
-comparison validating E008's rank/LR finding before it is trusted (E010,
-running). See [the experiment registry](docs/experiments/README.md) for
-current status of all of these. Full-parameter fine-tuning remains out of
+above the under-10% target, but the curve has not plateaued. E007, the final
+controlled point (the complete 220.88-hour v4 train split, trained as a
+checkpointed two-stage run to stay below Kaggle's per-session limit), has now
+finished training and Sinhala validation: canonical WER improved materially
+again, to 81.71% (CER 26.15%), a paired 95%-interval-confirmed real
+improvement over E006. English-retention evaluation is running; the gate has
+not been checked yet. Three further levers were explored in parallel rather
+than waiting on E007: an automated LoRA rank/learning-rate search (E008,
+validated by a controlled follow-up, E010 -- rank=32, lr~2.3e-4 now
+recommended over the historical rank=16, lr=5e-5 default for future
+experiments), and a Sinhala tokenizer vocabulary-extension pilot (E009, first
+attempt found unstable for a
+confirmed, now-fixed reason; re-run pending). See
+[the experiment registry](docs/experiments/README.md) for current status of
+all of these. Full-parameter fine-tuning remains out of
 scope pending E007's result.
 
 Historical split and model claims have already been captured in the
