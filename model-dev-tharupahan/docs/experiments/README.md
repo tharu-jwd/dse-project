@@ -14,8 +14,9 @@ and result report.
 | E005 | E004 teacher replay scaled to 50k Sinhala rows and one effective epoch | Complete | [Sinhala improved materially; English retention passed](e005-whisper-small-wide-lora-r16-50k-teacher-replay-v4.md) |
 | E006 | E005 recipe scaled to a nested 100-hour Sinhala tier | Complete | [Sinhala improved materially; English retention passed](e006-whisper-small-wide-lora-r16-100h-teacher-replay-v4.md) |
 | E007 | E006 recipe scaled to the complete 220.877-hour v4 training split | Phase A complete, Phase B pending | [Two-phase exact-resume run](e007-whisper-small-wide-lora-r16-full-v4-teacher-replay.md) |
-| E008 | Automated LoRA rank/learning-rate search (Optuna) over the E001 recipe | Complete (search only, not a controlled experiment) | [E008 rank/LR search results](../audits/e008-rank-lr-search.md) -- best: rank=32, lr~2.3e-4, WER 101.14% |
-| E009 | Sinhala tokenizer vocabulary extension (+250 tokens) on the E001 recipe | Pilot unstable, fix identified, re-run pending | [E009 audit](../audits/e009-tokenizer-extension.md) (no result report yet) |
+| E008 | Automated LoRA rank/learning-rate search (Optuna) over the E001 recipe | Complete (search only, not a controlled experiment) | [Search suggests rank=32, lr~2.3e-4; not yet validated](e008-optuna-rank-lr-search-v4.md) |
+| E009 | Sinhala tokenizer vocabulary extension (+250 tokens) on the E001 recipe | Pilot unstable, fix identified, re-run pending | [Pilot destabilized (frozen embeddings), root cause fixed](e009-tokenizer-extension-pilot-v4.md) |
+| E010 | Controlled validation of E008's rank/LR search finding at 500 steps | Running | [Baseline vs. candidate, single job](e010-rank-lr-validation-v4.md) |
 
 The fixed 2,620-row LibriSpeech test-clean benchmark is evaluated after every
 adapter experiment without changing its references or normalization protocol.

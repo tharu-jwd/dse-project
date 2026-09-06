@@ -254,10 +254,18 @@ unit of time/risk, not by raw expected benefit alone:
    despite it. **Result: rank=32, learning_rate~2.3e-4 beats this project's
    historical default (rank=16, lr=5e-5) at this step budget** -- 101.14%
    vs E001's real 114.26% strict WER at the same 100 steps. See
-   [the E008 rank/LR search results](../audits/e008-rank-lr-search.md) for
-   the full trial table and the concurrency finding. Worth using this
-   rank/LR for any future short-step-budget LoRA experiment on this recipe
-   instead of the E001 default.
+   [the E008 experiment report](../experiments/e008-optuna-rank-lr-search-v4.md)
+   (or [the underlying audit](../audits/e008-rank-lr-search.md) for the
+   full trial table and the concurrency finding). This search result is
+   not adopted on its own -- see item 2a below.
+
+2a. Controlled validation of E008's finding (E010) -- a 100-step Optuna
+    proxy search with compromised bookkeeping is not evidence a real
+    experiment should act on directly. Running a clean, single-job,
+    500-step, no-concurrency-risk comparison of the historical default
+    (rank=16, lr=5e-5) against E008's candidate (rank=32, lr~2.345e-4) on
+    Camber. See [the E010 report](../experiments/e010-rank-lr-validation-v4.md)
+    (updated once both runs finish).
 3. Tokenizer vocabulary extension -- add dedicated Sinhala subword tokens and
    resize the model's token embeddings before fine-tuning, rather than
    relying on the base model's byte-level fallback throughout. Moved ahead of
@@ -293,13 +301,16 @@ unit of time/risk, not by raw expected benefit alone:
    embedding-freezing risk flagged before building anything, now confirmed
    for this project's specific LoRA recipe (the external paper's "no
    instability" result came from full fine-tuning, where nothing is frozen,
-   so it never tested this failure mode). Fix identified but not yet
-   applied: add `modules_to_save=["embed_tokens", "proj_out"]` to the LoRA
-   config so those layers train alongside the adapters. See
-   [the E009 audit](../audits/e009-tokenizer-extension.md) for the full
-   trace, including the earlier `add_tokens()` byte-remapping bug and the
-   Camber environment issues hit along the way. Second pilot run, with the
-   fix, not yet done.
+   so it never tested this failure mode). Fix applied and committed:
+   `modules_to_save=["embed_tokens", "proj_out"]` plus
+   `ensure_weight_tying=True` added to the LoRA config, verified directly
+   (every other experiment's LoRA config unchanged, same trainable param
+   count). See
+   [the E009 experiment report](../experiments/e009-tokenizer-extension-pilot-v4.md)
+   (or [the underlying audit](../audits/e009-tokenizer-extension.md) for
+   the full trace, including the earlier `add_tokens()` byte-remapping bug
+   and the Camber environment issues hit along the way). Second pilot run,
+   with the fix, not yet done.
 4. A properly scoped, bounded full-parameter fine-tuning pilot -- potentially
    the largest remaining lever given LoRA's measured ceiling, but currently
    out of scope per this plan and requires its own cost/scope review before
