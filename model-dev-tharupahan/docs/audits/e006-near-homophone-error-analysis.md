@@ -77,6 +77,50 @@ decoder's language-modeling behavior and tokenization, not the audio encoder,
 as the more relevant lever for this specific pair of confusions -- worth
 keeping in mind for the tokenizer check already queued next.
 
+## How common are the pairs this analysis is about, versus the missing coverage?
+
+Cross-checked against a syllable-frequency table over a large natural Sinhala
+text corpus (~5.79 million syllable occurrences, 4,598 distinct syllables;
+used here only as reference statistics for this cross-check, not vendored
+into this repository or used as training data). Two things worth separating:
+
+The confusion pairs this analysis is actually about are common, high-impact
+characters, not edge cases:
+
+| Character | Share of corpus |
+|---|---:|
+| ි (short i) | 14.29% |
+| න (dental n) | 12.60% |
+| ත (t) | 8.42% |
+| ෙ (short e) | 6.82% |
+| ද (d) | 6.29% |
+| ේ (long e) | 4.10% |
+| ල (dental l) | 2.46% |
+| ණ (retroflex n) | 2.20% |
+| ළ (retroflex l) | 1.00% |
+| ී (long i) | 1.42% |
+
+The 9 characters the earlier findings section noted as *missing* from this
+validation set's coverage are, by contrast, genuinely rare -- confirming that
+gap was correctly deprioritized rather than just asserted:
+
+| Character | Share of corpus | Frequency rank (of 4,598 syllables containing it) |
+|---|---:|---:|
+| ධ | 1.12% | best rank 63 |
+| ඥ | 0.29% | best rank 100 |
+| ෘ | 0.28% | best rank 222 |
+| ඝ | 0.15% | best rank 171 |
+| ඬ | 0.07% | best rank 286 |
+| ෛ | 0.04% | best rank 558 |
+| ඕ | 0.03% | best rank 308 |
+| ඊ | 0.01% | best rank 649 |
+| ඓ | 0.0009% | best rank 1,626 |
+
+This is quantified confirmation, not new discovery: it turns the earlier
+"these are rare Sanskrit/Pali-loanword letters" claim into a measured one, and
+shows the actual confusion pairs driving E006's error are the opposite of an
+edge case -- they are among the most common characters in the language.
+
 ## Counterfactual: how much WER/CER would forgiving these buy?
 
 Two counterfactuals, both computed on the same 206 rows with the same

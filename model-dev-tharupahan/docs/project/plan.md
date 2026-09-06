@@ -230,7 +230,17 @@ unit of time/risk, not by raw expected benefit alone:
    the largest remaining lever given LoRA's measured ceiling, but currently
    out of scope per this plan and requires its own cost/scope review before
    starting; do not treat the historical (leakage-tainted) 17% number as
-   evidence this will work, only as a reason to check.
+   evidence this will work, only as a reason to check. Two further,
+   independent external pipelines show the same qualitative pattern (full
+   fine-tune reaching materially lower WER than this project's LoRA ceiling,
+   even under far less data/rigor) -- see
+   [the SPEAK-ASR/ASR-Finetune review](../audits/asr-finetune-external-review.md)
+   and
+   [the whisper-based-sinhala-asr review](../audits/whisper-based-sinhala-asr-external-review.md).
+   Neither is individually trustworthy (one has confirmed split leakage, the
+   other's split is simply unverifiable), but three independent codebases
+   landing on the same direction is a reason to weigh this pilot's scope, not
+   proof of a specific achievable number.
 4. A human-in-the-loop correction batch targeted specifically at rows
    containing the near-homophone confusions identified in the error analysis,
    rather than a random sample -- higher signal per reviewed row, but spends
