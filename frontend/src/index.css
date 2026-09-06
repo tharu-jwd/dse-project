@@ -1469,6 +1469,12 @@ textarea:focus-visible {
 .form-card > h2 {
   margin-bottom: 20px;
 }
+.quiz-results__mark {
+  margin: 0 0 20px;
+  font-size: 1.6rem;
+  font-weight: 750;
+  color: var(--teal);
+}
 .progress-steps {
   display: flex;
   max-width: 760px;

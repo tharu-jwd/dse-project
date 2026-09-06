@@ -72,11 +72,13 @@ export function QuizListPage() {
                 )}
               </div>
               <Link className="button button--primary" to={`/quizzes/${quiz.id}`}>
-                {quiz.submissionStatus === 'SUBMITTED'
-                  ? t('quiz.viewSubmission')
-                  : quiz.submissionStatus === 'IN_PROGRESS'
-                    ? t('quiz.continueQuiz')
-                    : t('quiz.startQuiz')}{' '}
+                {quiz.submissionStatus === 'REVIEWED'
+                  ? t('quiz.viewResults')
+                  : quiz.submissionStatus === 'SUBMITTED'
+                    ? t('quiz.viewSubmission')
+                    : quiz.submissionStatus === 'IN_PROGRESS'
+                      ? t('quiz.continueQuiz')
+                      : t('quiz.startQuiz')}{' '}
                 <Icon name="arrow" size={17} />
               </Link>
             </article>
@@ -103,6 +105,11 @@ export function QuizAnswerPage() {
   const [confirm, setConfirm] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  // Only populated once the teacher has reviewed the submission - the
+  // mark/feedback/per-answer correctness this holds is what turns the
+  // plain "your answers are on their way" screen below into the full
+  // results view.
+  const [mySubmission, setMySubmission] = useState(null)
   const { job, start, reset } = useTranscriptionJob()
   const { interactionMode } = useAccessibility()
   const [commandFeedback, setCommandFeedback] = useState('')
@@ -217,7 +224,15 @@ export function QuizAnswerPage() {
       .getQuiz(id)
       .then((item) => {
         setQuiz(item)
-        if (item.submissionStatus === 'SUBMITTED') setSubmitted(true)
+        if (item.submissionStatus === 'SUBMITTED' || item.submissionStatus === 'REVIEWED') {
+          setSubmitted(true)
+        }
+        if (item.submissionStatus === 'REVIEWED' && item.submissionId) {
+          api
+            .getSubmission(item.submissionId)
+            .then(setMySubmission)
+            .catch((cause) => setError(cause.message))
+        }
       })
       .catch((cause) => setError(cause.message))
   }, [id])
@@ -240,6 +255,83 @@ export function QuizAnswerPage() {
         <Loading label={t('quiz.openingQuiz')} />
       </div>
     )
+  if (submitted && quiz.submissionStatus === 'REVIEWED') {
+    if (!mySubmission)
+      return (
+        <div className="page has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>
+          <Loading label={t('quiz.openingResults')} />
+        </div>
+      )
+    return (
+      <div className="page page--narrow has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>
+        <PageHeader
+          eyebrow={t('quiz.results')}
+          title={quiz.title}
+          description={t('quiz.reviewedBy')}
+          back={
+            <button className="back-link" onClick={() => navigate('/quizzes')}>
+              {t('quiz.backToMyQuizzes')}
+            </button>
+          }
+        />
+        {error && <Alert>{error}</Alert>}
+        <section className="form-card">
+          <h2>{t('quiz.yourMark')}</h2>
+          <p className="quiz-results__mark">
+            {mySubmission.mark !== null && mySubmission.mark !== undefined
+              ? `${mySubmission.mark} / 100`
+              : t('quiz.notMarkedYet')}
+          </p>
+          <h2>{t('quiz.teacherFeedback')}</h2>
+          <p>{mySubmission.feedback || t('quiz.noFeedbackGiven')}</p>
+        </section>
+        <section className="answers-review">
+          <h2>{t('quiz.yourAnswers')}</h2>
+          {mySubmission.answers.map((answer, index) => (
+            <article key={answer.questionId}>
+              <span>{t('submissions.questionN', index + 1)}</span>
+              <h3 lang="si">{answer.question}</h3>
+              {answer.type === 'MCQ' ? (
+                <>
+                  <div className="mcq-review-options">
+                    {(answer.options || []).map((option, optIndex) => {
+                      const isSelected = option.id === answer.selectedOptionId
+                      const classes = ['mcq-review-option']
+                      if (isSelected) classes.push('mcq-review-option--selected')
+                      if (option.isCorrect) classes.push('mcq-review-option--correct')
+                      if (isSelected && !option.isCorrect)
+                        classes.push('mcq-review-option--incorrect-selection')
+                      return (
+                        <div className={classes.join(' ')} key={option.id}>
+                          <span>{optIndex + 1}.</span>
+                          <span lang="si">{option.text}</span>
+                          {isSelected && <em>{t('submissions.mcqStudentSelected')}</em>}
+                          {option.isCorrect && <strong>{t('submissions.mcqCorrectAnswer')}</strong>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <p
+                    className={`mcq-review-result ${
+                      answer.isCorrect ? 'mcq-review-result--correct' : 'mcq-review-result--incorrect'
+                    }`}
+                  >
+                    <Icon name={answer.isCorrect ? 'check' : 'alert'} size={15} />{' '}
+                    {answer.isCorrect ? t('submissions.mcqCorrect') : t('submissions.mcqIncorrect')}
+                  </p>
+                </>
+              ) : (
+                <div className="answer-transcript">
+                  <Icon name="file" size={18} />
+                  <p lang="si">{answer.transcript}</p>
+                </div>
+              )}
+            </article>
+          ))}
+        </section>
+      </div>
+    )
+  }
   if (submitted)
     return (
       <div className="page page--narrow has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>

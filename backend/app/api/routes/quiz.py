@@ -111,19 +111,17 @@ def serialize_quiz_owner(quiz: Quiz) -> QuizOwnerResponse:
     )
 
 
-def submission_status_for(db, quiz: Quiz, student_id: uuid.UUID) -> str:
-    submission = db.execute(
+def _own_submission(db, quiz: Quiz, student_id: uuid.UUID) -> QuizSubmission | None:
+    return db.execute(
         select(QuizSubmission).where(
             QuizSubmission.quiz_id == quiz.quiz_id,
             QuizSubmission.student_id == student_id,
         )
     ).scalar_one_or_none()
-    if submission is None:
-        return "NOT_STARTED"
-    return submission.status
 
 
 def serialize_quiz_student(quiz: Quiz, db, student_id: uuid.UUID) -> QuizListItem:
+    submission = _own_submission(db, quiz, student_id)
     return QuizListItem(
         id=quiz.quiz_id,
         title=quiz.title,
@@ -131,7 +129,11 @@ def serialize_quiz_student(quiz: Quiz, db, student_id: uuid.UUID) -> QuizListIte
         status=quiz.status,
         dueDate=quiz.available_until.date().isoformat() if quiz.available_until else None,
         questions=[serialize_question_student(q) for q in quiz.questions],
-        submissionStatus=submission_status_for(db, quiz, student_id),
+        submissionStatus=submission.status if submission else "NOT_STARTED",
+        # Lets the client fetch full submission detail (mark, feedback,
+        # per-question correctness once reviewed) via GET /submissions/{id}
+        # without a second lookup keyed by quiz id.
+        submissionId=submission.submission_id if submission else None,
     )
 
 
@@ -484,7 +486,15 @@ def get_submission(
     if not (is_owner_teacher or is_owning_student):
         raise _forbidden("You do not have access to this submission.")
 
-    return serialize_submission(db, submission, include_correctness=is_owner_teacher)
+    # A student sees which of their answers were correct and the answer
+    # key only once the teacher has actually reviewed the submission -
+    # before that, mark/feedback are still null and there's nothing to
+    # show, so the extra detail would be meaningless (or could leak the
+    # answer key on an unmarked attempt if this ever moved earlier).
+    include_correctness = is_owner_teacher or (
+        is_owning_student and submission.status == "REVIEWED"
+    )
+    return serialize_submission(db, submission, include_correctness=include_correctness)
 
 
 @router.patch("/submissions/{submission_id}/review", response_model=QuizSubmissionResponse)

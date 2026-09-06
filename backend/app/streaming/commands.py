@@ -61,6 +61,10 @@ COMMANDS_SI: tuple[VoiceCommand, ...] = (
     # Saying "stop" while that transcription session is running switches
     # back to the command mic automatically.
     VoiceCommand(id="answer", phrase="පිළිතුර"),
+    # Wake word - a coined, language-neutral name rather than a translated
+    # phrase, so it's spoken identically in both language sets and stays
+    # easy to recognise regardless of the student's active command language.
+    VoiceCommand(id="wake", phrase="zimi"),
 )
 
 # Validated against 36 real recordings (see command_embedding_similarities_en.csv) -
@@ -79,6 +83,7 @@ COMMANDS_EN: tuple[VoiceCommand, ...] = (
     VoiceCommand(id="option_4", phrase="four"),
     VoiceCommand(id="cancel", phrase="cancel"),
     VoiceCommand(id="answer", phrase="answer"),
+    VoiceCommand(id="wake", phrase="zimi"),
 )
 
 COMMANDS_BY_LANGUAGE: dict[str, tuple[VoiceCommand, ...]] = {

@@ -99,6 +99,7 @@ class QuizListItem(BaseModel):
     submissionStatus: SubmissionStatus | None = Field(
         default=None, serialization_alias="submissionStatus"
     )
+    submissionId: UUID | None = Field(default=None, serialization_alias="submissionId")
 
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 

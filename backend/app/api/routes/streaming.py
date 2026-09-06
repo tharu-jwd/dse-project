@@ -1,4 +1,5 @@
 import asyncio
+import dataclasses
 import json
 import logging
 import time
@@ -17,7 +18,7 @@ from app.services.streaming_persistence import (
 )
 from app.services.transcript_service import DuplicateTranscriptTitleError
 from app.streaming.buffer import StreamingBuffer
-from app.streaming.command_resolution import resolve_command
+from app.streaming.command_resolution import CommandDecision, resolve_command
 from app.streaming.embeddings import ClipTooShortError
 from app.streaming.inference import get_streaming_transcriber
 from app.streaming.vad import get_vad
@@ -220,6 +221,10 @@ async def _run_session(websocket: WebSocket, user: User) -> None:
         # _send_command.
         "listening_sent": False,
         "last_command": None,
+        # Wake-word gating: set to a monotonic deadline when the wake
+        # word is recognized, cleared the moment it either unlocks one
+        # command or expires - see _resolve_and_dispatch.
+        "armed_until": None,
     }
 
     # NOTE mode keeps the tick loop exactly as before, for partial
@@ -500,6 +505,20 @@ async def _resolve_and_dispatch(
         language=state["language"],
     )
 
+    if settings.voice_command_wake_gate_enabled:
+        if decision.outcome == "execute" and decision.command_id == settings.voice_command_wake_word_id:
+            # The wake word itself performs no app action - it only opens
+            # a short window in which exactly one following command is
+            # allowed to execute. Reported in both modes so the client
+            # can show "listening for a command" feedback, but never
+            # persisted as dictated text and never counted as a note
+            # command.
+            state["armed_until"] = time.monotonic() + settings.voice_command_wake_window_seconds
+            await _send_command(websocket, state, decision.command_id)
+            return
+
+        decision = _apply_wake_gate(state, decision)
+
     if state["mode"] == "COMMAND":
         # No note to protect and nothing persisted either way - every
         # recognized command is just forwarded, the client owns what it
@@ -520,6 +539,37 @@ async def _resolve_and_dispatch(
         # student actually said, same as ordinary dictation.
 
     await _persist_and_send_final(websocket, state, transcript_id, segment)
+
+
+def _apply_wake_gate(state: dict, decision: CommandDecision) -> CommandDecision:
+    """Require the wake word to have been said recently before letting
+    any other command actually execute.
+
+    Only the "execute" outcome is gated - "confirm" is already not acted
+    on by the caller (it just prompts/falls through to dictation), so
+    there is nothing here for the gate to block. A gated-out execute is
+    downgraded to "none", i.e. treated exactly like nothing was
+    recognized at all: dropped in COMMAND mode, left as ordinary
+    dictated text in NOTE mode. The arm window is consumed the instant
+    it unlocks one command, so saying the wake word once never leaves
+    the session in a standing "always armed" state.
+    """
+
+    if decision.outcome != "execute":
+        return decision
+
+    armed_until = state.get("armed_until")
+    is_armed = armed_until is not None and time.monotonic() < armed_until
+
+    if not is_armed:
+        logger.info(
+            "voice_command_wake_gate blocked command=%s (wake word not said recently)",
+            decision.command_id,
+        )
+        return dataclasses.replace(decision, outcome="none", command_id=None)
+
+    state["armed_until"] = None
+    return decision
 
 
 async def _handle_note_command(
