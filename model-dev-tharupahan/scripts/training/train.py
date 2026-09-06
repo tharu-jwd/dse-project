@@ -62,9 +62,15 @@ def fingerprint(path: Path) -> str:
 
 
 def git_commit() -> str:
-    return subprocess.run(
-        ["git", "rev-parse", "HEAD"], check=True, text=True, capture_output=True
-    ).stdout.strip()
+    # Record-keeping only, not load-bearing for the run itself -- degrade to
+    # "unknown" rather than crashing when there is no git checkout at all
+    # (e.g. a Camber job populated from a stash mount, not a git clone).
+    try:
+        return subprocess.run(
+            ["git", "rev-parse", "HEAD"], check=True, text=True, capture_output=True
+        ).stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return "unknown"
 
 
 def main() -> None:
