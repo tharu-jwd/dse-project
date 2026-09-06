@@ -123,3 +123,14 @@ session ceiling. E007 must therefore be split at a durable checkpoint across
 two private kernels rather than risking the whole epoch in one session. Phase B
 must resume the exact Phase-A optimizer, scheduler, scaler, RNG, and trainer
 state; it must not restart from the Phase-A adapter as a fresh optimization.
+
+A separate local, GPU-free diagnostic on this result is recorded in
+[the near-homophone error analysis](../audits/e006-near-homophone-error-analysis.md):
+the dominant individual error type is a small set of known Sinhala
+near-homophone script confusions, but even generously forgiving every frequent
+one only recovers about 6 WER points and 10 CER points. Most of the remaining
+gap is broader recognition error, not near-homophone noise or a scoring
+artifact -- low leverage relative to the gap against the historical
+full-parameter checkpoint's reported ~17% WER (see
+[the historical audit](../audits/historical-audit.md)), and worth revisiting
+only after a higher-leverage lever has moved the baseline.

@@ -24,6 +24,7 @@
 - [Historical team-work audit](audits/historical-audit.md)
 - [Label-refinement A/B](audits/label-refinement-ab.md)
 - [Refinement-model benchmark](audits/refinement-model-benchmark.md)
+- [E006 near-homophone error analysis](audits/e006-near-homophone-error-analysis.md)
 
 Stable policies and operational guides live in their subject directories.
 Individual run results live under `experiments/`; generated machine-readable
