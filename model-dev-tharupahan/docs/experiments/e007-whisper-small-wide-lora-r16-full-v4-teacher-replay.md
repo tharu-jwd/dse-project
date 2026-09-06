@@ -2,10 +2,10 @@
 
 ## Status
 
-**Training complete (both phases). Sinhala validation complete and
-independently re-scored -- material, statistically significant improvement
-over E006. English-retention evaluation running (kernel pushed, not yet
-back).**
+**Complete. Both gates pass.** Full 220.877-hour v4 split trained to
+completion; Sinhala validation shows a real, statistically material
+improvement over E006; English retention passes the frozen gate.
+This is the final point on the nested Sinhala data-scale curve (E000-E007).
 
 Phase A: kernel version 1 started 2026-09-06 12:17 Asia/Colombo, finished
 19:16 (Kaggle T4, ~6.9h). Reached the intended stop at step 4,077 with
@@ -130,14 +130,58 @@ gibberish seen in this project's various short-step-budget diagnostic runs
 
 ## English retention
 
-Kernel `tharupahan/sinhala-asr-e007-english-evaluation` pushed and running
-against the same hash-verified final adapter. This section will be updated
-with real, independently-scored results once it returns -- no conclusion is
-recorded until both language evaluations are in.
+Kernel `tharupahan/sinhala-asr-e007-english-evaluation` evaluated the same
+hash-verified final adapter against the unchanged 2,620-row LibriSpeech
+test-clean benchmark. Runtime: 680.5 seconds on a Tesla T4.
+
+- Benchmark SHA-256:
+  `eb1d6f299f5fefde5b66fab450ffbc3b5bf2518ec9e64d3829c050579c6f2906`
+- E007 English prediction SHA-256:
+  `036041e29fab864cd1af29f9065df005be0fd7286dbc25621bced5843774b563`
+  (hash-verified against the kernel's own reported value)
+
+Independently re-scored locally (same 2,620 rows, matched by `sample_id`,
+same methodology as every prior experiment):
+
+| Canonical English metric | Untouched | E006 | E007 |
+|---|---:|---:|---:|
+| WER | 4.2338% | 4.5821% | 4.5971% |
+| CER | 1.9240% | 2.0603% | 2.1157% |
+
+Paired bootstrap 95% intervals (2,000 iterations):
+
+- E007 vs. untouched -- WER delta: +0.1766 to +0.5304pp; CER delta: +0.0601
+  to +0.2941pp. The point degradation (+0.3633pp) is under the frozen
+  0.50-point limit, and the interval's upper bound (+0.5304pp) is under the
+  1.00-point limit. **The English-retention gate passes.**
+- E007 vs. E006 -- WER delta: -0.1141 to +0.1435pp; CER delta: -0.0216 to
+  +0.1392pp. Both intervals include zero: E007 and E006 are statistically
+  equivalent on English, the same pattern established at every step since
+  E004. Scaling Sinhala exposure from 100 to 220.877 hours did not
+  measurably worsen retention under the teacher-replay recipe.
 
 ## Decision rule
 
 Report strict and canonical Sinhala WER/CER with paired bootstrap deltas against
 E006, then apply the unchanged English gate: WER point degradation no greater
 than 0.50 percentage points and 95% CI upper bound no greater than 1.00 point.
-No conclusion is recorded until both language evaluations finish.
+
+**Both gates pass.** Sinhala improved materially (paired interval excludes
+zero) and English retention holds (point degradation and interval upper
+bound both within the frozen limits).
+
+## Conclusion: end of the nested data-scale curve
+
+E007 is the last point on the curve begun at E004 (50k rows -> 100 hours ->
+220.877 hours). Sinhala error has improved at every single step
+(E004 95.87% -> E005 89.57% -> E006 84.48% -> E007 81.71% canonical WER),
+with diminishing but still real returns at each stage, while English
+retention has passed at every single step. Sinhala remains far above the
+under-10% target -- scaling data alone, on this fixed LoRA recipe, will not
+close that gap; a materially different lever is needed next. See
+[the plan's priority order](../project/plan.md) for what that is: the
+rank/LR finding validated in E010 (rank=32, lr~2.3e-4, ready to use in any
+future recipe), the tokenizer-extension pilot (E009, fix applied, re-run
+pending), and a properly scoped full-parameter pilot, now that this
+recipe's own ceiling under LoRA is established with real evidence rather
+than projected.

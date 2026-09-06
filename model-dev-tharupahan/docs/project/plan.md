@@ -489,8 +489,10 @@ actual cloud cost.
   freeze 392 usable references as v4 and hold out 1,604 unheard rows
 - [x] Benchmark Bedrock-accessible transcript refiners against 293 audio-verified
   targets; Sonnet 4.6 is safest but does not reproduce the earlier ChatGPT pass
-- [ ] Model-training controlled experiments (E000-E006 complete through the
-  nested 100-hour Sinhala-data tier with material Sinhala gains and passing
-  English retention; E007 will test the full 182,665-row/220.88-hour split in
-  two checkpoint-resumed Kaggle stages)
+- [x] Model-training controlled experiments (E000-E007 complete: the nested
+  Sinhala data-scale curve through the full 182,665-row/220.88-hour split,
+  trained in two checkpoint-resumed Kaggle stages, with material Sinhala
+  gains and passing English retention at every step; canonical WER 81.71%,
+  CER 26.15% at E007, still far above the under-10% target -- data scale
+  alone on this fixed LoRA recipe will not close that gap)
 - [ ] Final test, deployment benchmark, and model card

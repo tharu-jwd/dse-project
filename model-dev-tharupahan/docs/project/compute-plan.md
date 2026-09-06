@@ -90,13 +90,17 @@ Accordingly, run one factor at a time. The completed sequence through E007 is:
    replay (E004 -- passed retention, established as the retention method);
 4. a nested Sinhala data-scale curve holding that recipe fixed: 50,000 rows
    (E005), 100 hours (E006), then the complete 220.877-hour split (E007,
-   Phase A complete, Phase B pending) -- both material Sinhala gains
-   measured so far, English retention has passed at every step;
+   **complete, both gates pass** -- canonical WER 81.71%, CER 26.15%,
+   English retention statistically equivalent to E006) -- material Sinhala
+   gains measured at every step, English retention passed at every step,
+   Sinhala still far above the under-10% target;
 5. two levers explored in parallel once E007 was under way rather than
-   waiting on it: an automated LoRA rank/learning-rate search (E008, in
-   progress) and a Sinhala tokenizer vocabulary extension (E009 -- pilot run
-   found unstable under this project's LoRA recipe for a confirmed,
-   fixable reason; fix identified, re-run pending).
+   waiting on it: an automated LoRA rank/learning-rate search (E008,
+   validated by a controlled follow-up, E010 -- rank=32, lr~2.3e-4 now the
+   recommended default for future LoRA experiments on this recipe) and a
+   Sinhala tokenizer vocabulary extension (E009 -- pilot run found unstable
+   under this project's LoRA recipe for a confirmed, fixable reason; fix
+   identified, re-run pending).
 
 Measure English before and after every candidate on the same fixed English set.
 Do not delete English words from Sinhala references or metrics: that would make

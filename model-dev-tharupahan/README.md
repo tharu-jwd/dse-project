@@ -64,19 +64,21 @@ on both), and the English-retention gate continued to pass at 4.52% canonical
 WER versus 4.23% untouched, statistically equivalent to E004's English result.
 E006 then extended the same nested curve to 100.00 hours: canonical Sinhala WER
 improved materially again to 84.48% and CER to 28.74%, while English remained
-statistically equivalent to E005 and passed at 4.58% WER. Sinhala remains far
-above the under-10% target, but the curve has not plateaued. E007, the final
+statistically equivalent to E005 and passed at 4.58% WER. **E007, the final
 controlled point (the complete 220.88-hour v4 train split, trained as a
-checkpointed two-stage run to stay below Kaggle's per-session limit), has now
-finished training and Sinhala validation: canonical WER improved materially
-again, to 81.71% (CER 26.15%), a paired 95%-interval-confirmed real
-improvement over E006. English-retention evaluation is running; the gate has
-not been checked yet. Three further levers were explored in parallel rather
-than waiting on E007: an automated LoRA rank/learning-rate search (E008,
-validated by a controlled follow-up, E010 -- rank=32, lr~2.3e-4 now
-recommended over the historical rank=16, lr=5e-5 default for future
-experiments), and a Sinhala tokenizer vocabulary-extension pilot (E009, first
-attempt found unstable for a
+checkpointed two-stage run to stay below Kaggle's per-session limit), is now
+complete and both gates pass**: canonical Sinhala WER improved materially
+again to 81.71% (CER 26.15%, paired 95% interval excludes zero on both), and
+English retention held at 4.60% canonical WER (paired 95% interval upper
+bound 0.53pp above untouched, inside the frozen 1.00pp limit; statistically
+equivalent to E006). Sinhala remains far above the under-10% target --
+scaling data alone, on this fixed LoRA recipe, will not close that gap; a
+materially different lever is needed next. Two further levers were already
+explored in parallel rather than waiting on E007: an automated LoRA
+rank/learning-rate search (E008, validated by a controlled follow-up, E010
+-- rank=32, lr~2.3e-4 now recommended over the historical rank=16, lr=5e-5
+default for future experiments), and a Sinhala tokenizer vocabulary-extension
+pilot (E009, first attempt found unstable for a
 confirmed, now-fixed reason; re-run pending). See
 [the experiment registry](docs/experiments/README.md) for current status of
 all of these. Full-parameter fine-tuning remains out of
