@@ -112,13 +112,25 @@ rows (Unicode block classification per character):
 | Mixed (2+ scripts) | 30 | 14.6% |
 | Other (pure Latin, Telugu, etc.) | 8 | 3.9% |
 
-Sinhala and Bengali are both Brahmic-derived scripts with related
-Indo-Aryan phonology -- a plausible, though unconfirmed, explanation is
-that `lang` conditioning is weak or partially ignored in this simple
-pipeline wrapper, and the model falls back to whichever related,
-higher-resource language it is more confident in. No existing GitHub
-issue on the upstream repo was found describing this specific behavior
-(checked, not assumed).
+**Root cause, confirmed directly from the library's own source (not
+speculation)**: `ASRInferencePipeline.transcribe()` checks
+`if is_ctc_model and lang: log.info(f"Found {lang=} with a CTC model.
+Ignoring.")` -- the `lang` parameter is logged and discarded outright for
+every CTC model. Tracing the actual batch-construction path confirms it:
+the language string is zipped alongside the audio in the internal data
+pipeline, but the batch-building step only ever reads the audio field and
+drops the language field entirely. The README's own `lang=` usage example
+uses an LLM-ASR model, never a CTC one -- consistent with this: CTC
+models in this library have **no language-conditioning mechanism at
+all**, LLM-ASR models do ("ASR with optional language conditioning," per
+the README). This was not a misconfiguration or a missing parameter on
+this project's side -- there is no parameter that would have fixed it.
+The CTC decoder relies entirely on the audio itself to identify Sinhala,
+and for two closely related, both-Indo-Aryan, both-Brahmic-script
+languages, it evidently favors the higher-resource one (Bengali) often
+enough to dominate the aggregate. No existing GitHub issue on the
+upstream repo was found describing this specific behavior (checked, not
+assumed).
 
 Critically, the 23 rows that *did* stay in pure Sinhala script are not
 low-effort or lucky exact matches -- scored on their own (a small,
@@ -154,22 +166,36 @@ language-conditioning issue rather than a fundamental capability gap.
 ## Conclusion and next step
 
 **Do not advance to item 4 (a bounded Omnilingual CTC 300M adaptation
-pilot) on the strength of this result alone**, in either direction: not
-as a rejection (the official number is real but likely does not reflect
-the model's true ceiling), and not as an endorsement (11.2% in-script is
-not yet evidence of a fix, only evidence a fix might exist). Recommended
-next step, deliberately kept cheap and zero/near-zero-cost since the
-Camber budget is nearly exhausted (~0.6 hours of the original 5.00-hour
-grant remain, see camber-cli.md): investigate the pipeline's actual
-language-conditioning mechanism (does `ASRInferencePipeline` accept a
-stronger per-item language constraint than the simple `lang` list already
-tried? does batching multiple languages together dilute conditioning
-versus a single-language batch? does the 1B variant show the same
-script-drift rate?) before spending any further GPU budget -- this is a
-software/API question first, not a training question, and does not need
-another paid GPU job to make progress on.
+pilot) on the strength of this result alone**, in either direction: the
+official loss is real, but it reflects a packaging limitation (no
+language conditioning for CTC models in this library, confirmed from
+source) rather than a genuine acoustic-modeling weakness -- the in-script
+subset's 67.16%/14.68% WER/CER is real evidence the underlying model may
+be strong, but adapting a checkpoint whose output script can't be
+reliably controlled is not yet a sound basis for a training decision.
 
-CTC 1B v2 and the LLM-ASR variants from the original bake-off scope
-were not run; revisit only after the script-drift question above is
-understood, since the same issue would likely recur and waste budget on
-the larger, slower model the same way.
+Two concrete, low-cost paths forward, neither requiring the CTC 1B
+model or any further Camber GPU time to *investigate* (only to validate,
+once one looks promising):
+
+1. **Test the LLM-ASR variant instead of CTC.** The README states LLM-ASR
+   models support real language conditioning (`lang=` actually reaches
+   the model, unlike CTC) -- if Sinhala/Bengali confusion is a
+   CTC-decoder-specific problem, LLM-ASR may not have it at all. Heavier
+   models (1B/7B vs. 300M), a materially bigger compute ask, which is
+   exactly why the original ranking placed this behind CTC.
+2. **A zero-GPU-cost text-level fix**: since the wrong-script output is
+   phonetically close to the correct Sinhala (Bengali and Sinhala share
+   enough Brahmic-script structure that a rule-based or dictionary-driven
+   transliteration might recover much of the 145 Bengali-script rows'
+   real content), a Bengali-to-Sinhala phonetic back-transliteration
+   post-processing step is worth prototyping on the existing, already-
+   collected predictions before spending anything further on the model
+   itself. Not attempted in this pass -- flagged as the most
+   promising low-cost next step given how much of the aggregate loss (over
+   80% of rows) is attributable to script alone rather than content
+   errors.
+
+CTC 1B v2 was not run; hold until one of the two paths above changes the
+picture, since 1B would likely show the same CTC language-conditioning
+gap for the same architectural reason.

@@ -161,11 +161,16 @@ composes with any checkpoint. See
 budget ran low).** Real result, but not a simple one: as officially
 invoked (`ASRInferencePipeline`, `lang=["sin_Sinh"]`), CTC 300M v2 loses
 decisively to E007 (canonical WER 98.97% vs 81.71%, canonical CER 94.21%
-vs 26.15%, paired 95% CI excludes zero both ways). But a real, quantified
-anomaly undercuts reading that as "the model can't do Sinhala": only
-11.2% of predictions actually came back in Sinhala script -- 70.4% came
-back in Bengali instead, despite the correct `lang` code being passed on
-every item. Restricted to just the 23 rows that did stay in-script
+vs 26.15%, paired 95% CI excludes zero both ways). But a real anomaly,
+confirmed from the library's own source (not speculation), undercuts
+reading that as "the model can't do Sinhala": CTC models in this library
+**completely ignore the `lang` parameter**
+(`if is_ctc_model and lang: log.info(...Ignoring.)`, verified directly)
+-- there is no language-conditioning mechanism for CTC at all, only for
+LLM-ASR models. Only 11.2% of predictions came back in Sinhala script;
+70.4% came back in Bengali instead, a closely related, higher-resource
+Brahmic-script language the model apparently defaults to. Restricted to
+just the 23 rows that did stay in-script
 (a small, non-random subset, not a standalone quality claim), canonical
 WER is 67.16% and CER is 14.68% -- both **better** than E007's own
 aggregate. See
@@ -202,13 +207,20 @@ that question, not just Meta's claim.)
 ### 4. Adapt Omnilingual CTC 300M
 
 **Not started -- deliberately not advanced on this bake-off's result
-alone, in either direction.** The official loss is real but the
-script-drift anomaly means it likely doesn't reflect the model's true
-ceiling; the in-script subset's promising numbers aren't yet evidence of
-a fix, only evidence one might exist. Next step is investigating the
-pipeline's actual language-conditioning behavior (a software/API
-question, answerable without spending more GPU budget) before deciding
-whether this item is worth its "proceed only if competitive" bar at all.
+alone, in either direction.** The official loss is real, and it's now
+understood *why*: CTC has no language-conditioning path in this library
+at all, so the loss reflects a packaging limitation, not a demonstrated
+acoustic weakness. That doesn't make CTC adaptation automatically worth
+pursuing, though -- adapting a checkpoint whose output script can't be
+controlled isn't a sound basis for a training decision either way. Two
+concrete, low-cost next steps identified (neither needs more Camber GPU
+time to investigate, only to validate if promising) -- see
+[the E011 report](../experiments/e011-omnilingual-ctc-bakeoff-v4.md#conclusion-and-next-step):
+test the LLM-ASR variant instead (real language conditioning, per the
+README, but a heavier model), or prototype a Bengali-to-Sinhala
+phonetic back-transliteration post-processing step on the predictions
+already collected (zero GPU cost, and over 80% of the aggregate loss is
+attributable to script alone).
 
 Proceed only if its bake-off result is competitive:
 
