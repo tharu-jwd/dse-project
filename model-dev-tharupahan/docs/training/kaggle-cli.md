@@ -129,6 +129,29 @@ package and the model card downloads need internet access at kernel
 runtime. This is scoped to one exploratory, zero-training evaluation
 kernel, not a change to how any training kernel operates.
 
+## `pip install omnilingual-asr` silently downgrades numpy, breaking torch
+
+E011 kernel version 1 crashed on `ValueError: numpy.dtype size changed, may
+indicate binary incompatibility. Expected 96 from C header, got 88 from
+PyObject`, thrown from deep inside `torch._dynamo` the moment
+`omnilingual_asr` was imported (its own import chain pulls in
+`fairseq2`, which pulls in `torch.compiler`, which pulls in
+`torch._dynamo`). Root cause: `pip install omnilingual-asr`'s own
+dependency resolution silently downgraded Kaggle's preinstalled numpy 2.x
+to 1.26.4 -- ABI-incompatible with the rest of the preinstalled stack
+(torch, etc.), which was built against numpy 2.x. The same install also
+logged (but did not itself crash on) further version conflicts --
+`huggingface-hub` downgraded below what Kaggle's preinstalled
+`transformers` wants, `torch`/`torchvision` mismatched -- worth watching
+for if a later step touches either. Fix: force numpy back to the 2.x line
+immediately after the omnilingual-asr install
+(`pip install --force-reinstall --no-deps "numpy>=2,<3"`), before
+importing anything from the package. Not fully explained why fairseq2
+pins numpy this way -- looked defensive rather than load-bearing, since
+nothing in omnilingual-asr's own code failed on the numpy-1-vs-2 question,
+only unrelated downstream torch internals that need numpy 2.x to import
+at all.
+
 ## Verification discipline
 
 Every downloaded result -- training or evaluation -- must be independently

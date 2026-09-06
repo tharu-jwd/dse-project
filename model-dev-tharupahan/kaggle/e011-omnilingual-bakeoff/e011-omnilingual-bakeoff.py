@@ -62,6 +62,19 @@ def main() -> None:
         [sys.executable, "-m", "pip", "install", "-q", "omnilingual-asr"],
         check=True,
     )
+    # Real, first-run failure (kernel version 1): omnilingual-asr's own
+    # dependency resolution silently downgrades numpy to 1.26.4, which is
+    # ABI-incompatible with Kaggle's preinstalled torch/etc (compiled
+    # against numpy 2.x) -- "numpy.dtype size changed, may indicate binary
+    # incompatibility" the moment anything touches torch._dynamo. Force
+    # numpy back to the 2.x line Kaggle's own stack expects; omnilingual's
+    # numpy<2 pin looks defensive rather than load-bearing (nothing in its
+    # own import chain fails at the numpy-2-vs-1 level, only downstream
+    # torch internals that break for lack of numpy 2.x).
+    subprocess.run(
+        [sys.executable, "-m", "pip", "install", "-q", "--force-reinstall", "--no-deps", "numpy>=2,<3"],
+        check=True,
+    )
     # Import after install -- the package does not exist in the base image.
     import torch
     from omnilingual_asr.models.inference.pipeline import ASRInferencePipeline
