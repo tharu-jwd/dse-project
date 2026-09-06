@@ -122,6 +122,14 @@ def main() -> None:
     model.generation_config.language = "si"
     model.generation_config.task = "transcribe"
     model.generation_config.forced_decoder_ids = None
+    # Without this, eval-time greedy decoding on an under-trained checkpoint
+    # (e.g. an early Optuna trial capped at 100 steps) can degenerate into an
+    # infinite repeated-token loop that runs to generation_max_length, which
+    # inflates eval_cer past 100% and pins eval_wer at ~1.0 regardless of the
+    # hyperparameters under test. Confirmed by direct reproduction: identical
+    # checkpoint decoded with and without this set (see
+    # docs/audits/e008-eval-repetition-bug.md).
+    model.generation_config.no_repeat_ngram_size = 3
     if config.method == "lora":
         from peft import LoraConfig, get_peft_model
 

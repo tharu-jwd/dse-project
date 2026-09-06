@@ -238,7 +238,17 @@ unit of time/risk, not by raw expected benefit alone:
    launch/queue overhead anyway. NEFTune (`TrainConfig.neftune_noise_alpha`)
    is available as a cheap addition to try alongside it, and unlike the
    search harness it is already wired into both the local and Kaggle training
-   paths.
+   paths. Status: running locally (8 trials, 100 steps each). Its first
+   attempt produced an invalid trial -- greedy eval-time decoding on an
+   undertrained 100-step checkpoint degenerated into a repeated-token loop
+   that pinned `eval_wer~=1.0`/pushed `eval_cer` past 100%, which would have
+   made every trial in the search look identically bad regardless of the
+   rank/LR under test. Found by direct reproduction, fixed in `train.py`
+   (`no_repeat_ngram_size=3` added to the eval generation config), and the
+   search restarted clean; see
+   [the E008 eval-repetition-bug audit](../audits/e008-eval-repetition-bug.md)
+   for the full root-cause trace. Does not affect E005/E006/E007, which train
+   to full length past this regime.
 3. Tokenizer vocabulary extension -- add dedicated Sinhala subword tokens and
    resize the model's token embeddings before fine-tuning, rather than
    relying on the base model's byte-level fallback throughout. Moved ahead of
