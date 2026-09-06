@@ -2,7 +2,17 @@
 
 ## Status
 
-Running. Phase A kernel version 1 started on 2026-09-06 at 12:17 Asia/Colombo.
+Phase A complete, Phase B pending. Phase A kernel version 1 started on
+2026-09-06 at 12:17 Asia/Colombo and finished at 19:16 the same day (Kaggle
+T4, ~24,930s / ~6.9h training time). Reached the intended stop at step 4,077
+(0.6428 of the planned 6,342-step run) with `train_loss=1.917` -- healthy,
+in the normal range for this recipe (compare E001-E006), not the instability
+seen in the unrelated E009 tokenizer-extension pilot. Checkpoint hash-verified locally (`checkpoint-004077.tar.gz`,
+`sha256:254ccab6ba327823d5e23d0e19185577175b9ecdd8f2e7f19f9dd67a69bf0508`,
+matches the kernel's own reported `resume_checkpoint_sha256`) and staged
+locally at `reports/kaggle/e007-phase-a-resume-checkpoint/` (with its own
+`asset-index.json`), ready to upload as a new private Kaggle dataset --
+**not yet uploaded**. Phase B kernel not yet written or pushed.
 
 ## Question
 

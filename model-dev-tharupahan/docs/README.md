@@ -17,6 +17,7 @@
 - [Training operations](training/training.md)
 - [Kaggle operations policy](training/kaggle-cli.md) (current, E003 onward)
 - [Colab CLI and storage safety](training/colab-cli.md) (historical, E000-E002)
+- [Camber Cloud operating notes](training/camber-cli.md) (current, E009 onward)
 - [Evaluation protocol](evaluation/evaluation.md)
 - [Experiment registry](experiments/README.md)
 
@@ -26,6 +27,8 @@
 - [Label-refinement A/B](audits/label-refinement-ab.md)
 - [Refinement-model benchmark](audits/refinement-model-benchmark.md)
 - [E006 near-homophone error analysis](audits/e006-near-homophone-error-analysis.md)
+- [E008 eval-repetition-bug audit](audits/e008-eval-repetition-bug.md)
+- [E009 tokenizer-extension audit](audits/e009-tokenizer-extension.md)
 - [External review: SPEAK-ASR/ASR-Finetune](audits/asr-finetune-external-review.md)
 - [External review: whisper-based-sinhala-asr](audits/whisper-based-sinhala-asr-external-review.md)
 

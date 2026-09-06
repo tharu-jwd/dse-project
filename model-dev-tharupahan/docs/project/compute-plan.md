@@ -11,8 +11,13 @@ launch.
 At that listed paid rate, USD 10 purchases at most 3.33 additional GPU hours;
 with the five included hours the theoretical ceiling is about 8.33 hours. This
 was never enough to promise several full 224-hour-corpus Whisper-small
-experiments, and in practice this allowance has not been used at all: every
-experiment through E007 has run on free compute, not paid Camber credit.
+experiments. It went unused through E007 (every experiment through E007 ran
+on free Kaggle/Colab compute, not Camber). Starting with E009 (2026-09-06),
+Camber is in actual use for bounded pilots that don't need Kaggle's larger
+free allowance -- see [the Camber operating notes](../training/camber-cli.md)
+for the verified CLI mechanics, environment gotchas (Python version mismatch
+between the CPU and GPU images, a `numpy` version cap needed, no git checkout
+in the job's workdir) and running total of GPU-hours actually spent so far.
 
 ## Current readiness and actual compute platform
 
@@ -24,13 +29,17 @@ failures across three work cycles left no usable runtime; see the E003
 experiment report for the failure record. Kaggle (free-tier T4/dual-T4
 sessions, a separate weekly GPU-hour allowance from a different provider) has
 been the sole execution platform since E003, and all of E003-E007 ran there.
-No paid GPU run has occurred on either platform.
+Camber Cloud (GitHub Student Pack GPU credit) joined as a third platform
+starting with E009 -- see [the Camber operating notes](../training/camber-cli.md)
+for verified mechanics and the running GPU-hour total. No paid GPU run has
+occurred on any platform.
 
 The original Colab-specific isolation policy remains documented in
 [the Colab operations policy](../training/colab-cli.md) for historical
 reference and in case Colab is ever used again, but it does not describe
 current operations. The actual, current operational policy for Kaggle is in
-[the Kaggle operations policy](../training/kaggle-cli.md).
+[the Kaggle operations policy](../training/kaggle-cli.md); for Camber, in
+[the Camber operating notes](../training/camber-cli.md).
 
 ## Allocation
 
@@ -81,8 +90,13 @@ Accordingly, run one factor at a time. The completed sequence through E007 is:
    replay (E004 -- passed retention, established as the retention method);
 4. a nested Sinhala data-scale curve holding that recipe fixed: 50,000 rows
    (E005), 100 hours (E006), then the complete 220.877-hour split (E007,
-   in progress) -- both material Sinhala gains measured so far, English
-   retention has passed at every step.
+   Phase A complete, Phase B pending) -- both material Sinhala gains
+   measured so far, English retention has passed at every step;
+5. two levers explored in parallel once E007 was under way rather than
+   waiting on it: an automated LoRA rank/learning-rate search (E008, in
+   progress) and a Sinhala tokenizer vocabulary extension (E009 -- pilot run
+   found unstable under this project's LoRA recipe for a confirmed,
+   fixable reason; fix identified, re-run pending).
 
 Measure English before and after every candidate on the same fixed English set.
 Do not delete English words from Sinhala references or metrics: that would make

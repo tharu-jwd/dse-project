@@ -99,21 +99,81 @@ prebuilt ML image to rely on. Budget the install time into the job's expected
 GPU-hour cost, since `--gpu` jobs are billed from provisioning, not from when
 training actually starts.
 
+## Downloading data directly on the job beats uploading it
+
+The v4 manifest's train/validation splits are drawn entirely from OpenSLR-52
+(14GB of the 17GB `data/raw/`), and OpenSLR-52 is a public dataset with its
+own downloader already in this project
+(`scripts/data/download_openslr52.py`, pulling from
+`https://openslr.trmal.net/resources/52`). Measured upload speed from this
+project's home connection to Camber Stash: ~2MB/s. Measured download speed
+from the OpenSLR mirror *to a Camber job itself*: ~21MB/s (confirmed via a
+live `curl` inside a job) -- roughly 10x faster, because it's a datacenter-
+to-datacenter transfer rather than a home-upload-bandwidth-limited one.
+Uploading the corpus once still has a place (any future job can then skip
+the download entirely, since a `--path` mount already contains whatever the
+last job in that stash location wrote there -- see `--path` note above), but
+for a first run, having the job download its own input data beat uploading
+it by close to an order of magnitude.
+
+## GPU-hour budget: running total
+
+The 5 included hours are not exposed by any CLI command (see above) -- this
+project tracks them manually here, computed from `camber job get --output
+json`'s `created_at`/`finished_at` on every `--gpu` job (non-GPU jobs are
+free and excluded).
+
+| Job | Purpose | Duration |
+|---|---|---|
+| `25175` | GPU/PyTorch smoke test | 4.7 min |
+| `25184`-`25194` | E009 pilot, 6 failed attempts (see below) | 49.7 min |
+| `25195` | E009 pilot, succeeded | 9.9 min |
+| **Total (2026-09-06)** | | **~1.07 hours** |
+| **Remaining of the 5-hour budget** | | **~3.93 hours** |
+
+Update this table (recompute from `camber job get <id> --output json` for
+every `--gpu` job since the last entry) whenever a new Camber job runs, not
+just when a batch of work finishes -- it is easy to lose track across a long
+session otherwise, which is exactly what happened before this table existed.
+
 ## Verified end-to-end (2026-09-06)
 
-Two smoke-test jobs were run before committing any real work to the
-platform, following this project's standing rule of verifying infrastructure
-before trusting it with anything that matters:
+The E009 tokenizer-extension pilot was the first real (not smoke-test) job,
+and took **7 attempts** before succeeding -- each failure was a genuine,
+previously-unknown environment gap, not a repeat of the same mistake:
 
-- Job `25175` (`--gpu --size xsmall`): confirmed a real, healthy L4 is
-  reachable and `nvidia-smi` reports correctly; confirmed the missing-torch
-  finding above. Runtime (submit to finished): ~4m40s, well under the 5-hour
-  budget.
-- Job `25176` (`--size xxsmall`, no `--gpu`, free of the GPU-hour budget):
-  confirmed the Python/conda/package findings above.
+1. `25184`: `pyproject.toml` requires Python >=3.11; this image's plain
+   `pip` pointed at a 3.10.12 interpreter. Fixed with `--ignore-requires-python`.
+2. `25185`: with that flag, downloaded the full corpus (~19 min) then hit
+   `ModuleNotFoundError: No module named 'numpy'` -- bare `pip install` and
+   `python3` resolved to *different* interpreters on this image (a system
+   3.10.12 vs. a Spack-built 3.11.7). Fixed with `python3 -m pip install`.
+3. `25189`: with the interpreters aligned, pip resolved the latest numpy
+   (2.5.2), which requires Python >=3.12 -- not available on this image
+   either. Fixed with an explicit `numpy<2.2` pin on the install command
+   (not in `pyproject.toml` -- this is a Camber-image-specific constraint,
+   not a real project dependency change).
+4. `25191`: downloaded the corpus a *second* time (the script has no
+   already-extracted check, see below) then failed on
+   `configs/training/experiments/e009-tokenizer-extension-pilot-v4.json` not
+   existing on stash -- it was created locally after the initial bulk code
+   upload and never re-synced.
+5. `25192`: (download step dropped once the corpus was confirmed already
+   synced back to stash from job 4's run, despite that job's overall
+   failure -- see the `--path` note above) failed on the same missing-file
+   class of bug again, for `TrainConfig`'s `extended_tokenizer_path` field
+   and the tokenizer artifact itself.
+6. `25194`: after a full re-sync of `src/`, `scripts/`, `configs/training/`,
+   failed on `git rev-parse HEAD` -- `train.py`'s `git_commit()` had only
+   ever run inside a real git checkout before; a stash-populated workdir has
+   none. Fixed by making it degrade to `"unknown"` instead of crashing (see
+   `docs/audits/e009-tokenizer-extension.md`).
+7. `25195`: succeeded -- ran to completion. (Its *training result* was still
+   bad, for an unrelated, model-architecture reason -- frozen embeddings
+   under LoRA -- documented in the E009 audit, not a Camber issue.)
 
-No training job has been run on Camber yet -- this document exists to make
-the next one (whenever there's a concrete GPU-bound task ready, most likely
-the tokenizer-extension pilot) start from verified facts instead of the
-platform's own documentation, some of which (the WebFetch-inaccessible docs
-site aside) turned out not to match the actual running environment.
+Practical lesson for the next Camber job: sync every locally-changed file to
+stash right before submitting (an easy thing to forget mid-session -- 3 of
+these 7 failures were exactly this), and expect the underlying image's
+Python/pip/numpy versions to need explicit handling rather than assuming
+parity with any other environment this project has used.
