@@ -172,8 +172,9 @@ free and excluded).
 | `25203` | E009 corrected pilot rerun (`modules_to_save`/`ensure_weight_tying` fix) | 11.25 min, `COMPLETED` |
 | `25204` | E011 Omnilingual bake-off, CTC 300M, first Camber attempt | 6.0 min, `FAILED` (see below) |
 | `25205` | E011 bake-off, second attempt (`-e .` + omnilingual-asr) | 0.5 min, `FAILED` (see below) |
-| **Total (2026-09-07)** | | **~3.87 hours** |
-| **Remaining of the 5-hour budget** | | **~1.13 hours** |
+| `25206` | E011 bake-off, third attempt (`omnilingual-asr soundfile` only) | 3.5 min, `FAILED` (see below) |
+| **Total (2026-09-07)** | | **~3.93 hours** |
+| **Remaining of the 5-hour budget** | | **~1.07 hours** |
 
 Update this table (recompute from `camber job get <id> --output json` for
 every `--gpu` job since the last entry) whenever a new Camber job runs, not
@@ -204,6 +205,32 @@ omnilingual-asr soundfile` (the one runtime dependency
 pulls) lets omnilingual-asr's own dependency resolution pick whatever
 pyarrow/numpy/pandas versions it wants, unconstrained by a project pin
 that was never actually load-bearing for this script.
+
+## E011 bake-off: `libcudart.so.13` again, this time root-caused
+
+With the `soundfile` and `pyarrow` conflicts both fixed, job `25206` got
+past every install step and failed with the exact same
+`OSError: libcudart.so.13: cannot open shared object file` seen on
+Kaggle -- so this is not a Kaggle-specific or a pre-existing-stack
+problem; it reproduces on a completely clean Camber environment too, real
+evidence it's intrinsic to how `omnilingual-asr` resolves its own
+`torch`/`torchaudio` pair (both unconstrained by omnilingual-asr and by
+`fairseq2`, confirmed directly from each package's own PyPI metadata --
+neither pins the other, and PyPI confirms `torchaudio`'s latest release
+(2.11.0) trails `torch`'s latest (2.14.0), a real version-lockstep gap).
+
+Root cause, reasoned from the traceback rather than guessed: `torch`'s own
+internal CUDA calls work fine because its own compiled libraries carry an
+RPATH pointing at torch's own bundled `nvidia-*-cuXX` pip packages, but
+`torchaudio`'s separate native extension loads via a bare
+`ctypes.CDLL` inside `torch.ops.load_library()` -- that call does not
+inherit torch's RPATH, it needs the directory on `LD_LIBRARY_PATH`
+instead. Fix (in `scripts/evaluation/run_omnilingual_bakeoff.py`, not a
+shell workaround, so it travels with the script): before importing
+`omnilingual_asr`, discover every installed `nvidia.*.lib`/`torch/lib`
+directory and prepend them to `LD_LIBRARY_PATH` in-process --
+`ctypes.CDLL`/`dlopen` re-consult the current environment on each call, so
+setting this from Python before the triggering import is sufficient.
 
 ## Verified end-to-end (2026-09-06)
 

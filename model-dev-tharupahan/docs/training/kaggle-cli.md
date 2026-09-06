@@ -146,11 +146,37 @@ logged (but did not itself crash on) further version conflicts --
 for if a later step touches either. Fix: force numpy back to the 2.x line
 immediately after the omnilingual-asr install
 (`pip install --force-reinstall --no-deps "numpy>=2,<3"`), before
-importing anything from the package. Not fully explained why fairseq2
-pins numpy this way -- looked defensive rather than load-bearing, since
-nothing in omnilingual-asr's own code failed on the numpy-1-vs-2 question,
-only unrelated downstream torch internals that need numpy 2.x to import
-at all.
+importing anything from the package. (Confirmed later, from `fairseq2`
+0.6's own PyPI metadata: it really does declare `numpy~=1.23`, a genuine,
+load-bearing constraint, not a defensive one as first guessed here --
+forcing numpy back to 2.x works anyway because nothing in
+`omnilingual_asr`'s own code actually touches a numpy-1-only API in this
+project's usage, it was only unrelated downstream torch internals that
+broke for lack of numpy 2.x.)
+
+With that fixed, kernel version 2 got further and hit a second, different
+failure: `OSError: libcudart.so.13: cannot open shared object file`,
+thrown from `torchaudio`'s own compiled extension the moment
+`omnilingual_asr` imported it. `pip install omnilingual-asr` had pulled in
+a `torchaudio` build expecting CUDA 13's runtime, while Kaggle's
+preinstalled `torch` (and the driver actually present) is a CUDA 12.8
+build -- a real ABI/runtime mismatch, not a missing-package problem this
+time. Rather than keep patching one broken pin at a time (a third
+mismatch is plausible after fixing this one -- `huggingface-hub` and
+`torch`/`torchvision` conflicts were already logged as warnings, unhit
+only because the crash happened first each time), **this bake-off moved
+to Camber instead of a third Kaggle attempt**: Kaggle's image is heavily
+pre-loaded with hundreds of pinned packages (Colab-like), which is exactly
+what keeps colliding with `omnilingual-asr`'s own strict, native-extension
+dependency pins (`fairseq2`, `torchaudio`). Camber's `base` engine ships
+almost nothing (see above), so `pip install omnilingual-asr` there
+resolves one consistent dependency set from scratch instead of fighting a
+pre-existing, differently pinned stack. See
+`scripts/evaluation/run_omnilingual_bakeoff.py` and camber-cli.md for the
+working version. The abandoned Kaggle kernel
+(`kaggle/e011-omnilingual-bakeoff/`) and both failure logs are kept as
+real evidence, not deleted -- Kaggle remains the right platform for every
+other kernel in this project, this is a library-specific exception.
 
 ## Verification discipline
 
