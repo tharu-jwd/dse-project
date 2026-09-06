@@ -64,6 +64,30 @@ CANDIDATE_EXPERIMENTS: dict[str, Path | None] = {
     / "reports/experiments/e006-scale-100h-teacher-replay/attempts/kaggle-training-001/output/e006-training/final-adapter",
 }
 
+# No standard phonetically-balanced Sinhala reading passage exists publicly
+# (a documented gap in the speech-pathology literature, unlike English's
+# Rainbow/Grandfather passages) and this project has no basis to invent
+# Sinhala text and claim it is correct. Instead, these 10 sample IDs were
+# chosen by a greedy set-cover over the frozen 206-row gold validation set's
+# real, native-speaker-verified Sinhala-only references: each was picked for
+# adding the most previously-uncovered distinct Sinhala script characters.
+# Together they cover 51 of the 60 distinct characters appearing anywhere in
+# the validation set (the 9 missing are rare Sanskrit/Pali-loanword letters,
+# uncommon in natural speech). Fixed and reproducible -- read the same
+# passage for every experiment so results are comparable to each other.
+READ_ALOUD_PASSAGE_SAMPLE_IDS = [
+    "58b0577769e22ac237303561",
+    "49f9ebd926805219b2107fd5",
+    "cd641fee0425787a3559101d",
+    "0100bf9d31bf5eceba932511",
+    "1eb06cefba81573822f53156",
+    "2bdb99718d7d3464a811c90c",
+    "69a99f33bdbf124dfc54926f",
+    "037f3aec68fa370b12165867",
+    "08d7acb2e342e25e8da5ff08",
+    "0d6fe5bbb22fe82f33320266",
+]
+
 
 def available_experiments() -> dict[str, Path | None]:
     return {
@@ -200,9 +224,42 @@ def main() -> None:
     adapter_dir = experiments[label]
     st.session_state["_active_model"] = load_model(str(adapter_dir) if adapter_dir else None)
 
-    tab_upload, tab_val, tab_english = st.tabs(
-        ["Upload audio", "Frozen Sinhala validation (206 rows)", "English-retention benchmark (2,620 rows)"]
+    tab_record, tab_upload, tab_val, tab_english = st.tabs(
+        [
+            "Record your voice",
+            "Upload audio",
+            "Frozen Sinhala validation (206 rows)",
+            "English-retention benchmark (2,620 rows)",
+        ]
     )
+
+    with tab_record:
+        val_rows_by_id = {row["sample_id"]: row for row in load_validation_rows()}
+        passage_rows = [
+            val_rows_by_id[sid]
+            for sid in READ_ALOUD_PASSAGE_SAMPLE_IDS
+            if sid in val_rows_by_id
+        ]
+        with st.expander("Read-aloud passage (read this the same way every time)", expanded=True):
+            st.caption(
+                "No standard phonetically-balanced Sinhala passage exists publicly, so "
+                "this is not that -- it's 10 real, native-speaker-verified sentences from "
+                "this project's own frozen validation set, chosen to cover as much of the "
+                "Sinhala script as a natural-speech sample reasonably can (51 of 60 distinct "
+                "characters appearing in the set; the rest are rare loanword letters)."
+            )
+            for row in passage_rows:
+                st.markdown(f"- {row['reference']}")
+        recorded = st.audio_input("Record", key="mic_record")
+        if recorded is not None:
+            raw = recorded.read()
+            if st.button("Transcribe", key="transcribe_record"):
+                try:
+                    samples, _ = decode_audio(raw)
+                except Exception as exc:  # noqa: BLE001 -- surface decode errors directly
+                    st.error(f"Could not decode the recording: {exc}")
+                else:
+                    show_result(transcribe(samples, lang_code), reference=None)
 
     with tab_upload:
         uploaded = st.file_uploader("Audio file (wav/flac work reliably)", type=None)
