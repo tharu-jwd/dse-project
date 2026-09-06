@@ -114,15 +114,14 @@ gets no help from either the acoustic signal (same phoneme) or the token
 representation (no shared structure) -- the two independent weakest links
 this analysis found line up on the exact same pair.
 
-This is a real, structural candidate lever the current priority order does
-not yet name explicitly: extending the tokenizer with dedicated Sinhala
-subword tokens (and resizing the model's token embeddings accordingly) before
-fine-tuning, rather than relying on the base byte-level fallback throughout.
-This is a bigger engineering step than anything currently queued -- it
-changes the model's vocabulary, not just its weights, and would need its own
-bounded pilot to check it does not destabilize what the base model already
-knows -- so it is recorded here as a candidate, not added to the priority
-order unilaterally.
+This is a real, structural lever: extending the tokenizer with dedicated
+Sinhala subword tokens (and resizing the model's token embeddings
+accordingly) before fine-tuning, rather than relying on the base byte-level
+fallback throughout. It needs its own bounded pilot to check it does not
+destabilize what the base model already knows. See
+[the plan's next-step priority order](../project/plan.md#next-step-priority-order-after-e006e007)
+(item 3) for where this sits relative to the rank/LR search and the
+full-parameter pilot, and why.
 
 ## How common are the pairs this analysis is about, versus the missing coverage?
 

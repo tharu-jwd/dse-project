@@ -224,20 +224,32 @@ unit of time/risk, not by raw expected benefit alone:
    [the near-homophone analysis](../audits/e006-near-homophone-error-analysis.md#tokenizer-check-whisper-small-has-zero-dedicated-sinhala-vocabulary)
    for the full finding, including why ල/ළ specifically -- the single most
    frequent confusion found -- gets no help from either the acoustic signal or
-   the token representation. That analysis records tokenizer vocabulary
-   extension as a candidate lever bigger than anything currently in this list
-   (it changes the model's vocabulary, not just its weights, and needs its own
-   scoped pilot); it is not added to this ordered list unilaterally.
+   the token representation.
 2. Adapter target-width/rank ablation (item 3 above) -- cheap, bounded, reuses
    the proven training pipeline; run this before considering full-parameter
    work. Use `scripts/training/optuna_search.py` (an automated search over
    rank and learning rate, replacing manual grid pilots) rather than
    hand-picking a handful of points; see
    [the training guide](../training/training.md#automated-hyperparameter-search-and-neftune)
-   for how it works and how it was smoke-tested. NEFTune
-   (`TrainConfig.neftune_noise_alpha`) is available as a cheap addition to try
-   alongside it.
-3. A properly scoped, bounded full-parameter fine-tuning pilot -- potentially
+   for how it works, how it was smoke-tested, and why it should run locally
+   on this project's own hardware (MPS) against the real v4 data rather than
+   Kaggle -- it is not yet wired to drive Kaggle kernels, and Optuna trials
+   want to be fast and numerous, which fights against Kaggle's per-trial
+   launch/queue overhead anyway. NEFTune (`TrainConfig.neftune_noise_alpha`)
+   is available as a cheap addition to try alongside it, and unlike the
+   search harness it is already wired into both the local and Kaggle training
+   paths.
+3. Tokenizer vocabulary extension -- add dedicated Sinhala subword tokens and
+   resize the model's token embeddings before fine-tuning, rather than
+   relying on the base model's byte-level fallback throughout. Moved ahead of
+   the full-parameter pilot: two independent structural findings (the
+   phoneme-identity result above and the zero-Sinhala-vocabulary result)
+   converge on exactly this fix for this project's single worst-offending
+   confusion pair, making it a more targeted, better-diagnosed bet than the
+   full-parameter pilot below, and a smaller one -- it needs "only" a
+   tokenizer change plus a bounded pilot to confirm nothing destabilizes, not
+   a full retrain from scratch. Not yet scoped or started.
+4. A properly scoped, bounded full-parameter fine-tuning pilot -- potentially
    the largest remaining lever given LoRA's measured ceiling, but currently
    out of scope per this plan and requires its own cost/scope review before
    starting; do not treat the historical (leakage-tainted) 17% number as
@@ -252,7 +264,7 @@ unit of time/risk, not by raw expected benefit alone:
    other's split is simply unverifiable), but three independent codebases
    landing on the same direction is a reason to weigh this pilot's scope, not
    proof of a specific achievable number.
-4. A human-in-the-loop correction batch targeted specifically at rows
+5. A human-in-the-loop correction batch targeted specifically at rows
    containing the near-homophone confusions identified in the error analysis,
    rather than a random sample -- higher signal per reviewed row, but spends
    reviewer time rather than compute, and is worth less before the recipe
