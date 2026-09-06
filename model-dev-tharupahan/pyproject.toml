@@ -24,6 +24,7 @@ train = [
   "torch>=2.2,<3",
   "transformers>=4.46,<6",
 ]
+search = ["optuna>=3.6,<5"]
 
 [project.scripts]
 sinhala-asr-prepare = "sinhala_asr.data.audit:main"

@@ -139,3 +139,32 @@ The next full-data epoch is projected too close to Kaggle's 12-hour session
 limit for a safe single run. E007 therefore uses two kernels separated at a
 verified durable checkpoint. The second stage must restore the complete trainer
 state and continue to the original global-step target.
+
+## Automated hyperparameter search and NEFTune
+
+Two additions available for the adapter target-width/learning-rate comparison
+(plan phase 4, item 3), once the nested data-scale curve (E004-E007) is
+complete:
+
+`scripts/training/optuna_search.py` runs an
+[Optuna](https://optuna.org/) study over LoRA rank and learning rate instead
+of manual grid pilots. Each trial runs `train.py` in a fresh subprocess (never
+in-process), so one trial's GPU/MPS memory cannot leak or fragment into the
+next; the objective is the trial's final validation WER, read from the same
+`trainer_state.json` log every run already writes. `lora_alpha` is fixed to
+2x the trial's rank (the standard convention) rather than searched
+independently, keeping the search to the two axes the plan actually calls
+out. The study is stored in a local SQLite file, so a search can be
+interrupted and resumed with the same `--study-name`/`--storage` without
+losing completed trials -- the same resumability discipline as a training run
+itself. Install with `pip install -e '.[search,train]'`. Smoke-tested locally
+end to end (2 trials on `whisper-tiny`, 2 rows, CPU/MPS) before ever pointing
+it at a real pilot; see the script's own docstring for the exact command.
+
+`TrainConfig.neftune_noise_alpha` (optional, default disabled) wires
+[NEFTune](https://arxiv.org/abs/2310.05914) noise-embedding regularization
+straight through to `Seq2SeqTrainingArguments` in both the local entry point
+and the shared Kaggle/Colab runner (`run_e002_colab.py`, via an optional
+`neftune_noise_alpha` job-config field so older configs remain unaffected).
+Untested at Sinhala-adapter scale here; available as a cheap addition to try
+alongside the rank/LR search, not yet part of any frozen recipe.

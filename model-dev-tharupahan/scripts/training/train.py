@@ -185,6 +185,7 @@ def main() -> None:
         seed=config.seed,
         data_seed=config.seed,
         load_best_model_at_end=False,
+        neftune_noise_alpha=config.neftune_noise_alpha,
     )
     trainer = Seq2SeqTrainer(
         model=model,

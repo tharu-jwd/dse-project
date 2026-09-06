@@ -37,6 +37,7 @@ class TrainConfig:
     lora_dropout: float = 0.05
     crop_training_audio: bool = False
     crop_proposals: str | None = None
+    neftune_noise_alpha: float | None = None
 
     @classmethod
     def load(cls, path: Path) -> "TrainConfig":
@@ -63,6 +64,8 @@ class TrainConfig:
             raise ValueError("fp16 and bf16 cannot both be enabled")
         if self.crop_training_audio and not self.crop_proposals:
             raise ValueError("crop_training_audio requires crop_proposals")
+        if self.neftune_noise_alpha is not None and self.neftune_noise_alpha <= 0:
+            raise ValueError("neftune_noise_alpha must be positive when set")
         if min(self.hourly_price_usd, self.estimated_hours, self.maximum_cost_usd) < 0:
             raise ValueError("cost fields cannot be negative")
         if self.planned_cost_usd > self.maximum_cost_usd:

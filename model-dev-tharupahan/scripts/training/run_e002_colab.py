@@ -348,6 +348,7 @@ def main() -> None:
             report_to="none",
             seed=int(config["seed"]),
             data_seed=int(config["seed"]),
+            neftune_noise_alpha=config.get("neftune_noise_alpha"),
         )
         trainer = Seq2SeqTrainer(
             model=model,

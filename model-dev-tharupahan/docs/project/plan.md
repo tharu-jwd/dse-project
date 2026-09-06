@@ -219,7 +219,13 @@ unit of time/risk, not by raw expected benefit alone:
    the error analysis) -- near-zero cost, do these before committing compute.
 2. Adapter target-width/rank ablation (item 3 above) -- cheap, bounded, reuses
    the proven training pipeline; run this before considering full-parameter
-   work.
+   work. Use `scripts/training/optuna_search.py` (an automated search over
+   rank and learning rate, replacing manual grid pilots) rather than
+   hand-picking a handful of points; see
+   [the training guide](../training/training.md#automated-hyperparameter-search-and-neftune)
+   for how it works and how it was smoke-tested. NEFTune
+   (`TrainConfig.neftune_noise_alpha`) is available as a cheap addition to try
+   alongside it.
 3. A properly scoped, bounded full-parameter fine-tuning pilot -- potentially
    the largest remaining lever given LoRA's measured ceiling, but currently
    out of scope per this plan and requires its own cost/scope review before
