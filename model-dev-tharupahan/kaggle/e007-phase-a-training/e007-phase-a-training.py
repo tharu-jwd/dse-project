@@ -18,5 +18,5 @@ def one_file(name: str) -> Path:
 
 
 os.environ["E007_PHASE"] = "phase-a"
-os.environ["E007_SOURCE_COMMIT"] = "TO_BE_FROZEN_AFTER_PREPARATION_COMMIT"
+os.environ["E007_SOURCE_COMMIT"] = "b5fe7a21855849508f6a8a9c0c29416031a82304"
 runpy.run_path(str(one_file("run_e007_kaggle.py")), run_name="__main__")

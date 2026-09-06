@@ -35,6 +35,6 @@
   "estimated_hours": 11.5,
   "maximum_cost_usd": 0.0,
   "crop_training_audio": false,
-  "git_commit": "TO_BE_FROZEN_AFTER_PREPARATION_COMMIT",
+  "git_commit": "b5fe7a21855849508f6a8a9c0c29416031a82304",
   "tracked_config": "configs/training/experiments/e007-wide-lora-r16-full-v4-teacher-replay.json"
 }
