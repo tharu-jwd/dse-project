@@ -13,7 +13,7 @@
     "tharupahan/sinhala-asr-e003-inputs",
     "tharupahan/sinhala-asr-e003-runtime",
     "tharupahan/sinhala-asr-e007-orchestration-runtime",
-    "tharupahan/sinhala-asr-e007-phase-a-resume-checkpoint"
+    "tharupahan/sinhala-asr-e007-phase-a-resume-checkpoint-v2"
   ],
   "competition_sources": [],
   "kernel_sources": [

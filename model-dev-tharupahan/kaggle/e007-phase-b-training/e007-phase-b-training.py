@@ -18,8 +18,5 @@ def one_file(name: str) -> Path:
 
 
 os.environ["E007_PHASE"] = "phase-b"
-os.environ["E007_SOURCE_COMMIT"] = "b5fe7a21855849508f6a8a9c0c29416031a82304"
-os.environ["E007_RESUME_ARCHIVE_SHA256"] = (
-    "254ccab6ba327823d5e23d0e19185577175b9ecdd8f2e7f19f9dd67a69bf0508"
-)
+os.environ["E007_SOURCE_COMMIT"] = "642e813db8181059ae6013774eda8fca7084d7c2"
 runpy.run_path(str(one_file("run_e007_kaggle.py")), run_name="__main__")

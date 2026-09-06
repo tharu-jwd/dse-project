@@ -98,6 +98,21 @@ verified -- this is one continuous training run split across two sessions for
 infrastructure reasons, not two separate experiments, and it must not restart
 from Phase A's adapter as a fresh optimization. E007 uses this pattern.
 
+Uploading the resume checkpoint as a dataset hits a real platform gotcha:
+Kaggle's dataset ingestion **recursively auto-extracts any archive it
+finds**, confirmed directly -- a `checkpoint-NNNNNN.tar.gz` uploaded as-is
+came out on the mounted kernel as `checkpoint-NNNNNN/<tar's own top-level
+dir>/*`, individual files, not the intact archive; wrapping it in an outer
+zip first did not help, it came out exactly as unpacked. `one_file()`
+matching an exact filename will not find an auto-extracted archive at all.
+Do not fight this -- verify the checkpoint by hashing each extracted file
+individually (computed locally from the same archive already hash-verified
+against the source run's own reported per-file hashes) instead of one
+whole-archive hash, and locate the checkpoint by its now-nested directory
+name instead of the archive's filename. See E007 Phase B's
+`install_resume()` in `scripts/training/run_e007_kaggle.py` for the working
+pattern.
+
 ## Verification discipline
 
 Every downloaded result -- training or evaluation -- must be independently
