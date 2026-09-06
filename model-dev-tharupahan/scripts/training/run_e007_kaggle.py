@@ -9,7 +9,6 @@ import os
 import shutil
 import subprocess
 import sys
-import tarfile
 from pathlib import Path
 
 import pyarrow as pa
@@ -206,16 +205,47 @@ def stage_inputs(sinhala: Path, english_source: Path, teacher_path: Path, phase:
     return path
 
 
+# Kaggle's dataset ingestion recursively auto-extracts any archive it finds
+# (confirmed directly -- even a tar.gz wrapped inside an outer zip came out
+# fully unpacked), so the checkpoint archive never survives upload intact.
+# Verify per-file hashes against the already-extracted directory instead of
+# a whole-archive hash -- same rigor (every file byte-verified), just at
+# the file level rather than the archive level. Computed once locally from
+# the same checkpoint-004077.tar.gz already hash-verified against phase A's
+# own reported adapter_sha256/checkpoint_index_sha256.
+PHASE_A_CHECKPOINT_FILE_SHA256 = {
+    "COMPLETE": "3830ce403d6f7f93776df43198ebf1695c028bea4462c0510a6099d325d6780a",
+    "README.md": "bc24dc9aa85e299daff4a167a703e36fba6ea1aa0cc509903f297deefc101e06",
+    "adapter_config.json": "9f376fe065e04b261570756af1870d5fe601abb97e4a6200d755aafb6721a5a4",
+    "adapter_model.safetensors": "f974998306080504493f8d665810803b47d280ca3fb3abf8061a44d1a540a26b",
+    "optimizer.pt": "21e219224f804ef35ea64c33b6a30ca33265512078833dd838d6e05653614c67",
+    "processor_config.json": "8c648fa85aafc59a07435ed751322499bd4238b819ca9200ddd2b5ba4df50e68",
+    "rng_state.pth": "4f05d941abaa27c255c487f34127468a3c3a0b274acd1897a0951530782fa299",
+    "scaler.pt": "fc3b06eac7e6222523cbc99c65b851d53e57dcaa078972fb98dcd9f0ad7d6ef6",
+    "scheduler.pt": "c11c7ee2da1a7c92910644d85d10e10d21af072e9a61ab2d12522db346cc96fe",
+    "tokenizer.json": "a21980933d3bfc9195788b3d398e35f2def975ad8a544ffeb28b6206479b89ab",
+    "tokenizer_config.json": "6329197083697692fdde6cea8ea9627b762750dd957bb862f7e700fadb9db7ee",
+    "trainer_state.json": "5c5fb57a85220f33f2443889516d8dae9b2af8272c3451fa79c875da8d1ead10",
+    "training_args.bin": "08382708d067348327c3e741d9e60fe87ceacc3b3471de135b7f00eecc16261d",
+}
+
+
+def find_checkpoint_dir(name: str) -> Path:
+    matches = [path for path in INPUTS.rglob(name) if path.is_dir()]
+    if len(matches) != 1:
+        raise RuntimeError(f"expected one directory named {name}, found {matches}")
+    return matches[0]
+
+
 def install_resume(config_path: Path) -> None:
-    archive = one_file("checkpoint-004077.tar.gz")
-    expected = os.environ.get("E007_RESUME_ARCHIVE_SHA256")
-    if not expected or sha256(archive) != expected:
-        raise RuntimeError("Phase-A resume archive hash mismatch")
-    resume_root = WORK / "e007-resume"
-    resume_root.mkdir()
-    with tarfile.open(archive, "r:gz") as handle:
-        handle.extractall(resume_root, filter="data")
-    checkpoint = resume_root / f"checkpoint-{PHASE_A_STOP}"
+    checkpoint = find_checkpoint_dir(f"checkpoint-{PHASE_A_STOP}")
+    for filename, expected in PHASE_A_CHECKPOINT_FILE_SHA256.items():
+        actual = sha256(checkpoint / filename)
+        if actual != expected:
+            raise RuntimeError(
+                f"Phase-A checkpoint file hash mismatch for {filename}: "
+                f"expected {expected}, got {actual}"
+            )
     if int((checkpoint / "COMPLETE").read_text().strip()) != PHASE_A_STOP:
         raise RuntimeError("Phase-A checkpoint COMPLETE marker mismatch")
     state = json.loads((checkpoint / "trainer_state.json").read_text())
@@ -223,7 +253,6 @@ def install_resume(config_path: Path) -> None:
         raise RuntimeError("Phase-A trainer global step mismatch")
     config = json.loads(config_path.read_text())
     config["resume_from_checkpoint"] = str(checkpoint)
-    config["resume_archive_sha256"] = expected
     config_path.write_text(json.dumps(config, indent=2) + "\n")
 
 
