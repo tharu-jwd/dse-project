@@ -41,6 +41,35 @@ def test_evaluation_reports_strict_canonical_and_subgroups() -> None:
     assert "normalization_only" in scored[0]["error_labels"]
 
 
+def test_evaluation_groups_by_speaker_and_length_buckets() -> None:
+    rows = [
+        {
+            "sample_id": str(i),
+            "reference": "one two three four" if i % 2 == 0 else "one",
+            "prediction": "one two three four" if i % 2 == 0 else "one",
+            "speaker_id": "spk-a" if i < 3 else "spk-b",
+            "duration_seconds": float(i + 1),
+        }
+        for i in range(6)
+    ]
+    scored, summary = evaluate_rows(rows, bootstrap_iterations=0)
+    assert set(summary["by_speaker_id"]) == {"spk-a", "spk-b"}
+    assert summary["by_speaker_id"]["spk-a"]["canonical"]["rows"] == 3
+    assert "duration_bucket" in scored[0]
+    assert "transcript_length_bucket" in scored[0]
+    assert summary["by_duration_bucket"]["q1 (shortest 25%)"]["canonical"]["rows"] >= 1
+
+
+def test_evaluation_omits_duration_grouping_when_field_missing() -> None:
+    rows = [
+        {"sample_id": "1", "reference": "one two", "prediction": "one two"},
+        {"sample_id": "2", "reference": "three four", "prediction": "three four"},
+    ]
+    scored, summary = evaluate_rows(rows, bootstrap_iterations=0)
+    assert "duration_bucket" not in scored[0]
+    assert "by_duration_bucket" not in summary
+
+
 def test_strict_normalization_only_collapses_whitespace_and_nfc() -> None:
     assert strict_normalize("  මම\n  යමි. ") == "මම යමි."
 

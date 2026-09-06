@@ -244,24 +244,64 @@ def error_labels(
     return labels or ["other"]
 
 
+def _quartile_labels(values: Sequence[float]) -> list[str]:
+    """Data-driven quartile bucket per row, e.g. "q1 (shortest 25%)".
+
+    Boundaries come from the rows actually being scored, not fixed
+    absolute thresholds -- so the same labeling scheme stays meaningful
+    whether it is applied to the 206-row validation set or a future,
+    differently-distributed benchmark (docs/project/plan.md item 2).
+    """
+    ordered = sorted(values)
+    n = len(ordered)
+    if n < 4:
+        return ["all"] * len(values)
+    boundaries = [ordered[n // 4], ordered[n // 2], ordered[(3 * n) // 4]]
+    names = [
+        "q1 (shortest 25%)",
+        "q2 (25-50%)",
+        "q3 (50-75%)",
+        "q4 (longest 25%)",
+    ]
+    labels = []
+    for value in values:
+        index = sum(value > boundary for boundary in boundaries)
+        labels.append(names[index])
+    return labels
+
+
 def evaluate_rows(
     rows: list[dict[str, Any]], *, bootstrap_iterations: int = 1000
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    durations = [
+        float(row["duration_seconds"])
+        for row in rows
+        if row.get("duration_seconds") is not None
+    ]
+    duration_buckets = (
+        iter(_quartile_labels(durations)) if len(durations) == len(rows) else None
+    )
+    word_counts = [len(str(row.get("reference") or "").split()) for row in rows]
+    length_buckets = iter(_quartile_labels(word_counts))
     scored = []
     for row in rows:
         reference = str(row.get("reference") or "")
         prediction = str(row.get("prediction") or "")
         strict = score_pair(reference, prediction, strict_normalize)
         canonical = score_pair(reference, prediction, metric_normalize)
+        extra = {
+            "error_labels": error_labels(
+                reference, prediction, row.get("language_class")
+            ),
+            "transcript_length_bucket": next(length_buckets),
+        }
+        if duration_buckets is not None:
+            extra["duration_bucket"] = next(duration_buckets)
         scored.append(
             dict(row)
             | {f"strict_{key}": value for key, value in strict.items()}
             | {f"canonical_{key}": value for key, value in canonical.items()}
-            | {
-                "error_labels": error_labels(
-                    reference, prediction, row.get("language_class")
-                )
-            }
+            | extra
         )
     summary: dict[str, Any] = {
         "strict": aggregate(scored, "strict"),
@@ -282,7 +322,14 @@ def evaluate_rows(
             )
         ),
     }
-    for field in ("source_dataset", "language_class", "dataset_split"):
+    for field in (
+        "source_dataset",
+        "language_class",
+        "dataset_split",
+        "speaker_id",
+        "duration_bucket",
+        "transcript_length_bucket",
+    ):
         groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for row in scored:
             if row.get(field) is not None:

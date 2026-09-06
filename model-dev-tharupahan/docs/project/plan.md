@@ -111,13 +111,49 @@ composes with any checkpoint. See
 
 ### 2. Strengthen evaluation
 
-- Preserve the 206-row validation set for historical comparability.
-- Continue reporting per-speaker and error-category metrics.
+- Preserve the 206-row validation set for historical comparability. Done,
+  unchanged.
+- **Done for E007.** Per-speaker/duration/transcript-length subgroup
+  reporting and substitution/deletion/insertion rates, previously required
+  by section 4 but never actually produced for any experiment report, are
+  now built into `sinhala_asr.evaluation.metrics.evaluate_rows` (data-driven
+  quartile buckets, not fixed thresholds) and added to
+  [the E007 report](../experiments/e007-whisper-small-wide-lora-r16-full-v4-teacher-replay.md#per-speaker-duration-and-length-breakdown).
+  New finding: canonical WER rises from 68.11% (shortest-duration quartile)
+  to 86.83-89.68% (two longest quartiles) -- error concentrates in longer
+  clips, not evenly spread. Still owed: backfilling this same breakdown for
+  E004-E006, and re-running it whenever a new candidate is scored.
 - Add a seen-speaker holdout only as a diagnostic for separating adaptation
-  failure from unseen-speaker generalization failure.
-- Build an independent benchmark with more speakers and recording conditions.
-- Fingerprint it and exclude it from adaptation and model selection.
-- Keep the existing test set unopened until a candidate is frozen.
+  failure from unseen-speaker generalization failure. **Not started, and
+  cannot be applied retroactively to E007** -- E007 already trained on 100%
+  of the v4 train split, so there is no already-trained-on-but-withheld
+  sample to mine after the fact. Carving one out means a future training
+  run trains on slightly less than "the complete split" in order to reserve,
+  e.g., ~300-500 rows spread across many train speakers as a same-speaker/
+  held-back-utterance eval set. That changes what "full training data" means
+  for every subsequent experiment (items 6, 7, 9 below) -- worth adopting,
+  but a decision for a human to confirm before it's baked into a config,
+  not something to decide silently.
+- Build an independent benchmark with more speakers and recording
+  conditions. **Checked, and the existing OpenSLR-52-based corpus cannot
+  supply this**: the entire speaker-disjoint held-out pool is exactly 7
+  speakers (`heldout_unreviewed`/`heldout_unused` in `data/versions/v4/manifest.parquet`
+  are the same 7 speakers already split across validation and test, not
+  additional ones) -- confirmed by direct inspection, not assumed. The
+  only candidate source with real speaker diversity already indexed in this
+  repo is the SPEAK-ASR YouTube corpus
+  (`reports/dataset-audit/youtube-upstream/manifest.parquet`: 4,037 rows,
+  9.1 hours, 34 distinct uploaders as a speaker/condition proxy -- BizBrains
+  and the Lingalingeswaran JSON are each single-uploader and don't help
+  here). Its licensing is explicitly "Unresolved; private audit only until
+  clarified" per [the source policy](../data/dataset.md#source-policy).
+  Using it even eval-only, kept private and never redistributed, is a
+  licensing/compliance call outside what this plan has decided -- flagged
+  for a human decision, not resolved unilaterally.
+- Fingerprint it and exclude it from adaptation and model selection. Applies
+  once the above is decided.
+- Keep the existing test set unopened until a candidate is frozen. Still
+  holding -- test set untouched.
 
 ### 3. Run a zero-training model-family bake-off
 

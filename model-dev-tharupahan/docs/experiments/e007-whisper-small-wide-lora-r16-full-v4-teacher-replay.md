@@ -128,6 +128,73 @@ character-level errors, a qualitatively different regime from the ~80-100%+
 gibberish seen in this project's various short-step-budget diagnostic runs
 (E008/E009/E010).
 
+## Per-speaker, duration, and length breakdown
+
+Item 2 in [the plan's ranked execution order](../project/plan.md#2-strengthen-evaluation)
+requires speaker/duration/transcript-length subgroup reporting and
+substitution/deletion/insertion rates on every candidate report; this was
+missing from the sections above, so it is added here retroactively against
+the same hash-verified predictions
+(`f9645dc24424549b262a50382a4db6d1e3a97a19281f0ebd57cffa88bf79708b`).
+`sinhala_asr.evaluation.metrics.evaluate_rows` was extended to add
+`speaker_id` grouping and data-driven quartile buckets for audio duration
+and reference length (quartile boundaries computed from the rows being
+scored, not fixed absolute thresholds, so the same labels stay meaningful
+on a differently-distributed future benchmark). Regenerated via
+`scripts/evaluation/evaluate_predictions.py`; output hashes:
+scored.parquet `1e618a4f679a7b2671b8583f169c3cdcef7790434ae53ffb40b9a044227a2ce2`,
+summary.json `32c6790c9261deb40506f4516baf1dc5bcb46c9ae5b8a3f63fc546f6e19784a5`.
+
+Canonical word substitution/deletion/insertion rate: 63.51% / 5.76% / 12.44%.
+Canonical character substitution/deletion/insertion rate: 11.06% / 11.80% / 3.30%.
+Substitutions dominate both, consistent with the earlier spot-check finding
+of mostly-correct output with character-level slips rather than deletion-
+or insertion-driven degeneracy.
+
+| By speaker | Rows | Canonical WER | Canonical CER |
+|---|---:|---:|---:|
+| 237ce | 71 | 75.52% | 24.06% |
+| ac581 | 63 | 79.72% | 25.63% |
+| d7784 | 72 | 89.37% | 28.64% |
+
+Only 3 speakers total in this validation set (the entire speaker-disjoint
+held-out pool is 7 speakers split across validation and test -- there is no
+larger reserve of unused speakers inside the existing OpenSLR-52-based
+corpus). WER varies by up to 14pp by speaker; this is a real spread, not
+noise, and is itself part of the case for item 2's independent, more
+speaker-diverse benchmark.
+
+| By audio duration (quartile) | Rows | Canonical WER | Canonical CER |
+|---|---:|---:|---:|
+| q1 (shortest 25%, ≤3.6s) | 52 | 68.11% | 19.94% |
+| q2 (25-50%, 3.6-4.5s) | 57 | 78.04% | 21.54% |
+| q3 (50-75%, 4.5-6.2s) | 46 | 89.68% | 30.71% |
+| q4 (longest 25%, >6.2s) | 51 | 86.83% | 30.16% |
+
+A new finding: error rate rises sharply with clip duration -- shortest-
+quartile canonical WER (68.11%) is more than 18pp better than the two
+longest quartiles (86.83-89.68%). This was not previously reported for any
+experiment in this project despite being required by the evaluation
+protocol. It suggests the model's real per-word accuracy on short utterances
+is meaningfully better than the aggregate 81.71% WER implies, and that
+longer utterances are where most of the error budget concentrates --
+plausibly compounding substitution errors or losing alignment over a longer
+generated sequence. Worth testing directly once a candidate model is chosen
+for further tuning (e.g. does beam search's -5.14pp gain concentrate in the
+long-duration quartiles, where greedy has the most room to compound errors).
+
+| By reference length (quartile) | Rows | Canonical WER | Canonical CER |
+|---|---:|---:|---:|
+| q1 (shortest 25%, ≤4 words) | 95 | 80.69% | 21.04% |
+| q2 (25-50%, 4-5 words) | 56 | 84.29% | 23.45% |
+| q3 (50-75%, 5-6 words) | 30 | 82.78% | 30.23% |
+| q4 (longest 25%, >6 words) | 25 | 78.65% | 36.03% |
+
+Word-count-based length shows a weaker, non-monotonic pattern than audio
+duration -- WER stays roughly flat (79-84%) across quartiles while CER rises
+in the two longer-transcript quartiles. Duration, not reference word count,
+is the stronger predictor of word-level error on this set.
+
 ## English retention
 
 Kernel `tharupahan/sinhala-asr-e007-english-evaluation` evaluated the same
