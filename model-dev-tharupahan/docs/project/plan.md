@@ -1,550 +1,386 @@
-# Sinhala ASR Rebuild Plan
+# Sinhala ASR Development Plan
 
-This file is the durable source of truth for the clean Sinhala ASR pipeline.
-Update it whenever a decision changes or a phase is completed. Do not rely on
-chat history or undocumented notebook state.
+Last updated: 2026-09-07
 
-## Objective
+This is the canonical project plan. Detailed experiment narratives belong in
+docs/experiments/, audits in docs/audits/, and operational instructions in
+docs/training/. This file records only current decisions, execution order,
+gates, and completion criteria.
 
-Build a reproducible preprocessing, fine-tuning, evaluation, and error-analysis
-pipeline for Sinhala ASR. Start each controlled baseline from an official
-pretrained multilingual Whisper checkpoint, initially
-`openai/whisper-small`, rather than from a team fine-tuned checkpoint or random
-weights.
+## 1. Objective and success criteria
 
-In this document, "official baseline" means an untouched OpenAI checkpoint; it
-does not mean the checkpoint named `openai/whisper-base`. Use Whisper-base only
-for inexpensive pipeline smoke tests. Whisper-small is the primary training and
-comparison model. Consider Whisper-medium only after a small-model recipe wins
-on the frozen validation protocol and passes a new cost review.
+Build a reproducible Sinhala ASR system with:
 
-The first acceptance target is less than 10% strict WER and less than 10%
-strict CER on a frozen, leakage-checked test set. Canonical metrics are reported
-alongside strict metrics but cannot replace them. Standalone English retention
-is desirable rather than a hard acceptance condition; code-switched English in
-Sinhala samples remains part of the primary task and is never silently removed.
+- Strict WER below 10%.
+- Strict CER below 10%.
+- Canonical WER and CER reported alongside strict metrics.
+- Evaluation on a frozen, fingerprinted, leakage-checked test set.
+- Standalone English retention measured, although it is not a hard acceptance
+  condition.
+- Sinhala-English code-switching retained as part of the primary task.
 
-Existing checkpoints and results are historical comparison baselines only. The
-superseded `model-development/` tree was audited, its relevant evidence was
-captured in the historical audit, and it was removed from this branch. It
-remains recoverable from Git history and the team branches; the clean pipeline
-has no runtime dependency on it.
+The target must not be reached through speaker leakage, training-corpus overlap,
+or aggressive normalization. Published CER is not equivalent to WER, and
+neither counts as independent when evaluated audio may have appeared during
+model pretraining.
 
-See [the historical audit](../audits/historical-audit.md) for the evidence-graded run
-history, contradictions, evaluation policy, and experiment rationale.
+## 2. Current state
 
-## Non-negotiable rules
+### Data
 
-1. Do not rent a GPU until data validation, metrics, tests, smoke tests, and
-   checkpoint resume work locally.
-2. Do not use the test set for model or decoding selection.
-3. Do not compare runs trained on different dataset or normalization versions.
-4. Every run must record its Git commit, full resolved configuration, dataset
-   fingerprint, split fingerprint, seed, package versions, hardware, duration,
-   planned cost, and actual cost.
-5. Training and evaluation paths must be configurable; no machine-specific or
-   hard-coded cloud paths.
-6. Training must be resumable. From E002 onward, Colab jobs do not mount Google
-   Drive: checkpoints are downloaded into the experiment's local artifact
-   directory and verified before a cloud instance is terminated. Follow the
-   heartbeat, checkpoint-completion, attempt-log, bounded-retry, and
-   deterministic-resume procedure in
-   [the Colab CLI policy](../training/colab-cli.md) (historical, E000-E002) or
-   [the Kaggle operations policy](../training/kaggle-cli.md) (current, E003
-   onward), whichever platform applies.
-7. Generated datasets, checkpoints, predictions, and reports are not committed
-   unless they are deliberately selected compact reference artifacts.
+- Dataset v4 is the current controlled dataset.
+- Training: 182,665 OpenSLR-52 rows, 220.877 hours, 471 speakers.
+- Validation: 206 rows, 17.6 minutes, 3 speakers.
+- Test: 186 rows, 16.2 minutes, 4 speakers.
+- Train, validation, and test speakers do not overlap.
+- Raw sources are immutable; corrections are versioned overlays.
+- Automatic GPT/Bedrock transcript rewriting was not adopted as a general data
+  policy. Only audio-verified corrections are trusted for evaluation labels.
 
-Historical metrics, run contradictions, and inherited operational lessons live
-only in [the historical audit](../audits/historical-audit.md); do not duplicate
-them here. Keep implementation
-under `src/sinhala_asr/`, entry points under `scripts/`, tests under `tests/`,
-and generated data, reports, runs, and checkpoints in ignored directories.
+The validation split is honest but too small and speaker-narrow to estimate
+broad generalization. It remains frozen for continuity while a genuinely
+independent and more speaker-diverse benchmark is constructed.
 
-## Phase 1: dataset audit and manifest
+See the [dataset specification](../data/dataset.md),
+[text policy](../data/text-policy.md), [audio audit](../data/audio-audit.md),
+and [review provenance](../data/review-provenance.md).
 
-Reconstruct the corpus from independently downloadable upstream sources first:
-official OpenSLR-52 plus the public YouTube Sinhala and BizBrains datasets.
-Download Linga only for provenance comparison because it appears to overlap
-OpenSLR substantially and must not be counted as independent speech. Preserve
-each upstream snapshot unchanged with its source URL, revision, license, file
-checksums, and download date. Use the team's GCS `finalData` later as a
-comparison artifact to recover and verify useful corrections—not as assumed
-ground truth or as a prerequisite for beginning the audit.
+### Best completed controlled model
 
-Build a deterministic manifest containing at least:
+E007 adapted openai/whisper-small using wide LoRA rank 16,
+teacher-behavior English replay, and all 220.877 training hours:
 
-- Stable sample ID
-- Source dataset
-- Source record ID
-- Speaker ID when available
-- Audio content hash
-- Transcript hash
-- Duration, sample rate, channels, and encoding
-- Original transcript
-- Canonical transcript
-- Code-switch flag
-- Split assignment
-- Validation flags and exclusion reason
+| Metric | E006 | E007 |
+|---|---:|---:|
+| Canonical Sinhala WER | 84.48% | 81.71% |
+| Canonical Sinhala CER | 28.74% | 26.15% |
+| English WER | 4.5821% | 4.5971% |
 
-Produce reports for corrupt or missing audio, silence, clipping, duration
-outliers, Unicode anomalies, exact and near duplicates, repeated transcripts,
-speaker leakage, audio leakage, and source/speaker/split distributions.
+The Sinhala improvement is statistically material and English retention
+passes. Scaling this fixed LoRA recipe nevertheless shows diminishing returns
+and cannot plausibly close the remaining gap alone.
 
-Dataset adequacy is measured primarily in verified speech hours, speakers, and
-conditions—not row count. The audit must report total and retained hours,
-duration quantiles, speaker coverage where identities exist, source/domain
-coverage, Sinhala-only/code-switched counts, and estimated transcript error
-rates. The historical claim of approximately 154,828 rows is not accepted as a
-training-capacity measurement until source snapshots are fingerprinted and
-their retained speech hours are calculated.
+E007 varies substantially across the three validation speakers:
 
-Perform a reviewed, stratified listening audit before freezing the data. The
-local review UI must play audio, show original/canonical text and audit flags,
-support keyboard-driven correct/edit/bad-audio/mismatch/duplicate/uncertain
-decisions, save progress continuously, and export a versioned adjudication
-table without modifying raw sources.
+| Speaker | Rows | Canonical WER | Canonical CER |
+|---|---:|---:|---:|
+| 237ce | 71 | 75.52% | 24.06% |
+| ac581 | 63 | 79.72% | 25.63% |
+| d7784 | 72 | 89.37% | 28.64% |
 
-Review at least 100 rows from each applicable category: random OpenSLR, random
-collection sources, automatically flagged anomalies, duplicate/near-duplicate
-candidates, and code-switched speech. A row may satisfy more than one category.
-Use this sample to estimate error rates, not as the sole training corpus.
+See the [E007 report](../experiments/e007-whisper-small-wide-lora-r16-full-v4-teacher-replay.md).
 
-Exit with failure when invariants are violated. Never silently discard a row;
-write its reason to an exclusions manifest.
+### Established technical findings
 
-Regenerate speaker-disjoint splits when reliable speaker or recording-group
-identifiers can be recovered. Also retain a collection-domain robustness test,
-a standalone English-retention set, and explicit Sinhala-only and code-switched
-evaluation slices. If speaker identity is unavailable, document that limitation
-and group by the strongest defensible recording/session identifier instead.
+1. Whisper-small has no dedicated Sinhala tokens; Sinhala uses byte-level
+   fallback tokens.
+2. E009 added 250 corpus-derived Sinhala tokens and reduced tokens per word
+   from 10.214 to 4.386 (-57.1%).
+3. E009's first result is invalid evidence against tokenizer extension because
+   LoRA froze its new tied embedding/output rows. The corrected configuration
+   trains embed_tokens and proj_out with weight tying; its rerun is pending.
+4. E010 confirmed rank 32 and learning rate approximately 2.345e-4 beat the
+   historical rank-16/5e-5 setting at 500 steps. This finding is retained but
+   does not automatically justify an expensive full-scale Whisper rerun.
+5. Historical team results near 17% WER used a random row-level split with
+   speaker leakage and are not valid comparisons on the current protocol.
+6. External/team checkpoints are comparison baselines, not trusted training
+   starting points.
 
-Before training, the native-Sinhala reviewer must lock a gold evaluation set of
-approximately 1,000–2,000 diverse clips, divided into validation and test. Both
-parts are excluded from training. Validation may select recipes and checkpoints;
-test remains unopened until a candidate is frozen. Store corrections as overlays
-and publish immutable dataset versions (`v1`, `v2`, and so on), never by
-overwriting upstream data.
+See the [tokenizer audit](../audits/e006-near-homophone-error-analysis.md),
+[E009 report](../experiments/e009-tokenizer-extension-pilot-v4.md),
+[E010 report](../experiments/e010-rank-lr-validation-v4.md), and
+[historical audit](../audits/historical-audit.md).
 
-## Phase 2: Sinhala text policy
+## 3. Ranked execution plan
 
-Preserve three representations:
+This order is ranked by expected benefit per unit of training time. Change it
+only when a recorded result changes the evidence.
 
-- `text_original`: immutable source transcript
-- `text_canonical`: consistent training target
-- `text_metric`: explicitly normalized scoring representation
+### 1. Complete the E007 decoding comparison
 
-The policy must document Unicode NFC, whitespace, punctuation, numbers, dates,
-abbreviations, Sinhala compounds and particles, colloquial/formal variants,
-English words, and transliteration. Normalization must be deterministic,
-versioned, and unit-tested with Sinhala examples.
+Finish greedy-versus-beam evaluation on E007. This has zero training cost and
+composes with later models, but is not expected to close the full WER gap.
 
-Never hide recognition failures by over-normalizing. Report strict and
-canonical metrics together.
+### 2. Strengthen evaluation
 
-## Phase 3: evaluation and error analysis
+- Preserve the 206-row validation set for historical comparability.
+- Continue reporting per-speaker and error-category metrics.
+- Add a seen-speaker holdout only as a diagnostic for separating adaptation
+  failure from unseen-speaker generalization failure.
+- Build an independent benchmark with more speakers and recording conditions.
+- Fingerprint it and exclude it from adaptation and model selection.
+- Keep the existing test set unopened until a candidate is frozen.
 
-Every prediction row must retain manifest metadata and include reference,
-prediction, strict/canonical scores, and error labels.
+### 3. Run a zero-training model-family bake-off
 
-Required aggregate views:
+Evaluate candidates using identical audio, references, normalization, and
+metrics:
 
-- Strict WER and CER
-- Canonical WER and CER
-- Sinhala-only and code-switched WER
-- WER by source, speaker, duration, and transcript length
-- Named-entity, number, and domain-term performance when labeled
-- Substitution, deletion, and insertion rates
-- Empty output, truncation, repetition, and hallucination indicators
-- Bootstrap confidence intervals for headline metrics
+1. Meta Omnilingual ASR CTC 300M v2.
+2. Omnilingual CTC 1B v2 if memory permits.
+3. Omnilingual LLM-ASR 1B and 7B as compute permits.
+4. E007 Whisper-small.
+5. Recoverable team/external checkpoints as controls.
 
-Required sample-level error taxonomy:
+Meta's [official results](https://raw.githubusercontent.com/facebookresearch/omnilingual-asr/refs/heads/main/per_language_results_table_7B_llm_asr.csv)
+report Sinhala at 7.2% CER with 225.4 training hours, and its
+[official repository](https://github.com/facebookresearch/omnilingual-asr)
+provides inference and fine-tuning recipes. Because 225.4 hours closely matches
+this OpenSLR corpus, assume possible overlap until disproved. Do not claim
+independent performance without the new benchmark.
 
-- Punctuation only
-- Whitespace or compound segmentation
-- Accepted spelling variant
-- Colloquial/formal mismatch
-- Sinhala grapheme confusion
-- Acoustic substitution
-- Deletion
-- Insertion
-- Named entity
-- Number
-- Code-switch
-- Truncation
-- Repetition or hallucination
-- Suspected bad reference
-- Suspected bad audio
+### 4. Adapt Omnilingual CTC 300M
 
-Generate machine-readable tables and a human-readable Markdown or HTML report.
+Proceed only if its bake-off result is competitive:
 
-## Phase 4: training
+- Use a direct Sinhala grapheme inventory.
+- Run a fixed-step bounded pilot before full training.
+- Compare untouched and adapted checkpoints.
+- Measure throughput, memory, checkpoint recovery, validation change, and cost.
+- Advance to CTC 1B only after 300M demonstrates honest transfer.
 
-Begin with one reproducible `openai/whisper-small` baseline. Support LoRA/DoRA
-training behind the same configuration schema. Track strict/canonical
-validation metrics, loss, learning rate, gradient norm, throughput, peak memory,
-checkpoint identity, and wall time.
+CTC is prioritized because it avoids Whisper's Sinhala byte-token bottleneck
+and supports efficient language-model-assisted decoding.
 
-Initial controlled experiments after evaluating the untouched model:
+### 5. Add Sinhala language-model decoding
 
-1. Wide-target LoRA or DoRA from official `openai/whisper-small`, selecting a
-   conservative learning rate through short pilots.
-2. Bilingual replay using the adapter recipe plus a fixed English rehearsal set
-   and the available Sinhala-English code-switched samples.
-3. Adapter target-width and learning-rate comparison on the same frozen data.
-4. Low-learning-rate continuation of the historical 17% checkpoint only if its
-   exact artifact, optimizer state, and dataset identity can be recovered --
-   and only after re-measuring its accuracy on the current frozen,
-   speaker-disjoint v4 evaluation set. [The historical audit](../audits/historical-audit.md)
-   has since confirmed the original 17%/25.99% historical numbers were measured
-   on a split with pervasive speaker leakage (a plain random row-level split
-   with no speaker column at all), so neither is a trustworthy target or
-   comparison point until re-measured; this option is deprioritized relative to
-   item 3 accordingly.
-5. Augmentation ablations only after error analysis shows the matching need.
-6. Whisper-medium only after the winning small-model recipe and budget review.
+Apply character/subword or word-level KenLM beam decoding to the strongest CTC
+candidate. Consider a neural LM only if KenLM establishes a measurable gain.
 
-### Next-step priority order after E007
+- Tune LM weight and word-insertion penalty on validation only.
+- Report acoustic-only and LM-assisted scores together.
+- Inspect spelling, compound, and word-boundary changes.
+- Do not use an LM to conceal acoustic hallucinations or reference errors.
 
-The nested data-scale curve (E004-E007) is now fully measured, not just
-projected: canonical WER improved at every step (95.87% -> 89.57% -> 84.48%
--> **81.71%** at E007, the complete 220.877-hour split), with English
-retention passing every time, and diminishing but still real returns at
-each stage. Further scale is not expected to close the remaining gap to the
-under-10% target -- the fitted curve already implied this before E007 ran,
-and E007's real result confirms it rather than overturning it. [The
-near-homophone error analysis](../audits/e006-near-homophone-error-analysis.md)
-shows most of the remaining error is genuine, broader recognition failure,
-not a small fixable confusion set. Rank the next levers by expected benefit
-per unit of time/risk, not by raw expected benefit alone:
+This ranks early because E007's 26.15% CER versus 81.71% WER indicates that
+character, spelling, and segmentation errors amplify the word metric.
 
-**Foundational findings (complete, feeding into the forward-looking order
-below):**
+### 6. Re-run the corrected E009 tokenizer pilot
 
-- Cheap, no-GPU diagnostic: how Whisper's tokenizer encodes the specific
-  Sinhala near-homophone character pairs identified in the error analysis.
-  Done: `openai/whisper-small`'s tokenizer has **zero dedicated Sinhala
-  tokens** at all (every one of the 128 Sinhala Unicode codepoints is two
-  raw UTF-8 byte-level fallback tokens; none of the 51,865 vocabulary
-  entries decode to clean standalone Sinhala). See
-  [the near-homophone analysis](../audits/e006-near-homophone-error-analysis.md#tokenizer-check-whisper-small-has-zero-dedicated-sinhala-vocabulary)
-  for the full finding, including why ල/ළ specifically -- the single most
-  frequent confusion found -- gets no help from either the acoustic signal
-  or the token representation.
-- Adapter rank/learning-rate search (E008) via
-  `scripts/training/optuna_search.py` -- **complete**. First attempt
-  produced an invalid trial (greedy eval-time decoding on an undertrained
-  100-step checkpoint degenerated into a repeated-token loop that pinned
-  `eval_wer~=1.0`; found by direct reproduction, fixed in `train.py`,
-  see [the E008 eval-repetition-bug audit](../audits/e008-eval-repetition-bug.md)).
-  Moved to Camber once fixed; hit a real concurrency bug there (an earlier
-  "abandoned" job kept running remotely and wrote into the same shared
-  Optuna study a later resubmission also used) -- winning trial
-  independently re-verified despite it. **Result: rank=32,
-  learning_rate~2.3e-4 beats this project's historical default (rank=16,
-  lr=5e-5)** -- 101.14% vs E001's real 114.26% strict WER at the same 100
-  steps. See [the E008 experiment report](../experiments/e008-optuna-rank-lr-search-v4.md).
-- Controlled validation of E008's finding (E010) -- **complete, finding
-  validated and adopted**. A clean, single-job, no-concurrency-risk
-  500-step comparison (5x E008's proxy scale) confirms rank=32,
-  lr~2.345e-4 beats the historical default at every single eval
-  checkpoint, not just the final one: eval_wer 97.42% vs 102.89% (-5.47pp),
-  eval_cer 33.13% vs 43.71% (-10.58pp). See
-  [the E010 report](../experiments/e010-rank-lr-validation-v4.md).
-- Tokenizer vocabulary extension (E009) -- **build done, first pilot found
-  unstable, fix applied, re-run pending.** Two independent structural
-  findings (phoneme identity + zero-Sinhala-vocabulary) motivated this fix
-  for the project's single worst-offending confusion pair, with real
-  external precedent for both safety and expected magnitude (roughly -0.7
-  percentage points WER in the closest published study). Built
-  `scripts/training/extend_tokenizer.py`: 250 new tokens from the real v4
-  corpus, 57.1% tokens-per-word reduction (10.214 -> 4.386), above the
-  external precedent's 30-61% range. First pilot came back with WER
-  *rising* over training (169% -> 999% between step 50 and 100) and the
-  model outputting actual Khmer script on two of four sampled clips.
-  Root cause confirmed structurally: this project's LoRA `target_modules`
-  doesn't include Whisper's tied embedding/output-projection layer, so the
-  250 new token rows stayed frozen at random initialization for the whole
-  run -- exactly the embedding-freezing risk flagged before building
-  anything, now confirmed for this project's LoRA recipe specifically (the
-  external paper's "no instability" result came from full fine-tuning,
-  where nothing is frozen, so it never tested this failure mode). Fix
-  applied and committed: `modules_to_save=["embed_tokens", "proj_out"]`
-  plus `ensure_weight_tying=True`, verified directly (every other
-  experiment's LoRA config unchanged, same trainable param count). See
-  [the E009 experiment report](../experiments/e009-tokenizer-extension-pilot-v4.md).
-  Second pilot run, with the fix, not yet done.
+Run a short controlled comparison with trainable tied embedding/output layers.
+Stop this path unless it materially beats E010 without output instability. A
+successful pilot permits, but does not automatically authorize, a full run.
 
-**Forward-looking priority order, ranked by expected improvement per unit
-of training time -- decided explicitly to save full-parameter fine-tuning
-for last: by the time that (expensive, effectively one-shot) run happens,
-every cheaper lever should already be tried and folded into the recipe
-going in, not discovered afterward:**
+### 7. Compare full Whisper adaptation with LoRA
 
-1. Decoding-time check on the existing E007 adapter -- beam search
-   (`num_beams` > 1) instead of greedy decoding, re-scored on the frozen
-   206-row validation set. **Zero training cost** -- no GPU rental, no new
-   checkpoint, just re-running inference on what already exists, testable
-   locally in minutes. Ranks first regardless of anything else below
-   because it composes with every other item on this list: whichever
-   checkpoint eventually wins, beam search (or not) is a separate,
-   independent choice on top of it. Not yet tried at all -- every
-   evaluation in this project so far (E000-E010) has used greedy decoding.
-2. Re-run E009's tokenizer pilot with the fix (~15-20 minutes, Camber).
-   Nearly free, and the one open unknown blocking items 4 and 8 below --
-   needs answering before tokenizer extension can be counted as one of the
-   validated tricks to carry forward.
-3. Full-scale rerun of E007's recipe with the validated rank/LR (rank=32,
-   learning_rate~2.3e-4) -- same cost as E007 itself (~11h Kaggle,
-   two-phase). Doesn't need to wait on item 2; already justified by E010's
-   evidence. Highest-confidence big-ticket item, because unlike the other
-   levers it isn't a guess -- E010 demonstrated a real, consistent 5.5 to
-   10.6 percentage-point gain at every checkpoint of a 500-step comparison.
-   E007 itself never used this recipe (it used the E001-era rank=16,
-   lr=5e-5 default), so this also doubles as the first real controlled
-   comparison against E007 at full scale, which E010's 500-step run
-   doesn't substitute for.
-4. Full-scale tokenizer-extension experiment (~11h Kaggle) -- only if item
-   2 succeeds. Same cost class as item 3, smaller expected payoff by the
-   one real precedent available (~-0.7pp WER), though this project's own
-   57.1% token-compression ratio beat that paper's, so it's plausible the
-   real gain here exceeds -0.7pp.
-5. DoRA bounded pilot -- this project's own Phase 4 plan always said "LoRA
-   or DoRA," but every experiment so far (E000-E010) used plain LoRA;
-   DoRA has never actually been tried. A short, bounded pilot (matching
-   the same 100-500-step diagnostic scale as E001/E008/E009, at the
-   already-validated rank/LR) is enough to see whether it meaningfully
-   beats plain LoRA before committing to a full-scale run -- do not
-   assume it helps just because published benchmarks report gains
-   elsewhere; this project's own data and language are the only evidence
-   that counts here.
-6. Augmentation bounded pilot -- speed/pitch perturbation, noise
-   injection, or SpecAugment. This project's own plan gated augmentation
-   "only after error analysis shows the matching need"; [the near-
-   homophone analysis](../audits/e006-near-homophone-error-analysis.md)
-   found most remaining error is "genuine, broader recognition failure,
-   not a small fixable confusion set" -- ambiguous evidence, consistent
-   with either a genuine need for more acoustic diversity (augmentation
-   could help) or a capacity/architecture ceiling (augmentation won't).
-   Needs new data-loading work before any pilot is even possible, a
-   bigger lift than items 3-5, so scoped as its own bounded check rather
-   than assumed useful.
-7. LM rescoring / n-best shallow fusion with a Sinhala language model --
-   no acoustic-model retraining at all, but real engineering to source or
-   build a usable Sinhala LM and wire up rescoring. Doesn't compete for
-   GPU training budget the way items 3-6 do. Plausibly the most direct
-   fix for the near-homophone confusions specifically (a language model
-   can down-weight an implausible substitution using context in a way an
-   acoustic-only model cannot), a different mechanism from every other
-   item on this list. Not yet scoped at all -- source/quality of an
-   available Sinhala LM is unknown.
-8. Combine every validated trick into one recipe -- rank/LR (item 3) plus
-   tokenizer extension if it holds (item 4) plus DoRA if it wins (item 5)
-   plus augmentation if it helps (item 6) plus NEFTune
-   (`TrainConfig.neftune_noise_alpha`, already wired into both the local
-   and Kaggle/Colab training paths via an optional job-config field, cheap
-   to try, untested at Sinhala-adapter scale here). This is the actual
-   "exhausted the options" step, not any single item above -- the real
-   predecessor to full-parameter training, not a substitute for it.
-   Decoding-time changes (items 1, 7) apply on top of whatever this
-   recipe produces rather than being part of the training recipe itself.
-9. A human-in-the-loop correction batch targeted specifically at rows
-   containing the near-homophone confusions identified in the error
-   analysis, rather than a random sample -- higher signal per reviewed
-   row. Spends reviewer time, not GPU time, so it can run in parallel with
-   any of the above rather than competing for the same budget; fold any
-   resulting corrections into the training data before the full-parameter
-   run, not after.
-10. Full-parameter fine-tuning -- **deliberately last.** Only start once
-    items 1-9 have reported back, so the recipe going in is whatever
-    combination of tricks actually proved out, plus a real number for how
-    much of the remaining gap is architecture-limited (LoRA's ceiling)
-    versus something a full update could fix -- not a guess made before
-    the cheaper options were exhausted. Potentially the largest remaining
-    lever: two independent external pipelines show the same qualitative
-    pattern (full fine-tune reaching materially lower WER than this
-    project's LoRA ceiling, even under far less data/rigor) -- see
-    [the SPEAK-ASR/ASR-Finetune review](../audits/asr-finetune-external-review.md)
-    and
-    [the whisper-based-sinhala-asr review](../audits/whisper-based-sinhala-asr-external-review.md).
-    Neither is individually trustworthy (one has confirmed split leakage,
-    the other's split is simply unverifiable), and the historical
-    project's own leakage-tainted 17% number is a reason to check, not
-    evidence this will work -- but three independent codebases landing on
-    the same direction is a reason to take the pilot seriously once it's
-    this recipe's turn. A bounded feasibility/VRAM/step-time scoping pilot
-    (this project's own Gate B discipline) belongs immediately before the
-    real run, not run early just because it's cheap -- there's no reason
-    to spend even a small amount of time on it before it's actually
-    needed. Continuing training from a third-party checkpoint (e.g.
-    Yohan2003/whisper-small-sinhala's `run1`, which independently beats
-    this project's own E007 result on our frozen validation set) was
-    considered and explicitly ruled out -- external checkpoints are for
-    comparison only, never a training starting point.
-11. Whisper-medium -- this project's own plan already gated this "only
-    after the winning small-model recipe and budget review," which
-    effectively means only after item 10, not before it: trying every
-    lever on the confirmed base model before committing to a larger,
-    more expensive one is the same "exhaust the options first" reasoning
-    that puts full-parameter fine-tuning at item 10 rather than earlier.
+Run a bounded, identical-data, identical-step comparison:
 
-Before full-data recipe comparisons, measure a nested data learning curve using
-approximately 10, 25, 50, and 100 verified speech hours plus the full retained
-dataset. Build every larger subset as a superset of the smaller one, balanced by
-speaker and source where metadata permits. Use identical bounded pilot settings
-and validation evaluation. Advance full runs only when the curve shows that
-additional data is useful; diagnose label noise, domain mismatch, tokenization,
-or capacity when it plateaus.
+- Full-parameter Whisper-small with a conservative learning rate.
+- Rank-32 LoRA at approximately 2.345e-4.
+- Same seed, rows, decoder, checkpoints, and validation.
+- English-retention evaluation for both.
 
-Change one experimental factor at a time. Use validation data and early stopping
-for selection; evaluate the test set only after freezing a candidate.
+Advance full adaptation only if it substantially breaks the LoRA ceiling.
+Protect English through measured replay/regularization rather than assuming
+full fine-tuning necessarily destroys it.
 
-### Human-in-the-loop improvement cycle
+### 8. Test alternative multilingual CTC families if needed
 
-Do not require manual verification of the full training corpus. Train initially
-on automatically high-confidence data plus reviewed corrections. After each
-baseline, rank training candidates for review using high loss, low confidence,
-checkpoint disagreement, repeated error patterns, transcript/audio mismatch
-signals, and underrepresented speakers or domains. The reviewer then corrects a
-meaningful batch—normally 300–1,000 samples, a completed error category, or at
-least one verified hour—before another GPU run.
+If Omnilingual is unavailable or leaves a material gap, evaluate MMS Sinhala
+support and XLS-R. Use bounded output-head/encoder adaptation before any full
+run. Do not train large models merely to create a leaderboard.
 
-For controlled comparisons, restart every candidate from the same official
-Whisper-small checkpoint. For final staged adaptation, continuation from the
-winning checkpoint is allowed at a lower learning rate, but mix prior training
-data with new corrections to reduce overfitting and forgetting. Periodically
-retrain from the official checkpoint on the complete latest dataset version to
-detect bias accumulated through repeated continuation. Never fine-tune on the
-gold validation or test rows.
+### 9. Run optimized Whisper LoRA at full scale only if competitive
 
-## Phase 5: GPU and cloud cost gates
+E010 established rank-32/higher-LR as better at 500 steps. Run an E007-scale
+version only if the model-family bake-off shows Whisper remains competitive
+enough to justify approximately another 11-hour job.
 
-Initial compute allowance: five included Camber GPU hours plus at most USD 10
-of paid compute. Free hours are still budgeted and measured. The GPU model,
-VRAM, framework compatibility, persistence, and observed throughput must be
-recorded before estimating how many complete runs fit this allowance.
+### 10. Run evidence-triggered ablations
 
-Status: CLI installed, authenticated, and Gate A/B-equivalent smoke-tested
-(2026-09-06) -- a live job confirmed a real NVIDIA L4 (23034MiB) reachable
-via `--gpu --size xsmall`, and confirmed the `base` engine's default image
-does *not* ship PyTorch despite its own description claiming otherwise (any
-real job needs its own `pip install` step). ~5 minutes of the 5-hour budget
-spent on that one verification job; the CPU-only probe that found the
-missing-torch/no-conda details cost nothing against the GPU budget. See
-[the Camber operating notes](../training/camber-cli.md) for the full
-verified CLI surface, node-size constraints, and environment findings.
-No training job has run there yet -- holding it for a concrete GPU-bound
-task (most likely the tokenizer-extension pilot, item 3 above) rather than
-spending the budget on anything already covered locally or on Kaggle.
+Test one factor at a time after the winning architecture and error profile are
+known:
 
-### Gate A: free/local checks
+- DoRA or adaptive LoRA.
+- SpecAugment, speed/pitch perturbation, or noise when errors concentrate by
+  speaker, channel, or noise.
+- NEFTune where supported.
+- Targeted human correction for recurring high-impact label/error categories.
+- Continued self-supervised pretraining or pseudo-labeling only when useful
+  additional unlabeled Sinhala audio exists.
 
-- Unit and integration tests pass
-- Dataset audit passes
-- Metrics pass fixed fixtures
-- CPU smoke test completes
-- A checkpoint can be saved, loaded, and resumed
-- A small prediction report is generated successfully
+### 11. Consider larger models
 
-### Gate B: capped GPU smoke test
+Consider Whisper-medium or larger full runs only after the bake-off, bounded
+full-parameter pilot, and cost review. A larger Whisper retains the same
+Sinhala-tokenization limitation; parameter count alone is not justification.
 
-- Use a fixed step limit and small data subset
-- Verify mixed precision and peak VRAM
-- Verify data-loader throughput and GPU utilization
-- Verify checkpoint upload and recovery
-- Deliberately interrupt and resume once
-- Verify automatic cleanup and shutdown behavior
+## 4. Evaluation protocol
+
+Every prediction row must retain sample ID, speaker/source metadata, reference,
+prediction, strict/canonical edit counts, and error labels.
+
+Every candidate report must include:
+
+- Strict and canonical WER/CER.
+- Sinhala-only and code-switched results.
+- Results by speaker, source, duration, and transcript length.
+- Substitution, deletion, and insertion rates.
+- Whitespace/compound, grapheme, spelling-variant, named-entity, number,
+  truncation, repetition, hallucination, bad-reference, and bad-audio analyses.
+- Paired bootstrap confidence intervals against the relevant control.
+- Representative improved and regressed samples.
+- An explanation of why metrics changed and how the evidence determines the
+  next experiment.
+
+The test set is evaluated only after the candidate, normalization policy, and
+decoder are frozen. See the [evaluation specification](../evaluation/evaluation.md).
+
+## 5. Experiment discipline
+
+1. Change one experimental factor at a time.
+2. Use the same dataset and normalization version for controlled comparisons.
+3. Record Git revision, resolved configuration, data/split fingerprints, seed,
+   packages, hardware, duration, planned/actual cost, and artifact hashes.
+4. Make training resumable and validate restoration before scaling.
+5. Preserve per-row predictions and failure logs, including unsuccessful runs.
+6. Never silently discard samples; record exclusion reasons.
+7. Do not commit generated data/checkpoints unless deliberately selected as
+   compact reference artifacts.
+8. Do not continue an external checkpoint as the final model unless a future
+   plan revision explicitly justifies that decision.
+
+## 6. Human-in-the-loop improvement
+
+Do not manually verify the entire corpus. After each useful model, rank samples
+for review using high loss/low confidence, checkpoint disagreement, repeated
+errors, transcript/audio mismatch, and underrepresented speakers/domains.
+
+Review a meaningful batch, normally 300-1,000 samples, one completed error
+category, or at least one verified hour, before retraining. Never train on gold
+validation or test rows.
+
+## 7. Compute and failure gates
+
+Initial allowance remains five included Camber GPU hours plus at most USD 10
+paid compute. Free resources are still measured.
+
+### Gate A: local/free validation
+
+- Dataset, metric, unit, integration, and CPU smoke checks pass.
+- Prediction reports work.
+- Checkpoints save, reload, and resume.
+
+### Gate B: capped GPU smoke
+
+- Fixed small data/step limit.
+- Mixed precision, VRAM, throughput, and utilization measured.
+- Checkpoint recovery verified.
+- One deliberate interruption and deterministic resume verified.
 
 ### Gate C: measured pilot
 
-Run 5-10% of the training data or 500-1,000 steps. Record samples/second,
-evaluation time, checkpoint time, peak VRAM, and total billed time. Estimate:
+- Run 500-1,000 steps or 5-10% of the data.
+- Measure training, evaluation, checkpoint time, and peak memory.
+- Estimate full cost with a 25% safety margin.
+- Stop if projected cost exceeds the approved allowance.
 
-```text
-planned cost = hourly GPU price × estimated hours × 1.25 safety margin
-```
+### Gate D: bounded full experiment
 
-Do not start a full run without an approved maximum cost and stop condition.
-The first pilot must calculate the projected total cost; if it exceeds the
-remaining allowance, the job must not advance automatically.
+- Advance only a pilot with meaningful measured benefit.
+- Run one full winner at a time.
+- Download predictions, logs, metadata, and important checkpoints before the
+  environment expires.
+- Analyze and document failures before retrying.
 
-### Gate D: bounded full experiments
+Follow the [Kaggle](../training/kaggle-cli.md),
+[Colab](../training/colab-cli.md), [Camber](../training/camber-cli.md), and
+[compute](compute-plan.md) procedures.
 
-- Run one baseline first
-- Advance only the best one or two short pilots
-- Run one full winner
-- Attempt a larger model only when the measured expected benefit justifies cost
+## 8. Completion criteria
 
-Keep immutable source snapshots and canonical outputs on the local machine with
-checksums and a separate backup. Upload only the required frozen dataset version
-to a training provider, and download run records, predictions, and important
-checkpoints before terminating it. Do not use a stopped GPU volume as long-term
-storage. Record the instance type and displayed hourly price at run start, and
-terminate compute automatically after success or error.
+The project is ready for another paid/full training run only when:
 
-For Colab specifically (historical, E000-E002), follow
-[the CLI isolation policy](../training/colab-cli.md): use only
-`/content/sinhala-asr-job` remotely, never mount Drive, and keep durable
-per-experiment artifacts under `reports/experiments/eNNN-...` locally. For
-Kaggle (current, E003 onward), follow
-[the Kaggle operations policy](../training/kaggle-cli.md): verify dataset/
-kernel-source anchor filenames are unique before every push, poll with
-`kernels output` on a multi-minute interval rather than `kernels status`, and
-split a run into checkpoint-resumed stages ahead of time if it is projected
-close to the platform's session ceiling.
+- A frozen, fingerprinted, leakage-checked dataset exists.
+- Sinhala normalization is documented and tested.
+- The relevant untouched/model-family baseline is recorded.
+- Detailed error reports work end to end.
+- The run's hypothesis and control are explicit.
+- Training smoke and resume tests pass.
+- A bounded pilot shows sufficient benefit.
+- Pilot throughput, memory, and projected cost are measured.
+- The full configuration, stop condition, and maximum spend are approved.
 
-## Completion criteria
+The project is complete when the selected system has:
 
-The project is ready for paid full training only when:
+- Reproducible strict and canonical test WER/CER.
+- Independent, speaker-diverse evaluation.
+- Subgroup and error analysis.
+- English-retention and code-switch results.
+- Deployment latency and resource measurements.
+- Model card, reproducible configuration, artifact hashes, and actual cost.
 
-- A frozen, fingerprinted, leakage-checked dataset exists
-- Sinhala normalization is documented and tested
-- Untouched Whisper baseline results are recorded
-- Detailed error reports work end to end
-- Training smoke and resume tests pass
-- Pilot throughput and cost are measured
-- The full run config and maximum spend are approved
+## 9. Progress
 
-The project is complete when a selected checkpoint has reproducible strict and
-canonical test results, subgroup/error analysis, English-retention results when
-required, deployment latency measurements, a model card, and a documented
-actual cloud cost.
+This checklist is the durable project completion record. Do not collapse
+completed items into summaries or remove them when priorities change.
 
-## Progress
+### Foundation, data, and tooling
 
-- [x] Historical run and error-profile review
-- [x] Clean-project scope and architecture recorded
-- [x] Package scaffold and development tooling
-- [x] Dataset manifest and audit tooling
-- [x] Conservative Sinhala normalization v1 and tests
-- [x] Download and fingerprint independently available upstream datasets
-- [x] Run source and cross-source audits on actual audio/transcript data
-- [x] Build the local adjudication UI and self-contained review queues
-- [x] Review and lock audio-verified validation/test sets (dataset v4)
-- [x] Generate deterministic speaker-disjoint v1 candidate splits
-- [x] Audit full-corpus boundary silence and clipping without modifying sources
-- [x] Test boundary trimming; reject it for the baseline after manual review and local A/B
-- [x] Implement strict/canonical metrics, error labels, subgroups, and confidence intervals
-- [x] Implement local Whisper training, prediction, and reporting paths
-- [x] Enforce configuration-based cloud cost and test-set access gates
-- [ ] Evaluation and detailed error reports
-- [x] Configuration-driven training
-- [x] Local smoke and checkpoint-resume tests
-- [x] Capped 100-step free-Colab wide-LoRA pilot and measured throughput
-- [x] Untouched Whisper-small v4 validation baseline
-- [x] Freeze the full LibriSpeech test-clean English-retention benchmark and
-  run the untouched Whisper-small English baseline
-- [x] First controlled preprocessing experiment (trimmed versus original audio)
-- [x] Controlled transcript-label refinement A/B (Sinhala-only and Latin-only;
-  automatic text-only refinement rejected; dataset v3 remains unchanged)
-- [x] Audio-verify 295 disputed evaluation references and 100 unchanged controls;
-  freeze 392 usable references as v4 and hold out 1,604 unheard rows
-- [x] Benchmark Bedrock-accessible transcript refiners against 293 audio-verified
-  targets; Sonnet 4.6 is safest but does not reproduce the earlier ChatGPT pass
-- [x] Model-training controlled experiments (E000-E007 complete: the nested
-  Sinhala data-scale curve through the full 182,665-row/220.88-hour split,
-  trained in two checkpoint-resumed Kaggle stages, with material Sinhala
-  gains and passing English retention at every step; canonical WER 81.71%,
-  CER 26.15% at E007, still far above the under-10% target -- data scale
-  alone on this fixed LoRA recipe will not close that gap)
-- [ ] Final test, deployment benchmark, and model card
+- [x] Historical run and error-profile review.
+- [x] Clean-project scope and architecture recorded.
+- [x] Package scaffold and development tooling.
+- [x] Dataset manifest and audit tooling.
+- [x] Conservative Sinhala normalization v1 and tests.
+- [x] Download and fingerprint independently available upstream datasets.
+- [x] Run source and cross-source audits on actual audio/transcript data.
+- [x] Build the local adjudication UI and self-contained review queues.
+- [x] Review and lock audio-verified validation/test sets as dataset v4.
+- [x] Generate deterministic speaker-disjoint candidate splits.
+- [x] Audit full-corpus boundary silence and clipping without modifying sources.
+- [x] Test boundary trimming and reject it after manual review and local A/B.
+- [x] Implement strict/canonical metrics, error labels, subgroups, and
+  confidence intervals.
+- [x] Implement local Whisper training, prediction, and reporting paths.
+- [x] Enforce configuration-based cloud cost and test-set access gates.
+- [x] Implement configuration-driven training.
+- [x] Complete local smoke and checkpoint-resume tests.
+
+### Data and preprocessing experiments
+
+- [x] Complete the first controlled preprocessing experiment: trimmed versus
+  original audio.
+- [x] Complete controlled transcript-label refinement A/B for Sinhala-only and
+  Latin-only text; reject automatic text-only refinement and leave dataset v3
+  unchanged.
+- [x] Audio-verify 295 disputed evaluation references and 100 unchanged
+  controls; freeze 392 usable references as v4 and hold out 1,604 unheard rows.
+- [x] Benchmark Bedrock-accessible transcript refiners against 293
+  audio-verified targets; establish that Sonnet 4.6 is safest among those
+  tested but does not reproduce the earlier ChatGPT pass.
+
+### Baselines and completed training research
+
+- [x] Complete capped 100-step free-Colab wide-LoRA pilot and measure
+  throughput.
+- [x] Evaluate untouched Whisper-small on v4 validation.
+- [x] Freeze LibriSpeech test-clean for English retention and evaluate
+  untouched Whisper-small.
+- [x] Complete E000-E007 Whisper experiments, including the nested
+  220.877-hour data-scale curve and checkpoint-resumed cloud training.
+- [x] Establish teacher-behavior replay and pass English retention through
+  E007.
+- [x] Measure E007 at 81.71% canonical WER and 26.15% canonical CER and
+  establish that scale alone on the fixed LoRA recipe will not reach target.
+- [x] Complete E008 rank/learning-rate search and document its evaluation and
+  concurrency failures.
+- [x] Complete E010 clean validation of rank 32 and learning rate approximately
+  2.345e-4.
+- [x] Build E009's extended Sinhala tokenizer, measure 57.1% token compression,
+  diagnose the frozen-row failure, and implement the corrected configuration.
+
+### Current ranked work
+
+- [ ] Complete and document E007 greedy-versus-beam decoding comparison.
+- [ ] Complete evaluation reports and detailed error reports for the current
+  best checkpoint.
+- [ ] Build a broader independent, speaker-diverse Sinhala evaluation set.
+- [ ] Run the Omnilingual zero-training model-family bake-off.
+- [ ] Run a bounded Omnilingual CTC 300M adaptation pilot if justified.
+- [ ] Test Sinhala LM-assisted CTC decoding if justified.
+- [ ] Re-run the corrected E009 tokenizer pilot.
+- [ ] Compare bounded Whisper full-parameter adaptation with rank-32 LoRA.
+- [ ] Run only evidence-triggered fallback models and ablations.
+- [ ] Freeze the selected candidate and run the final unopened test.
+- [ ] Complete deployment benchmark and model card.
