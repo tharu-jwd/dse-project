@@ -116,6 +116,32 @@ last job in that stash location wrote there -- see `--path` note above), but
 for a first run, having the job download its own input data beat uploading
 it by close to an order of magnitude.
 
+## A completed job's output silently accumulates in the same `--path`
+
+Confirmed twice now, both times causing the *next* job against that same
+`--path` to sit `PENDING` for 20-40+ minutes (versus a normal 1-3 minutes)
+with no error, no explanation, and no way to see why:
+
+1. An aborted local-upload attempt left ~48,000 partial files under
+   `data/raw/openslr52/...` in a stash path before a later job mounted it.
+2. A *successful, completed* job's own output (`runs/<name>/checkpoint-*/`,
+   hundreds of MB of adapter/optimizer state per checkpoint) synced back
+   into the same stash path automatically -- and the next job that mounted
+   that path (unrelated to the first job, just sharing `--path`) sat stuck
+   the same way.
+
+Neither case produces any diagnostic -- the job just never leaves
+`PENDING`. The fix both times: `camber stash rm -rf` the accumulated
+directory, then submit a fresh job (there is no cancel command for the
+stuck one -- it likely never resolves, but a new submission against the
+now-clean path starts normally within 1-3 minutes). This does **not**
+retroactively fix an already-submitted stuck job.
+
+Practical rule: after any job that produces real output completes, clean
+its output out of the shared `--path` stash location (download what's
+needed first) before submitting the next job against that same path --
+don't wait to notice the next job stalling.
+
 ## GPU-hour budget: running total
 
 The 5 included hours are not exposed by any CLI command (see above) -- this
@@ -128,8 +154,10 @@ free and excluded).
 | `25175` | GPU/PyTorch smoke test | 4.7 min |
 | `25184`-`25194` | E009 pilot, 6 failed attempts (see below) | 49.7 min |
 | `25195` | E009 pilot, succeeded | 9.9 min |
-| **Total (2026-09-06)** | | **~1.07 hours** |
-| **Remaining of the 5-hour budget** | | **~3.93 hours** |
+| `25196` | E008 search, stuck `PENDING` (accumulated-output bug above), abandoned | unknown -- never left `PENDING`, likely free (billing appears tied to `RUNNING`, not confirmed) |
+| `25199` | E008 search, resubmitted against cleaned path | in progress |
+| **Total, excluding `25196`'s unknown cost (2026-09-06)** | | **~1.07 hours + `25199`** |
+| **Remaining of the 5-hour budget** | | **~3.93 hours, minus `25199`** |
 
 Update this table (recompute from `camber job get <id> --output json` for
 every `--gpu` job since the last entry) whenever a new Camber job runs, not
