@@ -174,9 +174,9 @@ free and excluded).
 | `25205` | E011 bake-off, second attempt (`-e .` + omnilingual-asr) | 0.5 min, `FAILED` (see below) |
 | `25206` | E011 bake-off, third attempt (`omnilingual-asr soundfile` only) | 3.5 min, `FAILED` (see below) |
 | `25207` | E011 bake-off, fourth attempt (LD_LIBRARY_PATH fix) | 3.9 min, `FAILED` -- same error, LD_LIBRARY_PATH wasn't the real cause (see below) |
-| `25209` | Diagnostic only: actual torch/torchaudio/cudart versions and files present | see below |
-| **Total (2026-09-07)** | | **~4.00 hours** |
-| **Remaining of the 5-hour budget** | | **~1.00 hour** |
+| `25209` | Diagnostic only: actual torch/torchaudio/cudart versions and files present | 13.4 min, `COMPLETED` -- root cause confirmed (see below) |
+| **Total (2026-09-07)** | | **~4.23 hours** |
+| **Remaining of the 5-hour budget** | | **~0.77 hours (~46 min)** |
 
 Update this table (recompute from `camber job get <id> --output json` for
 every `--gpu` job since the last entry) whenever a new Camber job runs, not
@@ -221,18 +221,35 @@ evidence it's intrinsic to how `omnilingual-asr` resolves its own
 neither pins the other, and PyPI confirms `torchaudio`'s latest release
 (2.11.0) trails `torch`'s latest (2.14.0), a real version-lockstep gap).
 
-Root cause, reasoned from the traceback rather than guessed: `torch`'s own
-internal CUDA calls work fine because its own compiled libraries carry an
-RPATH pointing at torch's own bundled `nvidia-*-cuXX` pip packages, but
-`torchaudio`'s separate native extension loads via a bare
-`ctypes.CDLL` inside `torch.ops.load_library()` -- that call does not
-inherit torch's RPATH, it needs the directory on `LD_LIBRARY_PATH`
-instead. Fix (in `scripts/evaluation/run_omnilingual_bakeoff.py`, not a
-shell workaround, so it travels with the script): before importing
-`omnilingual_asr`, discover every installed `nvidia.*.lib`/`torch/lib`
-directory and prepend them to `LD_LIBRARY_PATH` in-process --
-`ctypes.CDLL`/`dlopen` re-consult the current environment on each call, so
-setting this from Python before the triggering import is sufficient.
+First hypothesis (job `25207`): `torch`'s own internal CUDA calls work
+because its compiled libraries carry an RPATH to torch's own bundled
+`nvidia-*-cuXX` packages, while `torchaudio`'s native extension loads via
+a bare `ctypes.CDLL` that doesn't inherit that RPATH -- so prepending
+every `nvidia.*.lib` directory to `LD_LIBRARY_PATH` in-process before
+importing `omnilingual_asr` should fix it. **This did not work** -- job
+`25207` failed with the identical error even with `LD_LIBRARY_PATH`
+confirmed (printed in the log) to include
+`nvidia/cuda_runtime/lib`. Root-caused properly with a cheap diagnostic-
+only job (`25209`, no full pipeline run) rather than guessing again:
+
+```
+torch 2.8.0+cu128
+nvidia/cuda_runtime/lib contents: ['libcudart.so.12', ...]
+```
+
+`torch` resolved to a **CUDA 12.8** build -- only `libcudart.so.12`
+exists anywhere in the environment. `torchaudio`'s compiled extension
+wants `libcudart.so.13` specifically -- a real, confirmed CUDA-tag
+mismatch between the two independently-resolved packages, not a
+visibility/`LD_LIBRARY_PATH` problem at all (explaining why the first fix
+attempt made no difference: the file it was trying to help `dlopen` find
+does not exist under any name it would accept). Fix: pin `torch` and
+`torchaudio` to the same version *and* the same explicit CUDA-tagged
+index (`torch==2.8.0 torchaudio==2.8.0 --index-url
+https://download.pytorch.org/whl/cu128`) **before** installing
+`omnilingual-asr`, so its own unconstrained `torch`/`torchaudio`
+requirements are already satisfied and it does not reinstall a mismatched
+pair.
 
 ## Verified end-to-end (2026-09-06)
 
