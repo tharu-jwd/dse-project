@@ -39,6 +39,19 @@ the same immutable audio-byte objects in memory. Every durable checkpoint is
 archived with hashes, and Phase B refuses to resume unless the step-4,077
 archive hash and trainer state match the frozen handoff.
 
+## Preparation verification
+
+- Semantic source revision: `b5fe7a21855849508f6a8a9c0c29416031a82304`.
+- Full Sinhala shard set: 183 shards, 12,689,696,104 bytes, combined SHA-256
+  `ecd5bbffee8a644fd2db83385799838ca055cc832335aaa90de00ca7db35e6f9`.
+- Local Kaggle staging preflight re-hashed every Sinhala shard and the frozen
+  English/validation inputs. It produced 185 training shards containing
+  183,776 stored rows; deterministic replay expansion yields the expected
+  202,961 occurrences.
+- The private Kaggle orchestration runtime was published with independently
+  indexed copies of the generic runner and E007 orchestrator. The full audio
+  input dataset must also be verified server-side before Phase A is submitted.
+
 ## Decision rule
 
 Report strict and canonical Sinhala WER/CER with paired bootstrap deltas against
