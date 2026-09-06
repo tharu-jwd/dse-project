@@ -323,6 +323,19 @@ of paid compute. Free hours are still budgeted and measured. The GPU model,
 VRAM, framework compatibility, persistence, and observed throughput must be
 recorded before estimating how many complete runs fit this allowance.
 
+Status: CLI installed, authenticated, and Gate A/B-equivalent smoke-tested
+(2026-09-06) -- a live job confirmed a real NVIDIA L4 (23034MiB) reachable
+via `--gpu --size xsmall`, and confirmed the `base` engine's default image
+does *not* ship PyTorch despite its own description claiming otherwise (any
+real job needs its own `pip install` step). ~5 minutes of the 5-hour budget
+spent on that one verification job; the CPU-only probe that found the
+missing-torch/no-conda details cost nothing against the GPU budget. See
+[the Camber operating notes](../training/camber-cli.md) for the full
+verified CLI surface, node-size constraints, and environment findings.
+No training job has run there yet -- holding it for a concrete GPU-bound
+task (most likely the tokenizer-extension pilot, item 3 above) rather than
+spending the budget on anything already covered locally or on Kaggle.
+
 ### Gate A: free/local checks
 
 - Unit and integration tests pass
