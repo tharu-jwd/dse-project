@@ -169,8 +169,9 @@ free and excluded).
 | `25195` | E009 pilot, succeeded | 9.9 min |
 | `25196` | E008 search, initially looked stuck `PENDING` (accumulated-output bug above); re-checked later and shows `COMPLETED` | 83.6 min (created_at-to-finished_at; billing may be `RUNNING`-time only, still not confirmed) |
 | `25199` | E008 search, resubmitted against cleaned path | 66.0 min, ended `CANCELLED` (the `PENDING`-then-auto-cancel behavior documented above) |
-| **Total (2026-09-06, re-verified 2026-09-07 via `camber job get --output json`)** | | **~3.57 hours** |
-| **Remaining of the 5-hour budget** | | **~1.43 hours** |
+| `25203` | E009 corrected pilot rerun (`modules_to_save`/`ensure_weight_tying` fix) | 11.25 min, `COMPLETED` |
+| **Total (2026-09-07)** | | **~3.76 hours** |
+| **Remaining of the 5-hour budget** | | **~1.24 hours** |
 
 Update this table (recompute from `camber job get <id> --output json` for
 every `--gpu` job since the last entry) whenever a new Camber job runs, not

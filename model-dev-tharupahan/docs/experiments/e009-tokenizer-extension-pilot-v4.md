@@ -2,10 +2,13 @@
 
 ## Status
 
-Pilot run complete; **result is instability, not a valid Sinhala WER
-measurement**. Root cause confirmed and fixed in code
-(`modules_to_save`/`ensure_weight_tying` added to the LoRA config). Re-run
-with the fix not yet done.
+**Stopped, per this plan's own stop condition** (item 6:
+"stop this path unless it materially beats E010 without output
+instability"). The structural fix (`modules_to_save`/`ensure_weight_tying`)
+is confirmed real and correct -- the wrong-script (Khmer) failure is gone
+-- but the corrected rerun still does not produce usable Sinhala output at
+this pilot's 100-step budget, and still does not beat E010. See
+"Corrected re-run" below.
 
 ## Question
 
@@ -80,9 +83,76 @@ identical trainable parameter count). Also sets `ensure_weight_tying=True`
 so PEFT keeps one shared trainable copy of the tied matrix instead of two
 independent ones (verified via `named_parameters()` inspection).
 
+## Corrected re-run
+
+Camber job `25203`, identical recipe and config
+(`configs/training/experiments/e009-tokenizer-extension-pilot-v4.json`,
+same seed 20260903, same 206-row validation set), same environment
+pattern already verified working by job `25195`. Completed in 11.25
+minutes (created_at-to-finished_at).
+
+```
+step 50:  eval_wer=100.9%  eval_cer=91.01%
+step 100: eval_wer=100.1%  eval_cer=85.63%
+train_loss: 22.16 (job 25195's original unfixed run: 40.6 and still
+  rising -- this run's loss is materially lower and stable, a real
+  difference, not noise)
+```
+
+`all_results.json`/`run-metadata.json` downloaded and hash-verified;
+`final/adapter_model.safetensors` sha256
+`dccba4cb9ba8a85e24695b8f5b6f52f1f7642af8d408db854bee20a46ea3c8cd`
+(940.9 MB -- much larger than a normal LoRA adapter's ~26 MB, expected:
+`modules_to_save` now saves the full dense `embed_tokens`/`proj_out`
+matrices, not low-rank deltas).
+
+A direct local spot-check (same method used to catch the original
+Khmer-script failure) loaded this adapter and generated real predictions
+for 5 validation clips:
+
+```
+REF: ඒත් අපිට ලැබුණු උත්තර පට්ට පල් බොරු
+HYP: ම්්්ි්්න්්ා්්
+REF: එහෙත් එය නිවැරදිව
+HYP: ම්්්ි්්න්්
+REF: හසන්ත සහෝගේ උපසිරැසි
+HYP: ම්්්ි්්න්්
+REF: ඒක ඔප්පු කරන්න ආධාර ඉල්ලුවෙ
+HYP: ම්්්ි්්න්්
+REF: එයාලගේ සාරය අරගන්නවා
+HYP: ම්්්ි්්න්්ා්්
+```
+
+The wrong-*script* failure is gone -- output is genuinely Sinhala
+characters now, not Khmer -- confirming the structural fix did what it
+was supposed to. But the model has collapsed to a short, near-identical
+repeated loop of bare Sinhala vowel-sign/virama marks across every input,
+regardless of the reference -- not real transcription, a different kind
+of degenerate output. `eval_wer`/`eval_cer` (~100%/86-91%) reflect this
+accurately; they are not measurement artifacts this time, matching what
+the real per-row text shows.
+
 ## Conclusion and next step
 
-The tokenizer-extension technique itself is not disproven -- it failed for
-a specific, now-fixed, structural reason specific to this project's LoRA
-recipe, not because the idea is wrong. Re-run the E009 pilot with the fix
-before drawing any conclusion about the technique's real effect on WER/CER.
+The frozen-embedding root cause is confirmed fixed -- the fix itself was
+correct and is worth keeping in `train.py` regardless of this technique's
+fate, since it makes any future vocabulary-extension experiment possible
+in principle. But the corrected pilot still does not produce usable
+output at this exact 100-step/lr=5e-5 budget, and does not beat E010's
+real rank-32 result on any metric. Per this plan's own stop condition for
+this item ("stop this path unless it materially beats E010 without output
+instability"), **this path is stopped, not escalated to a longer/costlier
+run** -- the pilot budget is the same one E001/E010 use precisely so a
+result is comparable and decision-worthy without spending more than a
+bounded pilot's cost, and this result is decisive: no benefit, and a
+still-present (if different) instability. The most likely reason 100
+steps isn't enough specifically for this technique: newly added embedding
+rows start from a smart (mean/covariance) initialization but the 250 new
+tokens are used often, by design, across nearly every training sequence --
+adapting a meaningful fraction of a tied embedding/output matrix within
+~1,600 effective training examples (100 steps x batch 4 x grad_accum 4)
+looks like too little signal, unlike this project's ordinary LoRA deltas
+on already-pretrained weights. A future attempt would need a materially
+larger step budget to even test the technique fairly, which only makes
+sense if a materially higher-priority lever runs out first -- see
+[the plan's ranked order](../project/plan.md).

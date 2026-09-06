@@ -201,9 +201,21 @@ character, spelling, and segmentation errors amplify the word metric.
 
 ### 6. Re-run the corrected E009 tokenizer pilot
 
-Run a short controlled comparison with trainable tied embedding/output layers.
-Stop this path unless it materially beats E010 without output instability. A
-successful pilot permits, but does not automatically authorize, a full run.
+**Stopped, as this item's own stop condition specifies.** Ran on Camber
+(job 25203) with the fix applied. The structural fix is confirmed correct
+-- the previous wrong-script (Khmer) failure is gone -- but the corrected
+pilot still collapses to a different degenerate output (a short repeated
+loop of bare Sinhala vowel-sign marks, not real words) and does not beat
+E010 on any metric (canonical WER/CER ~100%/86-91% at step 100). Verified
+directly, not just from the reported eval numbers: a local spot-check
+loaded the real downloaded adapter and generated actual predictions for 5
+validation clips, confirming the degenerate pattern in the raw text
+itself. See
+[the E009 report](../experiments/e009-tokenizer-extension-pilot-v4.md#corrected-re-run).
+Not escalated to a longer run -- this item's own condition says to stop
+here, and the likely cause (250 newly-added embedding rows need far more
+than ~1,600 effective training examples to adapt) would need a materially
+larger, costlier budget to even test fairly.
 
 ### 7. Compare full Whisper adaptation with LoRA
 
@@ -428,7 +440,8 @@ completed items into summaries or remove them when priorities change.
 - [ ] Run the Omnilingual zero-training model-family bake-off.
 - [ ] Run a bounded Omnilingual CTC 300M adaptation pilot if justified.
 - [ ] Test Sinhala LM-assisted CTC decoding if justified.
-- [ ] Re-run the corrected E009 tokenizer pilot.
+- [x] Re-run the corrected E009 tokenizer pilot -- fix confirmed correct,
+  stopped per its own stop condition (still doesn't beat E010).
 - [ ] Compare bounded Whisper full-parameter adaptation with rank-32 LoRA.
 - [ ] Run only evidence-triggered fallback models and ablations.
 - [ ] Freeze the selected candidate and run the final unopened test.
