@@ -259,13 +259,17 @@ unit of time/risk, not by raw expected benefit alone:
    full trial table and the concurrency finding). This search result is
    not adopted on its own -- see item 2a below.
 
-2a. Controlled validation of E008's finding (E010) -- a 100-step Optuna
-    proxy search with compromised bookkeeping is not evidence a real
-    experiment should act on directly. Running a clean, single-job,
-    500-step, no-concurrency-risk comparison of the historical default
-    (rank=16, lr=5e-5) against E008's candidate (rank=32, lr~2.345e-4) on
-    Camber. See [the E010 report](../experiments/e010-rank-lr-validation-v4.md)
-    (updated once both runs finish).
+2a. Controlled validation of E008's finding (E010) -- **complete, finding
+    validated**. A clean, single-job, no-concurrency-risk 500-step
+    comparison (5x E008's proxy scale) confirms rank=32, lr~2.345e-4 beats
+    the historical default (rank=16, lr=5e-5): final eval_wer 97.42% vs
+    102.89% (-5.47pp), eval_cer 33.13% vs 43.71% (-10.58pp), and the
+    candidate leads at every single eval checkpoint on loss and CER, not
+    just the final one. See
+    [the E010 report](../experiments/e010-rank-lr-validation-v4.md) for the
+    full trajectory. **Adopt rank=32, learning_rate~2.3e-4 as the default
+    for any future LoRA experiment on this recipe** (does not retroactively
+    change E001-E007's own results).
 3. Tokenizer vocabulary extension -- add dedicated Sinhala subword tokens and
    resize the model's token embeddings before fine-tuning, rather than
    relying on the base model's byte-level fallback throughout. Moved ahead of

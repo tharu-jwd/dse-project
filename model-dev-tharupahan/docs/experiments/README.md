@@ -16,7 +16,7 @@ and result report.
 | E007 | E006 recipe scaled to the complete 220.877-hour v4 training split | Phase A complete, Phase B pending | [Two-phase exact-resume run](e007-whisper-small-wide-lora-r16-full-v4-teacher-replay.md) |
 | E008 | Automated LoRA rank/learning-rate search (Optuna) over the E001 recipe | Complete (search only, not a controlled experiment) | [Search suggests rank=32, lr~2.3e-4; not yet validated](e008-optuna-rank-lr-search-v4.md) |
 | E009 | Sinhala tokenizer vocabulary extension (+250 tokens) on the E001 recipe | Pilot unstable, fix identified, re-run pending | [Pilot destabilized (frozen embeddings), root cause fixed](e009-tokenizer-extension-pilot-v4.md) |
-| E010 | Controlled validation of E008's rank/LR search finding at 500 steps | Running | [Baseline vs. candidate, single job](e010-rank-lr-validation-v4.md) |
+| E010 | Controlled validation of E008's rank/LR search finding at 500 steps | Complete -- finding validated | [rank=32, lr~2.3e-4 wins on every metric](e010-rank-lr-validation-v4.md) |
 
 The fixed 2,620-row LibriSpeech test-clean benchmark is evaluated after every
 adapter experiment without changing its references or normalization protocol.

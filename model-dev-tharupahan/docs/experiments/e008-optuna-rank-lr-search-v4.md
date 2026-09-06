@@ -2,11 +2,12 @@
 
 ## Status
 
-Complete, but **this is a search, not a controlled experiment** -- its
-purpose was to cheaply narrow the rank/LR space, not to produce a trustworthy
-standalone result. Its finding (rank=32, lr~2.3e-4 beats this project's
-historical default) is not adopted until validated by a real controlled
-comparison; see [E010](e010-rank-lr-validation-v4.md).
+Complete. This was a search, not a controlled experiment on its own -- its
+purpose was to cheaply narrow the rank/LR space, not to produce a
+trustworthy standalone result. Its finding (rank=32, lr~2.3e-4 beats this
+project's historical default) has since been **validated** by a clean,
+controlled, 5x-longer comparison; see [E010](e010-rank-lr-validation-v4.md),
+which confirms the ranking with real evidence.
 
 ## Question
 
@@ -91,10 +92,11 @@ with a real (if modest, and here unvalidated) improvement.
 
 ## Conclusion and next step
 
-This search is not evidence on its own -- a 100-step proxy does not
+This search was not evidence on its own -- a 100-step proxy does not
 reliably predict which hyperparameters win over a full-length run, and the
 search's own bookkeeping was compromised by the concurrency bug above. It
 produced a specific, testable hypothesis (rank=32, lr~2.3e-4 over the
-historical rank=16, lr=5e-5) and nothing more. See
-[E010](e010-rank-lr-validation-v4.md) for the controlled, single-job,
-500-step comparison run to actually test it.
+historical rank=16, lr=5e-5), nothing more -- and that hypothesis has since
+been confirmed: see [E010](e010-rank-lr-validation-v4.md) for the
+controlled, single-job, 500-step comparison that validated it, leading at
+every eval checkpoint on loss and CER.
