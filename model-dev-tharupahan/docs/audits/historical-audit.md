@@ -81,7 +81,6 @@ The committed documentation describes approximately 149,926 OpenSLR rows and
 source dataset, not by speaker. Until upstream data is audited and the team's
 cloud artifacts become available for comparison, the following remain unknown:
 
-- whether any speaker or audio content crosses splits
 - whether the bucket exactly matches the committed split files
 - which transcript corrections and exclusions are authoritative
 - whether all 268 reportedly flagged collection samples were adjudicated
@@ -89,6 +88,49 @@ cloud artifacts become available for comparison, the following remain unknown:
 
 No new headline result should be accepted until the dataset and split
 fingerprints are recorded and leakage checks pass.
+
+### Confirmed: speaker/audio content crosses splits
+
+The item above ("whether any speaker or audio content crosses splits") is no
+longer unknown -- it is confirmed by reading the actual split code, not
+inferred. `scripts/split_dataset.py` (on `Yohan_Finetune`) assigns train/
+validation/test with:
+
+```python
+train_idx, holdout_idx = train_test_split(
+    index_df.index,
+    test_size=(val_frac + test_frac),
+    stratify=index_df["source_dataset"],
+    random_state=42,
+)
+```
+
+a plain i.i.d. random split over individual rows, stratified only by
+`source_dataset`. Its output schema (`audio`, `source_dataset`, `text`) has no
+speaker column at all -- speaker IDs existed in the early exploratory
+notebooks but were never carried into the combined dataset this script
+consumes, so a speaker-safe split was not merely skipped, it was structurally
+unavailable at this stage.
+
+The current v4 manifest independently establishes 471 total speakers across
+roughly 185,000 rows -- an average of ~393 rows per speaker. Under a random
+10%-to-test split, the probability that any speaker with 30+ rows has zero
+rows land in test is astronomically small (0.9^30 ~= 4%, falling further for
+every additional row), so essentially every historical test-set speaker also
+appears in the historical training set. The historical Sinhala WER/CER figures
+in the run inventory above therefore do not measure generalization to unseen
+speakers; they measure performance on held-out sentences from speakers the
+model had already heard extensively in training. This is a materially easier
+task than the current project's frozen v4 validation/test sets, which were
+built specifically with audio-verified, zero-speaker-overlap splits because of
+this exact suspicion.
+
+Practical implication: neither the 17% full fine-tune nor the 25.99% wide-LoRA
+historical number is a trustworthy target or achievable-performance claim.
+Continuing either checkpoint (E4) should be re-evaluated with this in mind --
+their learned weights are not necessarily bad, but their reported accuracy
+cannot be taken as real, and must be re-measured on the current frozen,
+speaker-disjoint v4 evaluation set before it informs any decision.
 
 ## English and code-switch evaluation policy
 
@@ -165,10 +207,14 @@ Whisper-small recipe has passed the target-oriented gates.
 ## Current verdict
 
 The historical work is useful as evidence and as a source of failure cases, but
-not as a trustworthy end-to-end training system. The 17% model is a legitimate
-comparison checkpoint and possible continuation candidate. It does not replace
-a clean baseline, and its standalone-English regression makes it unsuitable as
-the only starting point.
+not as a trustworthy end-to-end training system. Per the confirmed split-leakage
+finding above, the 17% model's reported Sinhala accuracy is not a measurement of
+generalization to unseen speakers and must not be treated as an achievable
+target or a release-quality comparison point. It does not replace a clean
+baseline, its standalone-English regression makes it unsuitable as the only
+starting point, and continuing it (E4) is no longer a low-effort shortcut --
+its own performance would need to be re-measured from scratch on the current
+frozen, speaker-disjoint v4 evaluation set before it means anything.
 
 The next evidence task is downloading and fingerprinting the independently
 available upstream datasets, then running the manifest audit. Restored GCS
