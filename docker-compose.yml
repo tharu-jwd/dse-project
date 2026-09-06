@@ -44,6 +44,24 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  worker:
+    build: ./backend
+    command: python -m scripts.run_transcription_worker
+    env_file: .env
+    environment:
+      POSTGRES_HOST: database
+      MEDIA_STORAGE_DIR: /app/storage/uploads
+      VOICE_SAMPLES_DIR: /app/storage/voice_samples
+      STREAMING_SOURCE_MODEL: /app/models/whisper-sinhala1
+      STREAMING_MODEL_PATH: /app/models/whisper-sinhala1-ct2
+    volumes:
+      - ./models:/app/models:ro
+      - ./storage:/app/storage
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+
   frontend:
     build:
       context: ./frontend

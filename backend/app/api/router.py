@@ -7,6 +7,7 @@ from app.api.routes.media import router as media_router
 from app.api.routes.streaming import router as streaming_router
 from app.api.routes.voice_enrollment import router as voice_enrollment_router
 from app.api.routes.voice_samples import router as voice_samples_router
+from app.api.routes.quiz import router as quiz_router
 
 
 api_router = APIRouter()
@@ -17,4 +18,5 @@ api_router.include_router(media_router)
 api_router.include_router(streaming_router)
 api_router.include_router(voice_samples_router)
 api_router.include_router(voice_enrollment_router)
+api_router.include_router(quiz_router)
 

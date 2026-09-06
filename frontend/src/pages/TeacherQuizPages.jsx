@@ -110,7 +110,15 @@ export function QuizFormPage() {
     description: '',
     dueDate: '',
     status: 'DRAFT',
-    questions: [{ id: `q-${Date.now()}`, text: '', required: true }],
+    questions: [
+      {
+        id: `q-${Date.now()}`,
+        text: '',
+        type: 'SPOKEN',
+        required: true,
+        options: [],
+      },
+    ],
   })
   useEffect(() => {
     if (id)
@@ -129,6 +137,11 @@ export function QuizFormPage() {
     if (!quiz.title.trim()) return t('teacherQuiz.titleRequired')
     if (!quiz.questions.length) return t('teacherQuiz.needOneQuestion')
     if (quiz.questions.some((q) => !q.text.trim())) return t('teacherQuiz.questionNeedsText')
+    const mcqQuestions = quiz.questions.filter((q) => q.type === 'MCQ')
+    if (mcqQuestions.some((q) => (q.options || []).length !== 4 || q.options.some((o) => !o.text.trim())))
+      return t('teacherQuiz.mcqNeedsFourOptions')
+    if (mcqQuestions.some((q) => q.options.filter((o) => o.isCorrect).length !== 1))
+      return t('teacherQuiz.mcqNeedsCorrectOption')
     return ''
   }
   const save = async (publish = false) => {
@@ -155,6 +168,46 @@ export function QuizFormPage() {
     setQuiz((value) => ({
       ...value,
       questions: value.questions.map((q, i) => (i === index ? { ...q, text } : q)),
+    }))
+  const updateQuestionType = (index, type) =>
+    setQuiz((value) => ({
+      ...value,
+      questions: value.questions.map((q, i) =>
+        i === index
+          ? {
+              ...q,
+              type,
+              options:
+                type === 'MCQ'
+                  ? q.options && q.options.length === 4
+                    ? q.options
+                    : [0, 1, 2, 3].map((n) => ({
+                        id: `opt-${Date.now()}-${n}`,
+                        text: '',
+                        isCorrect: false,
+                      }))
+                  : [],
+            }
+          : q,
+      ),
+    }))
+  const updateOptionText = (qIndex, oIndex, text) =>
+    setQuiz((value) => ({
+      ...value,
+      questions: value.questions.map((q, i) =>
+        i === qIndex
+          ? { ...q, options: q.options.map((o, j) => (j === oIndex ? { ...o, text } : o)) }
+          : q,
+      ),
+    }))
+  const setCorrectOption = (qIndex, oIndex) =>
+    setQuiz((value) => ({
+      ...value,
+      questions: value.questions.map((q, i) =>
+        i === qIndex
+          ? { ...q, options: q.options.map((o, j) => ({ ...o, isCorrect: j === oIndex })) }
+          : q,
+      ),
     }))
   const move = (index, direction) => {
     const questions = [...quiz.questions]
@@ -225,7 +278,10 @@ export function QuizFormPage() {
             onClick={() =>
               setQuiz({
                 ...quiz,
-                questions: [...quiz.questions, { id: `q-${Date.now()}`, text: '', required: true }],
+                questions: [
+                  ...quiz.questions,
+                  { id: `q-${Date.now()}`, text: '', type: 'SPOKEN', required: true, options: [] },
+                ],
               })
             }
           >
@@ -247,6 +303,46 @@ export function QuizFormPage() {
                   placeholder={t('teacherQuiz.questionPlaceholder')}
                 />
               </div>
+              <div className="field">
+                <label>{t('teacherQuiz.questionType')}</label>
+                <div className="filter-tabs" role="tablist">
+                  {['SPOKEN', 'MCQ'].map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      role="tab"
+                      aria-selected={(question.type || 'SPOKEN') === type}
+                      className={(question.type || 'SPOKEN') === type ? 'active' : ''}
+                      onClick={() => updateQuestionType(index, type)}
+                    >
+                      {type === 'SPOKEN' ? t('teacherQuiz.typeSpoken') : t('teacherQuiz.typeMCQ')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {question.type === 'MCQ' && (
+                <div className="field">
+                  <label>{t('teacherQuiz.mcqOptions')}</label>
+                  {(question.options || []).map((option, oIndex) => (
+                    <div className="mcq-option-editor" key={option.id || oIndex}>
+                      <input
+                        type="radio"
+                        name={`correct-${question.id}`}
+                        checked={Boolean(option.isCorrect)}
+                        onChange={() => setCorrectOption(index, oIndex)}
+                        aria-label={t('teacherQuiz.mcqMarkCorrect')}
+                      />
+                      <input
+                        type="text"
+                        lang="si"
+                        value={option.text}
+                        onChange={(e) => updateOptionText(index, oIndex, e.target.value)}
+                        placeholder={t('teacherQuiz.mcqOptionPlaceholder', oIndex + 1)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="question-editor__actions">
                 <button
                   className="icon-button"

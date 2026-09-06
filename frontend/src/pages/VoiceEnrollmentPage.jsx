@@ -40,6 +40,11 @@ export default function VoiceEnrollmentPage() {
   const [feedback, setFeedback] = useState({}) // { [commandId]: { accepted, reason, similarity } }
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
   const [deleting, setDeleting] = useState(false)
+  // A recorded-but-not-yet-submitted enrollment take: { commandId, blob, url }.
+  // Nothing is uploaded (and no embedding created) until the student
+  // listens back and explicitly submits it.
+  const [pendingSample, setPendingSample] = useState(null)
+  const pendingUrlRef = useRef('')
 
   // Practice mode: a separate recorder from enrollment, keyed by command id.
   const [practiceId, setPracticeId] = useState(null)
@@ -67,6 +72,7 @@ export default function VoiceEnrollmentPage() {
     () => () => {
       window.clearInterval(intervalRef.current)
       streamRef.current?.getTracks().forEach((track) => track.stop())
+      if (pendingUrlRef.current) URL.revokeObjectURL(pendingUrlRef.current)
     },
     [],
   )
@@ -94,25 +100,17 @@ export default function VoiceEnrollmentPage() {
   const start = async (commandId) => {
     setError('')
     setFeedback((prev) => ({ ...prev, [commandId]: null }))
+    if (pendingUrlRef.current) URL.revokeObjectURL(pendingUrlRef.current)
+    setPendingSample(null)
     try {
       await startRecorder(async (blob) => {
         setRecording(false)
-        setUploadingId(commandId)
-        try {
-          const result = await api.submitVoiceEnrollmentSample(commandId, blob, language)
-          setFeedback((prev) => ({ ...prev, [commandId]: result }))
-          setCommands((prev) =>
-            prev.map((command) =>
-              command.id === commandId
-                ? { ...command, collected: result.collected, complete: result.collected >= result.required }
-                : command,
-            ),
-          )
-        } catch (cause) {
-          setError(cause.message)
-        } finally {
-          setUploadingId(null)
-        }
+        // Hold the take locally for review instead of uploading it right
+        // away - nothing is submitted (and no embedding created) until
+        // the student has listened back and confirmed it.
+        const url = URL.createObjectURL(blob)
+        pendingUrlRef.current = url
+        setPendingSample({ commandId, blob, url })
       })
       setActiveId(commandId)
       setRecording(true)
@@ -123,6 +121,37 @@ export default function VoiceEnrollmentPage() {
 
   const stop = () => {
     if (recorderRef.current?.state === 'recording') recorderRef.current.stop()
+  }
+
+  const discardSample = () => {
+    if (pendingUrlRef.current) URL.revokeObjectURL(pendingUrlRef.current)
+    pendingUrlRef.current = ''
+    setPendingSample(null)
+  }
+
+  const submitSample = async () => {
+    if (!pendingSample) return
+    const { commandId, blob, url } = pendingSample
+    setUploadingId(commandId)
+    setError('')
+    try {
+      const result = await api.submitVoiceEnrollmentSample(commandId, blob, language)
+      setFeedback((prev) => ({ ...prev, [commandId]: result }))
+      setCommands((prev) =>
+        prev.map((command) =>
+          command.id === commandId
+            ? { ...command, collected: result.collected, complete: result.collected >= result.required }
+            : command,
+        ),
+      )
+      URL.revokeObjectURL(url)
+      pendingUrlRef.current = ''
+      setPendingSample(null)
+    } catch (cause) {
+      setError(cause.message)
+    } finally {
+      setUploadingId(null)
+    }
   }
 
   const startPractice = async (commandId) => {
@@ -256,6 +285,7 @@ export default function VoiceEnrollmentPage() {
               const isActive = activeId === command.id
               const isRecording = isActive && recording
               const isUploading = uploadingId === command.id
+              const isPendingReview = pendingSample?.commandId === command.id
               const result = feedback[command.id]
 
               const isPracticeActive = practiceId === command.id
@@ -291,6 +321,14 @@ export default function VoiceEnrollmentPage() {
                           {result.similarity != null && t('enroll.matchPercent', Math.round(result.similarity * 100))}
                         </p>
                       )}
+                      {isPendingReview && (
+                        <div className="enrollment-review">
+                          <audio controls src={pendingSample.url} aria-label={t('enroll.reviewAudioLabel')} />
+                          <p className="muted" style={{ fontSize: '0.78rem', margin: '4px 0 0' }}>
+                            {t('enroll.reviewHint')}
+                          </p>
+                        </div>
+                      )}
                       {practice && (
                         <p
                           className={`enrollment-feedback ${practice.passesThreshold ? 'is-accepted' : 'is-rejected'}`}
@@ -319,6 +357,30 @@ export default function VoiceEnrollmentPage() {
                       <button type="button" className="button button--danger button--small" onClick={stop}>
                         <Icon name="stop" size={15} /> {t('enroll.stopSeconds', seconds)}
                       </button>
+                    ) : isPendingReview ? (
+                      <>
+                        <button
+                          type="button"
+                          className="button button--secondary button--small"
+                          onClick={discardSample}
+                          disabled={isUploading}
+                        >
+                          <Icon name="mic" size={15} /> {t('enroll.reRecord')}
+                        </button>
+                        <button
+                          type="button"
+                          className="button button--primary button--small"
+                          onClick={submitSample}
+                          disabled={isUploading}
+                        >
+                          {isUploading ? (
+                            <span className="spinner spinner--small" />
+                          ) : (
+                            <Icon name="check" size={15} />
+                          )}{' '}
+                          {t('enroll.submitSample')}
+                        </button>
+                      </>
                     ) : (
                       <>
                         {command.collected > 0 && (
@@ -347,7 +409,8 @@ export default function VoiceEnrollmentPage() {
                         </button>
                       </>
                     )}
-                    {command.collected > 0 &&
+                    {!isPendingReview &&
+                      command.collected > 0 &&
                       (isPracticeRecording ? (
                         <button
                           type="button"

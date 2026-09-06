@@ -43,6 +43,7 @@ export default function useVoiceCommands({ onCommand, onCommandMaybe } = {}) {
   const [voiceDetected, setVoiceDetected] = useState(false)
 
   const wsRef = useRef(null)
+  const intentionalCloseRef = useRef(false)
   const audioCtxRef = useRef(null)
   const streamRef = useRef(null)
   const processorRef = useRef(null)
@@ -122,7 +123,15 @@ export default function useVoiceCommands({ onCommand, onCommandMaybe } = {}) {
       // slot) leaks until the browser eventually tears it down on its own,
       // which can starve the next page's auto-start.
       const socket = wsRef.current
-      if (socket && socket.readyState <= WebSocket.OPEN) socket.close()
+      if (socket && socket.readyState <= WebSocket.OPEN) {
+        // Aborting a still-CONNECTING socket fires a real onerror event even
+        // though this teardown is deliberate (e.g. React StrictMode's
+        // mount-unmount-remount in dev, or a route change mid-connect) - flag
+        // it so the handlers below don't surface a false "could not connect"
+        // error for a connection we chose to abandon ourselves.
+        intentionalCloseRef.current = true
+        socket.close()
+      }
     },
     [],
   )
@@ -151,6 +160,7 @@ export default function useVoiceCommands({ onCommand, onCommandMaybe } = {}) {
     const socket = new WebSocket(wsUrl(`/streaming/ws?token=${encodeURIComponent(token || '')}`))
     socket.binaryType = 'arraybuffer'
     wsRef.current = socket
+    intentionalCloseRef.current = false
 
     socket.onopen = async () => {
       try {
@@ -224,12 +234,14 @@ export default function useVoiceCommands({ onCommand, onCommandMaybe } = {}) {
 
     socket.onclose = () => {
       cleanupAudio()
+      if (intentionalCloseRef.current) return
       const wasStopping = statusRef.current === 'stopping'
       setStatus(wasStopping ? 'idle' : 'error')
       if (!wasStopping) setError((prev) => prev || 'The connection was lost.')
     }
 
     socket.onerror = () => {
+      if (intentionalCloseRef.current) return
       setStatus('error')
       setError('Could not connect to the streaming service.')
     }

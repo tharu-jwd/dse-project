@@ -16,7 +16,10 @@ from app.services.media_storage_service import (
     delete_stored_media,
     save_media_upload,
 )
-from app.services.transcript_service import title_is_taken
+from app.services.transcript_service import (
+    DuplicateTranscriptTitleError,
+    replace_duplicate_title,
+)
 
 
 ALLOWED_TRANSCRIPT_TYPES = {
@@ -30,17 +33,23 @@ class InvalidTranscriptionRequestError(ValueError):
     pass
 
 
-def _pending_job_title_is_taken(db: Session, owner_id: UUID, title: str) -> bool:
-    """A job still QUEUED/PROCESSING has no Transcript row yet, but will
-    claim this title once it completes - so it counts as taken too."""
+def _cancel_pending_job_with_title(db: Session, owner_id: UUID, title: str) -> None:
+    """A job still QUEUED/PROCESSING has no Transcript row yet, but would
+    claim this title once it completes. Same "rewrite the previous
+    attempt" behavior as an already-completed transcript below: a fresh
+    submission for the same title (e.g. re-recording a quiz answer)
+    cancels the stale in-flight one rather than erroring."""
 
-    statement = select(TranscriptionJob.job_id).where(
-        TranscriptionJob.requested_by == owner_id,
-        TranscriptionJob.status.in_(("QUEUED", "PROCESSING")),
-        func.lower(TranscriptionJob.title) == title.strip().lower(),
+    stale_job = db.scalar(
+        select(TranscriptionJob).where(
+            TranscriptionJob.requested_by == owner_id,
+            TranscriptionJob.status.in_(("QUEUED", "PROCESSING")),
+            func.lower(TranscriptionJob.title) == title.strip().lower(),
+        )
     )
 
-    return db.scalar(statement) is not None
+    if stale_job is not None:
+        db.delete(stale_job)
 
 
 def create_transcription_job(
@@ -68,12 +77,12 @@ def create_transcription_job(
             "Invalid transcript type."
         )
 
-    if title_is_taken(db, user.user_id, normalized_title) or _pending_job_title_is_taken(
-        db, user.user_id, normalized_title
-    ):
-        raise InvalidTranscriptionRequestError(
-            f'You already have a transcript titled "{normalized_title}".'
-        )
+    _cancel_pending_job_with_title(db, user.user_id, normalized_title)
+
+    try:
+        replace_duplicate_title(db, user.user_id, normalized_title)
+    except DuplicateTranscriptTitleError as error:
+        raise InvalidTranscriptionRequestError(str(error)) from error
 
     media_id = uuid4()
     stored_media: StoredMedia = save_media_upload(

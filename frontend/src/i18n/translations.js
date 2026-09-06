@@ -458,12 +458,15 @@ export const translations = {
   'editor.replaceWith': { en: 'Replace with', si: 'මෙයින් ප්‍රතිස්ථාපනය කරන්න' },
   'editor.replacePlaceholder': { en: 'e.g. proton', si: 'උදා. proton' },
   'editor.executeReplace': { en: 'Execute replace', si: 'ප්‍රතිස්ථාපනය ක්‍රියාත්මක කරන්න' },
+  'editor.matchesFound': { en: (n) => `${n} match${n === 1 ? '' : 'es'} found`, si: (n) => `ගැලපීම් ${n}ක් හමු විය` },
+  'editor.noMatchesFound': { en: 'No matches found', si: 'ගැලපීම් හමු නොවීය' },
   'editor.confidenceThreshold': { en: 'Confidence threshold', si: 'විශ්වාසනීයත්ව සීමාව' },
   'editor.flagWordsBelow': { en: (p) => `Flag words below ${p}%`, si: (p) => `${p}%ට වඩා අඩු වචන සලකුණු කරන්න` },
   'editor.needsReview': { en: 'Needs review', si: 'සමාලෝචනය අවශ්‍යයි' },
   'editor.unsavedAnswerEdits': { en: '● Unsaved answer edits', si: '● නොසුරැකි පිළිතුරු සංස්කරණ' },
   'editor.answerTranscriptSaved': { en: 'Answer transcript saved', si: 'පිළිතුරු පිටපත සුරැකිණි' },
   'editor.saveCorrection': { en: 'Save correction', si: 'නිවැරදි කිරීම සුරකින්න' },
+  'editor.saveAnswer': { en: 'Save', si: 'සුරකින්න' },
   'editor.useThisAnswer': { en: 'Use this answer', si: 'මෙම පිළිතුර භාවිතා කරන්න' },
   'editor.useSpokenAnswerTitle': { en: 'Use this spoken answer?', si: 'මෙම කථන පිළිතුර භාවිතා කරන්නද?' },
   'editor.finalizeTranscriptTitle': { en: 'Finalize this transcript?', si: 'මෙම පිටපත අවසන් කරන්නද?' },
@@ -483,6 +486,7 @@ export const translations = {
   'editor.nothingToSave': { en: 'Nothing to save', si: 'සුරැකීමට කිසිවක් නැත' },
   'editor.saving': { en: 'Saving…', si: 'සුරකිමින්…' },
   'editor.openingFinalizeConfirmation': { en: 'Opening finalize confirmation…', si: 'අවසන් කිරීමේ තහවුරු කිරීම විවෘත කරමින්…' },
+  'editor.finalizeCancelled': { en: 'Finalize cancelled', si: 'අවසන් කිරීම අවලංගු කරන ලදී' },
 
   // Transcript library / detail
   'type.lecture': { en: 'Lecture', si: 'දේශනය' },
@@ -571,6 +575,15 @@ export const translations = {
   'quiz.teacherCanReviewPrefix': { en: 'Your teacher can now review the transcribed responses for ', si: 'ඔබේ ගුරුවරයාට දැන් ' },
   'quiz.teacherCanReviewSuffix': { en: '.', si: ' සඳහා පිටපත් කළ පිළිතුරු සමාලෝචනය කළ හැක.' },
   'quiz.backToMyQuizzes': { en: 'Back to my quizzes', si: 'මගේ ප්‍රශ්නාවලි වෙත ආපසු' },
+  'quiz.results': { en: 'Results', si: 'ප්‍රතිඵල' },
+  'quiz.viewResults': { en: 'View results', si: 'ප්‍රතිඵල බලන්න' },
+  'quiz.openingResults': { en: 'Opening results…', si: 'ප්‍රතිඵල විවෘත වෙමින්…' },
+  'quiz.reviewedBy': { en: 'Reviewed by your teacher', si: 'ඔබේ ගුරුවරයා විසින් සමාලෝචනය කර ඇත' },
+  'quiz.yourMark': { en: 'Your mark', si: 'ඔබේ ලකුණු' },
+  'quiz.notMarkedYet': { en: 'Not marked yet', si: 'තවම ලකුණු දී නැත' },
+  'quiz.teacherFeedback': { en: 'Teacher feedback', si: 'ගුරුවරයාගේ ප්‍රතිපෝෂණය' },
+  'quiz.noFeedbackGiven': { en: 'No feedback was given.', si: 'ප්‍රතිපෝෂණයක් ලබා දී නොමැත.' },
+  'quiz.yourAnswers': { en: 'Your answers', si: 'ඔබේ පිළිතුරු' },
   'quiz.exitQuiz': { en: '← Exit quiz', si: '← ප්‍රශ්නාවලියෙන් ඉවත් වන්න' },
   'quiz.answeredCount': { en: 'answered', si: 'පිළිතුරු දී ඇත' },
   'quiz.questions': { en: 'Questions', si: 'ප්‍රශ්න' },
@@ -580,6 +593,9 @@ export const translations = {
   'quiz.answerReady': { en: 'Answer ready', si: 'පිළිතුර සූදානම්' },
   'quiz.questionCompleted': { en: 'You have completed this question.', si: 'ඔබ මෙම ප්‍රශ්නය සම්පූර්ණ කර ඇත.' },
   'quiz.recordSpokenAnswer': { en: 'Record your spoken answer', si: 'ඔබේ කථන පිළිතුර පටිගත කරන්න' },
+  'quiz.liveTranscription': { en: 'Live transcription', si: 'සජීවී පිටපත් කිරීම' },
+  'quiz.orRecord': { en: 'or record a clip instead', si: 'හෝ ඒ වෙනුවට ඛණ්ඩයක් පටිගත කරන්න' },
+  'quiz.preparingAnswer': { en: 'Preparing your answer for review…', si: 'ඔබේ පිළිතුර සමාලෝචනය සඳහා සූදානම් කරමින්…' },
   'quiz.recordingStoredNotice': {
     en: 'Your recording is stored for transcription and teacher review.',
     si: 'ඔබේ පටිගත කිරීම පිටපත් කිරීම සහ ගුරු සමාලෝචනය සඳහා ගබඩා කර ඇත.',
@@ -601,6 +617,32 @@ export const translations = {
     si: 'ඔබේ පිළිතුරු ඔබේ ගුරුවරයාට යවනු ලැබේ. ඉදිරිපත් කිරීමෙන් පසු ඒවා සංස්කරණය කළ නොහැක.',
   },
   'quiz.submitQuiz': { en: 'Submit quiz', si: 'ප්‍රශ්නාවලිය ඉදිරිපත් කරන්න' },
+  'quiz.mcqHint': {
+    en: 'Select one option below.',
+    si: 'පහත විකල්පයන්ගෙන් එකක් තෝරන්න.',
+  },
+  'quiz.mcqOption': { en: (n) => `Option ${n}`, si: (n) => `විකල්පය ${n}` },
+  'quiz.mcqSelected': { en: 'Selected', si: 'තෝරාගෙන ඇත' },
+  'quiz.sayOneToFourOrCancel': {
+    en: 'Say "1", "2", "3", "4" to pick an option, or "cancel" to clear it',
+    si: 'විකල්පයක් තෝරීමට "1", "2", "3", "4" කියන්න, හෝ එය ඉවත් කිරීමට "cancel" කියන්න',
+  },
+  'quiz.mcqOptionSelected': { en: (n) => `Option ${n} selected`, si: (n) => `විකල්පය ${n} තෝරන ලදී` },
+  'quiz.mcqOptionUnavailable': {
+    en: (n) => `This question does not have an option ${n}`,
+    si: (n) => `මෙම ප්‍රශ්නයට විකල්පය ${n} නොමැත`,
+  },
+  'quiz.mcqSelectionCleared': { en: 'Selection cleared', si: 'තේරීම ඉවත් කරන ලදී' },
+  'quiz.submitCancelled': { en: 'Submit cancelled', si: 'ඉදිරිපත් කිරීම අවලංගු කරන ලදී' },
+  'quiz.answerSaved': { en: 'Answer saved', si: 'පිළිතුර සුරැකිණි' },
+  'quiz.sayAnswerToDictate': {
+    en: 'Say "answer" to start dictating, "stop" to finish and return to commands.',
+    si: 'උත්තර දීම ආරම්භ කිරීමට "පිළිතුර" කියන්න, අවසන් කර විධාන වෙත යාමට "නවත්වන්න" කියන්න.',
+  },
+  'quiz.spokenHint': {
+    en: 'You can record your answer or use live transcription.',
+    si: 'ඔබට ඔබේ පිළිතුර පටිගත කළ හැකි හෝ සජීවී පිටපත් කිරීම භාවිතා කළ හැකිය.',
+  },
 
   // Teacher quiz pages
   'teacherQuiz.workspace': { en: 'Teacher workspace', si: 'ගුරු වැඩබිම' },
@@ -669,6 +711,24 @@ export const translations = {
   },
   'teacherQuiz.statusDraft': { en: 'Draft', si: 'කටුව' },
   'teacherQuiz.statusPublished': { en: 'Published', si: 'පළ කළ' },
+  'teacherQuiz.questionType': { en: 'Question type', si: 'ප්‍රශ්න වර්ගය' },
+  'teacherQuiz.typeSpoken': { en: 'Spoken', si: 'කථන' },
+  'teacherQuiz.typeMCQ': { en: 'Multiple choice', si: 'බහුවරණ' },
+  'teacherQuiz.mcqOptions': { en: 'Options', si: 'විකල්ප' },
+  'teacherQuiz.mcqOptionPlaceholder': {
+    en: (n) => `Option ${n} text…`,
+    si: (n) => `විකල්පය ${n} පෙළ…`,
+  },
+  'teacherQuiz.mcqCorrectOption': { en: 'Correct answer', si: 'නිවැරදි පිළිතුර' },
+  'teacherQuiz.mcqMarkCorrect': { en: 'Mark as correct', si: 'නිවැරදි ලෙස සලකුණු කරන්න' },
+  'teacherQuiz.mcqNeedsFourOptions': {
+    en: 'Every multiple-choice question needs exactly 4 non-empty options.',
+    si: 'සෑම බහුවරණ ප්‍රශ්නයකටම හිස් නොවන විකල්ප 4ක් අවශ්‍යයි.',
+  },
+  'teacherQuiz.mcqNeedsCorrectOption': {
+    en: 'Every multiple-choice question needs exactly one correct option marked.',
+    si: 'සෑම බහුවරණ ප්‍රශ්නයකටම නිවැරදි විකල්පයක් සලකුණු කළ යුතුය.',
+  },
 
   // Submission pages
   'submissions.loading': { en: 'Loading submissions…', si: 'ඉදිරිපත් කිරීම් පූරණය වෙමින්…' },
@@ -704,6 +764,10 @@ export const translations = {
   },
   'submissions.saving': { en: 'Saving…', si: 'සුරකිමින්…' },
   'submissions.saveReview': { en: 'Save review', si: 'සමාලෝචනය සුරකින්න' },
+  'submissions.mcqStudentSelected': { en: 'Student selected', si: 'ශිෂ්‍යයා තෝරාගත්තේ' },
+  'submissions.mcqCorrect': { en: 'Correct', si: 'නිවැරදියි' },
+  'submissions.mcqIncorrect': { en: 'Incorrect', si: 'වැරදියි' },
+  'submissions.mcqCorrectAnswer': { en: 'Correct answer', si: 'නිවැරදි පිළිතුර' },
 
   // Voice enrollment page
   'enroll.eyebrow': { en: 'Speak to control the app', si: 'යෙදුම පාලනය කිරීමට කථා කරන්න' },
@@ -756,6 +820,13 @@ export const translations = {
   },
   'enroll.deleteSamples': { en: 'Delete samples', si: 'නියැදි මකන්න' },
   'enroll.micDenied': { en: 'Microphone permission was denied, or no microphone is available.', si: 'මයික්‍රෆෝන අවසරය ප්‍රතික්ෂේප විය, හෝ මයික්‍රෆෝනයක් නොමැත.' },
+  'enroll.reviewAudioLabel': { en: 'Recorded take preview', si: 'පටිගත කළ උත්සාහය පෙරදසුන' },
+  'enroll.reviewHint': {
+    en: 'Listen back, then re-record or submit this take.',
+    si: 'නැවත සවන් දී, පසුව මෙම උත්සාහය නැවත පටිගත කරන්න හෝ ඉදිරිපත් කරන්න.',
+  },
+  'enroll.reRecord': { en: 'Re-record', si: 'නැවත පටිගත කරන්න' },
+  'enroll.submitSample': { en: 'Submit sample', si: 'නියැදිය ඉදිරිපත් කරන්න' },
 
   // Voice sample collector (dev tool)
   'collector.eyebrow': { en: 'Dev tool · not the real enrollment UI', si: 'සංවර්ධක මෙවලම · සැබෑ ලියාපදිංචි UI නොවේ' },

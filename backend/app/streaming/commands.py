@@ -45,6 +45,26 @@ COMMANDS_SI: tuple[VoiceCommand, ...] = (
     VoiceCommand(id="save", phrase="සුරකින්න"),
     VoiceCommand(id="submit", phrase="ඉදිරිපත් කරන්න", destructive=True),
     VoiceCommand(id="delete", phrase="මකන්න", destructive=True),
+    # MCQ answer selection - spoken while a multiple-choice question is
+    # on screen (see QuizAnswerPage). "option_<n>" picks that numbered
+    # choice; "cancel" clears whichever option is currently selected.
+    # Not destructive: unlike submit/delete, picking or clearing an MCQ
+    # answer is trivially reversible before the quiz is actually submitted.
+    VoiceCommand(id="option_1", phrase="එක"),
+    VoiceCommand(id="option_2", phrase="දෙක"),
+    VoiceCommand(id="option_3", phrase="තුන"),
+    VoiceCommand(id="option_4", phrase="හතර"),
+    VoiceCommand(id="cancel", phrase="අවලංගු කරන්න"),
+    # Spoken while the always-on command mic is listening on a written-
+    # answer quiz question - switches the student over to the live
+    # transcription mic to dictate their answer (see QuizAnswerPage).
+    # Saying "stop" while that transcription session is running switches
+    # back to the command mic automatically.
+    VoiceCommand(id="answer", phrase="පිළිතුර"),
+    # Wake word - a coined, language-neutral name rather than a translated
+    # phrase, so it's spoken identically in both language sets and stays
+    # easy to recognise regardless of the student's active command language.
+    VoiceCommand(id="wake", phrase="zimi"),
 )
 
 # Validated against 36 real recordings (see command_embedding_similarities_en.csv) -
@@ -57,6 +77,13 @@ COMMANDS_EN: tuple[VoiceCommand, ...] = (
     VoiceCommand(id="save", phrase="save"),
     VoiceCommand(id="submit", phrase="submit", destructive=True),
     VoiceCommand(id="delete", phrase="delete", destructive=True),
+    VoiceCommand(id="option_1", phrase="one"),
+    VoiceCommand(id="option_2", phrase="two"),
+    VoiceCommand(id="option_3", phrase="three"),
+    VoiceCommand(id="option_4", phrase="four"),
+    VoiceCommand(id="cancel", phrase="cancel"),
+    VoiceCommand(id="answer", phrase="answer"),
+    VoiceCommand(id="wake", phrase="zimi"),
 )
 
 COMMANDS_BY_LANGUAGE: dict[str, tuple[VoiceCommand, ...]] = {

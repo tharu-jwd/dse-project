@@ -61,6 +61,15 @@ class Settings(BaseSettings):
     voice_command_hotwords_enabled: bool = True
     voice_command_fuzzy_threshold: float = 80.0
     voice_command_destructive_threshold: float = 90.0
+    # A near-exact skeleton match on a short, distinctive command phrase
+    # (e.g. saying "next" and it transcribing to precisely "next") is
+    # about as certain as this system gets. Above this score, the fuzzy
+    # match is trusted outright even if the embedding path disagrees,
+    # rather than downgrading to "confirm" - without this, adding more
+    # short/similar-sounding commands (MCQ option numbers) made the
+    # embedding path noisy enough to routinely override otherwise-exact
+    # text matches for "next"/"previous", making them feel broken.
+    voice_command_fuzzy_exact_override: float = 95.0
     # avg_logprob is a per-token log probability (typically in [-1, 0] for
     # confident speech); below this, a borderline fuzzy score is rejected.
     voice_command_logprob_floor: float = -0.5
@@ -121,6 +130,25 @@ class Settings(BaseSettings):
     # questions instead of one. Applies to any executed command
     # (COMMAND mode and NOTE mode's delete/stop alike).
     voice_command_debounce_seconds: float = 2.0
+
+    # Wake-word gating: an "execute" outcome for any command other than
+    # the wake word itself is only actually acted on if that wake word
+    # was recognized within the last voice_command_wake_window_seconds -
+    # otherwise it's treated as if nothing was recognized (dropped in
+    # COMMAND mode, left as ordinary dictated text in NOTE mode). This
+    # stops an unrelated word that happens to fuzzy-match a destructive
+    # command like "delete" from firing on its own; the student must
+    # deliberately say the wake word first. One wake unlocks exactly one
+    # following command - saying the wake word twice in a row doesn't extend
+    # a standing "always armed" window.
+    # Off for now while the wake-word UX (word choice, window length,
+    # frontend feedback) is still being worked out - every command
+    # executes immediately again, exactly like before this feature
+    # existed. Flip to True once it's ready rather than ripping the
+    # gating code back out.
+    voice_command_wake_gate_enabled: bool = False
+    voice_command_wake_word_id: str = "wake"
+    voice_command_wake_window_seconds: float = 1.0
 
     @property
     def cors_origins_list(self) -> list[str]:

@@ -4,6 +4,7 @@ import { api } from '../api'
 import quizBackground from '../assets/4.jpg'
 import AudioRecorder from '../components/AudioRecorder'
 import Icon from '../components/Icon'
+import LiveTranscription from '../components/LiveTranscription'
 import TranscriptEditor from '../components/TranscriptEditor'
 import TranscriptionStatus from '../components/TranscriptionStatus'
 import useTranscriptionJob from '../components/useTranscriptionJob'
@@ -71,11 +72,13 @@ export function QuizListPage() {
                 )}
               </div>
               <Link className="button button--primary" to={`/quizzes/${quiz.id}`}>
-                {quiz.submissionStatus === 'SUBMITTED'
-                  ? t('quiz.viewSubmission')
-                  : quiz.submissionStatus === 'IN_PROGRESS'
-                    ? t('quiz.continueQuiz')
-                    : t('quiz.startQuiz')}{' '}
+                {quiz.submissionStatus === 'REVIEWED'
+                  ? t('quiz.viewResults')
+                  : quiz.submissionStatus === 'SUBMITTED'
+                    ? t('quiz.viewSubmission')
+                    : quiz.submissionStatus === 'IN_PROGRESS'
+                      ? t('quiz.continueQuiz')
+                      : t('quiz.startQuiz')}{' '}
                 <Icon name="arrow" size={17} />
               </Link>
             </article>
@@ -97,9 +100,16 @@ export function QuizAnswerPage() {
   const [current, setCurrent] = useState(0)
   const [answers, setAnswers] = useState({})
   const [workingTranscript, setWorkingTranscript] = useState(null)
+  const [liveLoading, setLiveLoading] = useState(false)
+  const [answering, setAnswering] = useState(false)
   const [confirm, setConfirm] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  // Only populated once the teacher has reviewed the submission - the
+  // mark/feedback/per-answer correctness this holds is what turns the
+  // plain "your answers are on their way" screen below into the full
+  // results view.
+  const [mySubmission, setMySubmission] = useState(null)
   const { job, start, reset } = useTranscriptionJob()
   const { interactionMode } = useAccessibility()
   const [commandFeedback, setCommandFeedback] = useState('')
@@ -110,10 +120,24 @@ export function QuizAnswerPage() {
   const voice = useVoiceCommands({
     onCommand: (command) => {
       if (!quiz || submitted) return
+      // The "submit your quiz?" dialog takes priority over every other
+      // command while it's open: saying "submit" again confirms it,
+      // "cancel" dismisses it - neither should fall through to the
+      // per-question handling below.
+      if (confirm) {
+        if (command === 'submit') {
+          submit()
+        } else if (command === 'cancel') {
+          setConfirm(false)
+          showCommandFeedback(t('quiz.submitCancelled'))
+        }
+        return
+      }
       if (command === 'next') {
         if (current < quiz.questions.length - 1 && Boolean(answers[quiz.questions[current].id])) {
           setCurrent((value) => value + 1)
           setWorkingTranscript(answers[quiz.questions[current + 1]?.id] || null)
+          setAnswering(false)
           reset()
         } else {
           showCommandFeedback(t('quiz.answerBeforeMoving'))
@@ -122,6 +146,7 @@ export function QuizAnswerPage() {
         if (current > 0) {
           setCurrent((value) => value - 1)
           setWorkingTranscript(answers[quiz.questions[current - 1]?.id] || null)
+          setAnswering(false)
           reset()
         } else {
           showCommandFeedback(t('quiz.alreadyFirstQuestion'))
@@ -134,18 +159,80 @@ export function QuizAnswerPage() {
         } else {
           showCommandFeedback(t('quiz.completeAllRequired'))
         }
+      } else if (['option_1', 'option_2', 'option_3', 'option_4'].includes(command)) {
+        const question = quiz.questions[current]
+        if (question.type !== 'MCQ') return
+        const index = Number(command.slice(-1)) - 1
+        const option = question.options[index]
+        if (!option) {
+          showCommandFeedback(t('quiz.mcqOptionUnavailable', index + 1))
+          return
+        }
+        setAnswers((value) => ({
+          ...value,
+          [question.id]: { selectedOptionId: option.id },
+        }))
+        showCommandFeedback(t('quiz.mcqOptionSelected', index + 1))
+      } else if (command === 'cancel') {
+        const question = quiz.questions[current]
+        if (question.type !== 'MCQ') return
+        setAnswers((value) => {
+          const next = { ...value }
+          delete next[question.id]
+          return next
+        })
+        showCommandFeedback(t('quiz.mcqSelectionCleared'))
+      } else if (command === 'answer') {
+        // Hands off from the always-on command mic to the live
+        // transcription mic for a written-answer question - only
+        // meaningful there, and only when nothing is already in
+        // progress for this question.
+        const question = quiz.questions[current]
+        if (question.type === 'MCQ' || job || workingTranscript || answering) return
+        setAnswering(true)
+        voice.stop()
+      } else if (command === 'save') {
+        if (!workingTranscript) {
+          showCommandFeedback(t('editor.nothingToSave'))
+          return
+        }
+        setAnswers((value) => ({ ...value, [quiz.questions[current].id]: workingTranscript }))
+        showCommandFeedback(t('quiz.answerSaved'))
       }
     },
   })
   useEffect(() => {
     if (interactionMode !== 'command' && voice.isListening) voice.stop()
   }, [interactionMode]) // eslint-disable-line react-hooks/exhaustive-deps
+  // The command mic stays on for the whole quiz in command-interaction
+  // mode - it's only ever paused while "answering" (the live
+  // transcription mic has taken over) or once the quiz is submitted.
+  useEffect(() => {
+    if (
+      interactionMode === 'command' &&
+      quiz &&
+      !submitted &&
+      !answering &&
+      voice.status === 'idle'
+    ) {
+      voice.start()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [interactionMode, quiz, submitted, answering])
   useEffect(() => {
     api
       .getQuiz(id)
       .then((item) => {
         setQuiz(item)
-        if (item.submissionStatus === 'SUBMITTED') setSubmitted(true)
+        if (item.submissionStatus === 'SUBMITTED' || item.submissionStatus === 'REVIEWED') {
+          setSubmitted(true)
+        }
+        if (item.submissionStatus === 'REVIEWED' && item.submissionId) {
+          api
+            .getSubmission(item.submissionId)
+            .then(setMySubmission)
+            .catch((cause) => setError(cause.message))
+        }
       })
       .catch((cause) => setError(cause.message))
   }, [id])
@@ -168,6 +255,83 @@ export function QuizAnswerPage() {
         <Loading label={t('quiz.openingQuiz')} />
       </div>
     )
+  if (submitted && quiz.submissionStatus === 'REVIEWED') {
+    if (!mySubmission)
+      return (
+        <div className="page has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>
+          <Loading label={t('quiz.openingResults')} />
+        </div>
+      )
+    return (
+      <div className="page page--narrow has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>
+        <PageHeader
+          eyebrow={t('quiz.results')}
+          title={quiz.title}
+          description={t('quiz.reviewedBy')}
+          back={
+            <button className="back-link" onClick={() => navigate('/quizzes')}>
+              {t('quiz.backToMyQuizzes')}
+            </button>
+          }
+        />
+        {error && <Alert>{error}</Alert>}
+        <section className="form-card">
+          <h2>{t('quiz.yourMark')}</h2>
+          <p className="quiz-results__mark">
+            {mySubmission.mark !== null && mySubmission.mark !== undefined
+              ? `${mySubmission.mark} / 100`
+              : t('quiz.notMarkedYet')}
+          </p>
+          <h2>{t('quiz.teacherFeedback')}</h2>
+          <p>{mySubmission.feedback || t('quiz.noFeedbackGiven')}</p>
+        </section>
+        <section className="answers-review">
+          <h2>{t('quiz.yourAnswers')}</h2>
+          {mySubmission.answers.map((answer, index) => (
+            <article key={answer.questionId}>
+              <span>{t('submissions.questionN', index + 1)}</span>
+              <h3 lang="si">{answer.question}</h3>
+              {answer.type === 'MCQ' ? (
+                <>
+                  <div className="mcq-review-options">
+                    {(answer.options || []).map((option, optIndex) => {
+                      const isSelected = option.id === answer.selectedOptionId
+                      const classes = ['mcq-review-option']
+                      if (isSelected) classes.push('mcq-review-option--selected')
+                      if (option.isCorrect) classes.push('mcq-review-option--correct')
+                      if (isSelected && !option.isCorrect)
+                        classes.push('mcq-review-option--incorrect-selection')
+                      return (
+                        <div className={classes.join(' ')} key={option.id}>
+                          <span>{optIndex + 1}.</span>
+                          <span lang="si">{option.text}</span>
+                          {isSelected && <em>{t('submissions.mcqStudentSelected')}</em>}
+                          {option.isCorrect && <strong>{t('submissions.mcqCorrectAnswer')}</strong>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <p
+                    className={`mcq-review-result ${
+                      answer.isCorrect ? 'mcq-review-result--correct' : 'mcq-review-result--incorrect'
+                    }`}
+                  >
+                    <Icon name={answer.isCorrect ? 'check' : 'alert'} size={15} />{' '}
+                    {answer.isCorrect ? t('submissions.mcqCorrect') : t('submissions.mcqIncorrect')}
+                  </p>
+                </>
+              ) : (
+                <div className="answer-transcript">
+                  <Icon name="file" size={18} />
+                  <p lang="si">{answer.transcript}</p>
+                </div>
+              )}
+            </article>
+          ))}
+        </section>
+      </div>
+    )
+  }
   if (submitted)
     return (
       <div className="page page--narrow has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>
@@ -200,13 +364,32 @@ export function QuizAnswerPage() {
     setWorkingTranscript(null)
     start(data)
   }
+  const handleLiveSessionEnd = (transcriptId) => {
+    setLiveLoading(true)
+    setAnswering(false)
+    api
+      .getTranscript(transcriptId)
+      .then(setWorkingTranscript)
+      .catch((cause) => setError(cause.message))
+      .finally(() => setLiveLoading(false))
+  }
   const changed = (item) => {
     setWorkingTranscript(item)
-    if (item.status === 'FINALIZED') setAnswers((value) => ({ ...value, [question.id]: item }))
+    // Saving the spoken-answer transcript (no separate finalize step here)
+    // is what marks this question answered - the quiz itself is only
+    // actually sent to the teacher at the final "Submit quiz" step.
+    setAnswers((value) => ({ ...value, [question.id]: item }))
+  }
+  const selectOption = (option) => {
+    setAnswers((value) => ({
+      ...value,
+      [question.id]: { selectedOptionId: option.id },
+    }))
   }
   const go = (next) => {
     setCurrent(next)
     setWorkingTranscript(answers[quiz.questions[next].id] || null)
+    setAnswering(false)
     reset()
   }
   const submit = async () => {
@@ -215,7 +398,13 @@ export function QuizAnswerPage() {
     try {
       await api.submitQuiz(
         quiz.id,
-        Object.values(answers).map((item) => ({ transcriptId: item.id })),
+        quiz.questions
+          .filter((q) => answers[q.id])
+          .map((q) =>
+            q.type === 'MCQ'
+              ? { questionId: q.id, selectedOptionId: answers[q.id].selectedOptionId }
+              : { questionId: q.id, transcriptId: answers[q.id].id },
+          ),
       )
       setSubmitted(true)
     } catch (cause) {
@@ -264,30 +453,74 @@ export function QuizAnswerPage() {
             </span>
             <h2 lang="si">{question.text}</h2>
           </div>
-          {answered && !workingTranscript && (
-            <Alert type="success" title={t('quiz.answerReady')}>
-              {t('quiz.questionCompleted')}
-            </Alert>
-          )}
-          {job && !workingTranscript ? (
-            <TranscriptionStatus
-              status={job.status}
-              message={job.message}
-              onRetry={() => reset()}
-            />
-          ) : workingTranscript ? (
-            <TranscriptEditor
-              initialTranscript={workingTranscript}
-              compact
-              onTranscriptChange={changed}
-            />
+          {question.type === 'MCQ' ? (
+            <div className="mcq-options">
+              <p className="field-hint">
+                {t('quiz.mcqHint')}
+                {interactionMode === 'command' && ` ${t('quiz.sayOneToFourOrCancel')}.`}
+              </p>
+              {question.options.map((option, index) => {
+                const isSelected = answers[question.id]?.selectedOptionId === option.id
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={`mcq-option ${isSelected ? 'mcq-option--selected' : ''}`}
+                    onClick={() => selectOption(option)}
+                  >
+                    <span className="mcq-option__number">{index + 1}</span>
+                    <span lang="si">{option.text}</span>
+                    {isSelected && (
+                      <span className="mcq-option__badge">
+                        <Icon name="check" size={14} /> {t('quiz.mcqSelected')}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
           ) : (
             <>
-              <h3>{t('quiz.recordSpokenAnswer')}</h3>
-              <AudioRecorder onUse={record} />
-              <p className="privacy-inline">
-                <Icon name="help" size={15} /> {t('quiz.recordingStoredNotice')}
-              </p>
+              <p className="field-hint">{t('quiz.spokenHint')}</p>
+              {answered && !workingTranscript && (
+                <Alert type="success" title={t('quiz.answerReady')}>
+                  {t('quiz.questionCompleted')}
+                </Alert>
+              )}
+              {job && !workingTranscript ? (
+                <TranscriptionStatus
+                  status={job.status}
+                  message={job.message}
+                  onRetry={() => reset()}
+                />
+              ) : liveLoading ? (
+                <Loading label={t('quiz.preparingAnswer')} />
+              ) : workingTranscript ? (
+                <TranscriptEditor
+                  initialTranscript={workingTranscript}
+                  compact
+                  onTranscriptChange={changed}
+                />
+              ) : (
+                <>
+                  <h3>{t('quiz.liveTranscription')}</h3>
+                  {interactionMode === 'command' && (
+                    <p className="field-hint">{t('quiz.sayAnswerToDictate')}</p>
+                  )}
+                  <LiveTranscription
+                    title={`${quiz.title} — Question ${current + 1}`}
+                    mode="EXAM"
+                    onSessionEnd={handleLiveSessionEnd}
+                    autoStart={answering}
+                  />
+                  <p className="recorder__divider">{t('quiz.orRecord')}</p>
+                  <h3>{t('quiz.recordSpokenAnswer')}</h3>
+                  <AudioRecorder onUse={record} showUpload={false} />
+                  <p className="privacy-inline">
+                    <Icon name="help" size={15} /> {t('quiz.recordingStoredNotice')}
+                  </p>
+                </>
+              )}
             </>
           )}
           {interactionMode === 'command' && voice.error && <Alert>{voice.error}</Alert>}
@@ -305,7 +538,13 @@ export function QuizAnswerPage() {
                   onClick={voice.isListening ? voice.stop : voice.start}
                   disabled={voice.status === 'connecting' || voice.status === 'stopping'}
                   aria-label={voice.isListening ? t('quiz.stopVoiceCommands') : t('quiz.listenVoiceCommands')}
-                  title={voice.isListening ? t('quiz.stopVoiceCommands') : t('quiz.sayNextPreviousSubmit')}
+                  title={
+                    voice.isListening
+                      ? t('quiz.stopVoiceCommands')
+                      : question.type === 'MCQ'
+                        ? t('quiz.sayOneToFourOrCancel')
+                        : t('quiz.sayAnswerToDictate')
+                  }
                 >
                   <Icon name={voice.isListening ? 'stop' : 'mic'} size={17} />
                 </button>
