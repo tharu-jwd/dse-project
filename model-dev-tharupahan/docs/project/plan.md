@@ -415,10 +415,16 @@ completed items into summaries or remove them when priorities change.
 
 ### Current ranked work
 
-- [ ] Complete and document E007 greedy-versus-beam decoding comparison.
-- [ ] Complete evaluation reports and detailed error reports for the current
-  best checkpoint.
+- [x] Complete and document E007 greedy-versus-beam decoding comparison
+  (greedy 81.40%/26.15%, beam5 76.26%/26.67% canonical WER/CER).
+- [x] Complete per-speaker/duration/length evaluation reports for E007, the
+  current best checkpoint (still owed for E004-E006, lower priority since
+  they are no longer active candidates).
 - [ ] Build a broader independent, speaker-diverse Sinhala evaluation set.
+  Blocked on a licensing decision: the existing corpus has no unused
+  speakers left (confirmed by inspection); the only candidate with real
+  diversity already indexed here is the SPEAK-ASR YouTube corpus (34
+  uploaders, 9.1h), whose license is unresolved.
 - [ ] Run the Omnilingual zero-training model-family bake-off.
 - [ ] Run a bounded Omnilingual CTC 300M adaptation pilot if justified.
 - [ ] Test Sinhala LM-assisted CTC decoding if justified.
