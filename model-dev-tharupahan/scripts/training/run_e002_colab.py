@@ -172,17 +172,51 @@ class StopAfterStepCallback(TrainerCallback):
         return control
 
 
+def expand_english_replay(train: list[dict], target: int) -> list[dict]:
+    english = [
+        row for row in train if (row.get("decoder_language") or "si") == "en"
+    ]
+    non_english = [
+        row for row in train if (row.get("decoder_language") or "si") != "en"
+    ]
+    if not english or target < 0:
+        raise ValueError("invalid English replay expansion request")
+    english.sort(key=lambda row: row["sample_id"])
+    expanded = []
+    for occurrence in range(target // len(english)):
+        expanded.extend(
+            {
+                **row,
+                "sample_id": f"{row['sample_id']}#replay-{occurrence}",
+            }
+            for row in english
+        )
+    expanded.extend(
+        {
+            **row,
+            "sample_id": f"{row['sample_id']}#replay-{target // len(english)}",
+        }
+        for row in english[: target % len(english)]
+    )
+    return non_english + expanded
+
+
 def load_and_verify_inputs(config: dict[str, Any]) -> tuple[list[dict], list[dict]]:
     manifest = json.loads((TRAIN_DIR / "manifest.json").read_text())
     if manifest["source_sha256"] != config["training_bundle_sha256"]:
         raise ValueError("training source bundle hash mismatch")
-    tables = []
+    # Convert one shard at a time. Holding every Arrow table until concat followed
+    # by to_pylist() temporarily retained two full copies of large experiments
+    # (Arrow buffers plus Python rows), which can exceed Kaggle's host RAM.
+    train = []
     for shard in manifest["shards"]:
         path = TRAIN_DIR / shard["name"]
         if sha256(path) != shard["sha256"]:
             raise ValueError(f"training shard hash mismatch: {path.name}")
-        tables.append(pq.read_table(path))
-    train = pa.concat_tables(tables, promote_options="default").to_pylist()
+        train.extend(pq.read_table(path).to_pylist())
+    replay_occurrences = config.get("english_replay_occurrences")
+    if replay_occurrences is not None:
+        train = expand_english_replay(train, int(replay_occurrences))
     if len(train) != int(config["training_rows"]):
         raise ValueError("training row count mismatch")
     languages = Counter(row.get("decoder_language") or "si" for row in train)

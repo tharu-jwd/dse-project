@@ -45,6 +45,11 @@ def main() -> None:
     parser.add_argument("--selection", type=Path, required=True, help="output of select_nested_subset.py")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--rows-per-shard", type=int, default=1000)
+    parser.add_argument(
+        "--reuse-existing",
+        action="store_true",
+        help="verify and reuse already-written shards after an interrupted finalization",
+    )
     args = parser.parse_args()
 
     selection = json.loads(args.selection.read_text())
@@ -84,13 +89,37 @@ def main() -> None:
 
     output = args.output_dir.expanduser().resolve()
     output.mkdir(parents=True, exist_ok=True)
-    if any(output.iterdir()):
+    if any(output.iterdir()) and not args.reuse_existing:
         raise SystemExit(f"refusing to write into non-empty directory: {output}")
 
     shards = []
     total_rows = 0
     for start in range(0, len(ordered_rows), args.rows_per_shard):
         batch = ordered_rows[start : start + args.rows_per_shard]
+        number = len(shards)
+        shard_path = output / f"part-{number:04d}.parquet"
+        if shard_path.exists() and args.reuse_existing:
+            existing = pq.read_table(shard_path)
+            expected_ids = [row["sample_id"] for row in batch]
+            if existing.num_rows != len(batch) or existing.column(
+                "sample_id"
+            ).to_pylist() != expected_ids:
+                raise SystemExit(f"existing shard identity mismatch: {shard_path}")
+            expected_audio_hashes = [row["audio_sha256"] for row in batch]
+            if existing.column("audio_sha256").to_pylist() != expected_audio_hashes:
+                raise SystemExit(f"existing shard audio-hash mismatch: {shard_path}")
+            shards.append(
+                {
+                    "name": shard_path.name,
+                    "rows": len(batch),
+                    "bytes": shard_path.stat().st_size,
+                    "sha256": sha256_file(shard_path),
+                }
+            )
+            total_rows += len(batch)
+            print(f"verified {shard_path.name}: {len(batch)} rows")
+            continue
+
         sample_ids_col = []
         speaker_ids_col = []
         language_class_col = []
@@ -127,8 +156,6 @@ def main() -> None:
                 "audio": audio_col,
             }
         )
-        number = len(shards)
-        shard_path = output / f"part-{number:04d}.parquet"
         pq.write_table(table, shard_path, compression="zstd")
         shard_hash = sha256_file(shard_path)
         shards.append(
@@ -153,7 +180,7 @@ def main() -> None:
         "experiment": selection.get("experiment", "e006"),
         "dataset_fingerprint": sha256_file(MANIFEST),
         "selection_fingerprint": selection["selection_fingerprint"],
-        "seed": selection["seed"],
+        "seed": selection.get("seed"),
         "rows": total_rows,
         "rows_per_shard": args.rows_per_shard,
         "shards_combined_sha256": shards_combined_sha256,

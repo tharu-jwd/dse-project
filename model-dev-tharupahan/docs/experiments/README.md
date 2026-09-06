@@ -13,6 +13,7 @@ and result report.
 | E004 | E003 recipe with untouched-model teacher-target English replay | Complete | [English retention passed; Sinhala remained far above target](e004-whisper-small-wide-lora-r16-teacher-replay-v4.md) |
 | E005 | E004 teacher replay scaled to 50k Sinhala rows and one effective epoch | Complete | [Sinhala improved materially; English retention passed](e005-whisper-small-wide-lora-r16-50k-teacher-replay-v4.md) |
 | E006 | E005 recipe scaled to a nested 100-hour Sinhala tier | Complete | [Sinhala improved materially; English retention passed](e006-whisper-small-wide-lora-r16-100h-teacher-replay-v4.md) |
+| E007 | E006 recipe scaled to the complete 220.877-hour v4 training split | Prepared | [Two-phase exact-resume run](e007-whisper-small-wide-lora-r16-full-v4-teacher-replay.md) |
 
 The fixed 2,620-row LibriSpeech test-clean benchmark is evaluated after every
 adapter experiment without changing its references or normalization protocol.
