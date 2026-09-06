@@ -60,9 +60,13 @@ Sinhala-source subset for one effective epoch: Sinhala canonical WER improved
 materially to 88.39% (canonical CER 32.24%; paired 95% interval excludes zero
 on both), and the English-retention gate continued to pass at 4.52% canonical
 WER versus 4.23% untouched, statistically equivalent to E004's English result.
-Sinhala remains far above the under-10% target. Per the project's decision
-rule, scale is a promising axis; E006 is expected to continue scaling the
-Sinhala training subset. Full-parameter fine-tuning remains out of scope.
+E006 then extended the same nested curve to 100.00 hours: canonical Sinhala WER
+improved materially again to 84.48% and CER to 28.74%, while English remained
+statistically equivalent to E005 and passed at 4.58% WER. Sinhala remains far
+above the under-10% target, but the curve has not plateaued. The next controlled
+point is the complete 220.88-hour v4 train split, executed as a checkpointed
+two-stage E007 run to stay safely below Kaggle's per-session limit.
+Full-parameter fine-tuning remains out of scope.
 
 Historical split and model claims have already been captured in the
 [historical audit](docs/audits/historical-audit.md). Current dataset

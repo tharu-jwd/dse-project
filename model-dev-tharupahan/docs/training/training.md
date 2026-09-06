@@ -128,3 +128,14 @@ source rows (60.31 hours) plus 5,556 teacher-target replay occurrences, trained
 for 1,736 optimizer steps. The exact recipe, hashes, oversampling limitation,
 and decision gates are recorded in the
 [E005 experiment report](../experiments/e005-whisper-small-wide-lora-r16-50k-teacher-replay-v4.md).
+
+E006 extended that exact recipe to a nested 100-hour Sinhala tier. Sinhala
+canonical WER/CER improved materially to 84.48%/28.74%, while the English gate
+continued to pass at 4.58% canonical WER. The complete hashes, intervals, and
+error-operation changes are in the
+[E006 experiment report](../experiments/e006-whisper-small-wide-lora-r16-100h-teacher-replay-v4.md).
+
+The next full-data epoch is projected too close to Kaggle's 12-hour session
+limit for a safe single run. E007 therefore uses two kernels separated at a
+verified durable checkpoint. The second stage must restore the complete trainer
+state and continue to the original global-step target.
