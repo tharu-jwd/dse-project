@@ -191,10 +191,18 @@ once one looks promising):
    real content), a Bengali-to-Sinhala phonetic back-transliteration
    post-processing step is worth prototyping on the existing, already-
    collected predictions before spending anything further on the model
-   itself. Not attempted in this pass -- flagged as the most
-   promising low-cost next step given how much of the aggregate loss (over
-   80% of rows) is attributable to script alone rather than content
-   errors.
+   itself. Checked the obvious existing tool (`indic-transliteration` on
+   PyPI, in an isolated scratch venv, no project dependency added): it
+   has no Sinhala scheme at all (`sanscript`'s supported schemes are
+   Devanagari/Bengali/Tamil/Telugu/etc. -- Sanskrit-family Indic scripts,
+   not Sinhala specifically), so this would need a small hand-built
+   Bengali-to-Sinhala Unicode character map (both are Brahmic scripts
+   with largely parallel consonant/vowel/matra structure, so this is a
+   bounded, mechanical task, just not a ready-made one) rather than an
+   existing library call. Still the most promising low-cost next step
+   given how much of the aggregate loss (over 80% of rows) is
+   attributable to script alone rather than content errors -- just a
+   slightly bigger lift than "call a library function."
 
 CTC 1B v2 was not run; hold until one of the two paths above changes the
 picture, since 1B would likely show the same CTC language-conditioning
