@@ -76,6 +76,10 @@ CANDIDATE_EXPERIMENTS: dict[str, tuple[Path | None, str]] = {
         ROOT / "reports/experiments/e006-scale-100h-teacher-replay/attempts/kaggle-training-001/output/e006-training/final-adapter",
         "adapter",
     ),
+    "E007 -- scaled to the complete 220.88 Sinhala hours": (
+        ROOT / "reports/experiments/e007-full-v4-teacher-replay/attempts/kaggle-training-phase-b/output/e007-training/final-adapter",
+        "adapter",
+    ),
     # Not one of this project's own experiments -- a third-party checkpoint
     # (huggingface.co/Yohan2003/whisper-small-sinhala, run1: full fine-tune,
     # all weights updated, not a LoRA adapter) kept here for direct
