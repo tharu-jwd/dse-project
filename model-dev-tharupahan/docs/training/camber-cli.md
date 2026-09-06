@@ -176,8 +176,9 @@ free and excluded).
 | `25207` | E011 bake-off, fourth attempt (LD_LIBRARY_PATH fix) | 3.9 min, `FAILED` -- same error, LD_LIBRARY_PATH wasn't the real cause (see below) |
 | `25209` | Diagnostic only: actual torch/torchaudio/cudart versions and files present | 13.4 min, `COMPLETED` -- root cause confirmed (see below) |
 | `25210` | E011 bake-off, fifth attempt (matched cu128 torch/torchaudio) | 3.2 min, `FAILED` -- CUDA mismatch fixed, but new bug: real model forward pass reached, then a shape error (see below) |
-| **Total (2026-09-07)** | | **~4.29 hours** |
-| **Remaining of the 5-hour budget** | | **~0.71 hours (~43 min)** |
+| `25211` | E011 bake-off, sixth attempt (1-D audio shape fix) | 3.3 min, `COMPLETED` -- real predictions produced, see [the E011 report](../experiments/e011-omnilingual-ctc-bakeoff-v4.md) |
+| **Total (2026-09-07)** | | **~4.34 hours** |
+| **Remaining of the 5-hour budget** | | **~0.66 hours (~40 min)** |
 
 Update this table (recompute from `camber job get <id> --output json` for
 every `--gpu` job since the last entry) whenever a new Camber job runs, not

@@ -157,23 +157,58 @@ composes with any checkpoint. See
 
 ### 3. Run a zero-training model-family bake-off
 
-Evaluate candidates using identical audio, references, normalization, and
-metrics:
+**Complete for CTC 300M v2; 1B and LLM-ASR variants not run (Camber
+budget ran low).** Real result, but not a simple one: as officially
+invoked (`ASRInferencePipeline`, `lang=["sin_Sinh"]`), CTC 300M v2 loses
+decisively to E007 (canonical WER 98.97% vs 81.71%, canonical CER 94.21%
+vs 26.15%, paired 95% CI excludes zero both ways). But a real, quantified
+anomaly undercuts reading that as "the model can't do Sinhala": only
+11.2% of predictions actually came back in Sinhala script -- 70.4% came
+back in Bengali instead, despite the correct `lang` code being passed on
+every item. Restricted to just the 23 rows that did stay in-script
+(a small, non-random subset, not a standalone quality claim), canonical
+WER is 67.16% and CER is 14.68% -- both **better** than E007's own
+aggregate. See
+[the E011 report](../experiments/e011-omnilingual-ctc-bakeoff-v4.md) for
+the full trace, six real environment-bug fixes it took just to get this
+far, and the quantified script-drift breakdown.
 
-1. Meta Omnilingual ASR CTC 300M v2.
-2. Omnilingual CTC 1B v2 if memory permits.
-3. Omnilingual LLM-ASR 1B and 7B as compute permits.
-4. E007 Whisper-small.
-5. Recoverable team/external checkpoints as controls.
+Getting the library running at all (Kaggle, then Camber) cost roughly
+4.34 of the original 5.00-hour Camber budget across 8 jobs -- see
+[camber-cli.md](../training/camber-cli.md). ~0.66 hours (~40 min) remain;
+treat any further Omnilingual work on Camber as very tightly bounded from
+here.
+
+1. Meta Omnilingual ASR CTC 300M v2. -- done, see above.
+2. Omnilingual CTC 1B v2 if memory permits. -- not run; hold until the
+   script-drift question below is understood, since the same issue would
+   likely recur on the larger model too.
+3. Omnilingual LLM-ASR 1B and 7B as compute permits. -- not run.
+4. E007 Whisper-small. -- already scored, reused as the control.
+5. Recoverable team/external checkpoints as controls. -- not run for
+   this bake-off (Yohan's checkpoints remain comparison-only in the
+   Streamlit app per the standing decision to keep that work untouched).
 
 Meta's [official results](https://raw.githubusercontent.com/facebookresearch/omnilingual-asr/refs/heads/main/per_language_results_table_7B_llm_asr.csv)
 report Sinhala at 7.2% CER with 225.4 training hours, and its
 [official repository](https://github.com/facebookresearch/omnilingual-asr)
 provides inference and fine-tuning recipes. Because 225.4 hours closely matches
 this OpenSLR corpus, assume possible overlap until disproved. Do not claim
-independent performance without the new benchmark.
+independent performance without the new benchmark. (This project's own
+7.2%-CER-adjacent finding above -- 14.68% CER on the in-script subset --
+is now a real, if partial and non-random, data point of its own toward
+that question, not just Meta's claim.)
 
 ### 4. Adapt Omnilingual CTC 300M
+
+**Not started -- deliberately not advanced on this bake-off's result
+alone, in either direction.** The official loss is real but the
+script-drift anomaly means it likely doesn't reflect the model's true
+ceiling; the in-script subset's promising numbers aren't yet evidence of
+a fix, only evidence one might exist. Next step is investigating the
+pipeline's actual language-conditioning behavior (a software/API
+question, answerable without spending more GPU budget) before deciding
+whether this item is worth its "proceed only if competitive" bar at all.
 
 Proceed only if its bake-off result is competitive:
 
@@ -437,8 +472,11 @@ completed items into summaries or remove them when priorities change.
   speakers left (confirmed by inspection); the only candidate with real
   diversity already indexed here is the SPEAK-ASR YouTube corpus (34
   uploaders, 9.1h), whose license is unresolved.
-- [ ] Run the Omnilingual zero-training model-family bake-off.
-- [ ] Run a bounded Omnilingual CTC 300M adaptation pilot if justified.
+- [x] Run the Omnilingual zero-training model-family bake-off (CTC 300M
+  only; loses as officially scored, but a real wrong-script anomaly on
+  70% of rows means this isn't the final word -- see E011).
+- [ ] Run a bounded Omnilingual CTC 300M adaptation pilot if justified --
+  on hold pending the script-drift question, not yet decided either way.
 - [ ] Test Sinhala LM-assisted CTC decoding if justified.
 - [x] Re-run the corrected E009 tokenizer pilot -- fix confirmed correct,
   stopped per its own stop condition (still doesn't beat E010).
