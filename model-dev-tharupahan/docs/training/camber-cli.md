@@ -170,13 +170,28 @@ free and excluded).
 | `25196` | E008 search, initially looked stuck `PENDING` (accumulated-output bug above); re-checked later and shows `COMPLETED` | 83.6 min (created_at-to-finished_at; billing may be `RUNNING`-time only, still not confirmed) |
 | `25199` | E008 search, resubmitted against cleaned path | 66.0 min, ended `CANCELLED` (the `PENDING`-then-auto-cancel behavior documented above) |
 | `25203` | E009 corrected pilot rerun (`modules_to_save`/`ensure_weight_tying` fix) | 11.25 min, `COMPLETED` |
-| **Total (2026-09-07)** | | **~3.76 hours** |
-| **Remaining of the 5-hour budget** | | **~1.24 hours** |
+| `25204` | E011 Omnilingual bake-off, CTC 300M, first Camber attempt | 6.0 min, `FAILED` (see below) |
+| **Total (2026-09-07)** | | **~3.86 hours** |
+| **Remaining of the 5-hour budget** | | **~1.14 hours** |
 
 Update this table (recompute from `camber job get <id> --output json` for
 every `--gpu` job since the last entry) whenever a new Camber job runs, not
 just when a batch of work finishes -- it is easy to lose track across a long
 session otherwise, which is exactly what happened before this table existed.
+
+## E011 bake-off's first Camber attempt: missing `soundfile`
+
+Job `25204`'s `--cmd` only ran `pip install omnilingual-asr`, forgetting
+that `scripts/evaluation/run_omnilingual_bakeoff.py` also imports this
+project's own `sinhala_asr.training.dataset`, which needs `soundfile` --
+present in every other Camber job via `pip install -e '.[train]'`, absent
+here since this job never installs the project package at all. Fixed by
+installing both in one `pip install` call
+(`pip install -q -e '.' omnilingual-asr`, base extras only -- `train`'s
+transformers/peft/accelerate aren't needed for this script) so pip
+resolves one consistent dependency set, rather than two sequential installs
+each potentially undoing the other's version choices (the exact failure
+mode already seen twice on Kaggle for this same library).
 
 ## Verified end-to-end (2026-09-06)
 
