@@ -46,7 +46,7 @@ def main() -> None:
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--keep-archives", action="store_true")
     args = parser.parse_args()
-    project_root = Path(__file__).resolve().parents[1]
+    project_root = Path(__file__).resolve().parents[2]
     output = args.output_dir if args.output_dir.is_absolute() else project_root / args.output_dir
     output.mkdir(parents=True, exist_ok=True)
 

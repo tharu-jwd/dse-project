@@ -15,7 +15,7 @@ def main() -> None:
     parser.add_argument("--registry", type=Path, default=Path("configs/data/sources.json"))
     parser.add_argument("--output", type=Path, default=Path("reports/sources/inventory.json"))
     args = parser.parse_args()
-    project_root = Path(__file__).resolve().parents[1]
+    project_root = Path(__file__).resolve().parents[2]
     registry = args.registry if args.registry.is_absolute() else project_root / args.registry
     output = args.output if args.output.is_absolute() else project_root / args.output
     result = inventory_registry(registry, project_root)

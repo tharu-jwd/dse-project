@@ -33,7 +33,7 @@ def main() -> None:
     parser.add_argument("--source", type=Path, default=Path("data/raw/openslr52"))
     parser.add_argument("--output", type=Path, default=Path("data/indexes/openslr52.parquet"))
     args = parser.parse_args()
-    project_root = Path(__file__).resolve().parents[1]
+    project_root = Path(__file__).resolve().parents[2]
     source = args.source if args.source.is_absolute() else project_root / args.source
     output = args.output if args.output.is_absolute() else project_root / args.output
     transcript_path = source / "utt_spk_text.tsv"
