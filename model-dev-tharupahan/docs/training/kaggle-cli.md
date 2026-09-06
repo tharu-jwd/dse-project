@@ -113,6 +113,22 @@ name instead of the archive's filename. See E007 Phase B's
 `install_resume()` in `scripts/training/run_e007_kaggle.py` for the working
 pattern.
 
+## A deliberate `enable_internet: true` exception (E011)
+
+Every kernel through E010 sets `enable_internet: false` and pre-stages all
+Python dependencies as an offline wheelhouse dataset (the `e003-runtime`
+pattern: `pip install --no-index --no-deps --find-links <runtime-dir> ...`).
+E011 (the Omnilingual ASR zero-training bake-off) breaks this pattern on
+purpose: `omnilingual-asr` depends on `fairseq2`, which ships
+platform/CUDA-specific wheels, unlike this project's own pure-PyTorch
+runtime bundle -- there is no practical offline wheelhouse to pre-stage for
+it, and the model checkpoints themselves are fetched by the library at
+first use from Meta's own CDN, not a HuggingFace Hub ID that could be
+pre-downloaded and re-uploaded as a Kaggle dataset either. Both the
+package and the model card downloads need internet access at kernel
+runtime. This is scoped to one exploratory, zero-training evaluation
+kernel, not a change to how any training kernel operates.
+
 ## Verification discipline
 
 Every downloaded result -- training or evaluation -- must be independently

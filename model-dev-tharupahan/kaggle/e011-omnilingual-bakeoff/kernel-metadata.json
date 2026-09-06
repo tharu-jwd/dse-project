@@ -1,0 +1,17 @@
+{
+  "id": "tharupahan/sinhala-asr-e011-omnilingual-bakeoff",
+  "title": "Sinhala ASR E011 Omnilingual Bakeoff",
+  "code_file": "e011-omnilingual-bakeoff.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_internet": "true",
+  "machine_shape": "NvidiaTeslaT4",
+  "dataset_sources": [
+    "tharupahan/sinhala-asr-e003-inputs"
+  ],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": []
+}
