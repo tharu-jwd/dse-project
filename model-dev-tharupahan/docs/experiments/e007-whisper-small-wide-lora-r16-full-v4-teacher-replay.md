@@ -9,10 +9,12 @@ T4, ~24,930s / ~6.9h training time). Reached the intended stop at step 4,077
 in the normal range for this recipe (compare E001-E006), not the instability
 seen in the unrelated E009 tokenizer-extension pilot. Checkpoint hash-verified locally (`checkpoint-004077.tar.gz`,
 `sha256:254ccab6ba327823d5e23d0e19185577175b9ecdd8f2e7f19f9dd67a69bf0508`,
-matches the kernel's own reported `resume_checkpoint_sha256`) and staged
-locally at `reports/kaggle/e007-phase-a-resume-checkpoint/` (with its own
-`asset-index.json`), ready to upload as a new private Kaggle dataset --
-**not yet uploaded**. Phase B kernel not yet written or pushed.
+matches the kernel's own reported `resume_checkpoint_sha256`), uploaded as
+a new private Kaggle dataset
+(`tharupahan/sinhala-asr-e007-phase-a-resume-checkpoint`), and Phase B's
+kernel (`kaggle/e007-phase-b-training/`) pushed and running as of
+2026-09-06 ~20:55 Asia/Colombo, targeting the same frozen source commit as
+Phase A.
 
 ## Question
 
