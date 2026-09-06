@@ -77,6 +77,53 @@ decoder's language-modeling behavior and tokenization, not the audio encoder,
 as the more relevant lever for this specific pair of confusions -- worth
 keeping in mind for the tokenizer check already queued next.
 
+## Tokenizer check: Whisper-small has zero dedicated Sinhala vocabulary
+
+Checked directly against the real `WhisperTokenizer` for `openai/whisper-small`
+(the exact tokenizer every experiment in this project uses), not inferred.
+
+Every one of the 128 Sinhala Unicode codepoints (U+0D80-U+0DFF) was encoded
+individually. All 128 require exactly 2 tokens each -- there is no single
+codepoint with its own dedicated token. Scanning the full 51,865-token
+vocabulary for any token that decodes, on its own, to clean Sinhala text
+(rather than a stray UTF-8 byte fragment, which decodes as `�`) found
+**zero**. Every Sinhala character is represented purely as two raw UTF-8
+byte-level fallback tokens -- the standard GPT-2-style byte-BPE tokenizer has
+learned no Sinhala-specific subword structure at all. This means the decoder
+has to learn Sinhala orthography almost entirely from these low-level byte
+patterns, on top of the acoustic-to-text mapping, with none of the head start
+a dedicated subword vocabulary would give a higher-resource language.
+
+The five confusion pairs from this analysis, by their exact token IDs:
+
+| Pair | Token IDs | Share a token? |
+|---|---|---|
+| ණ / න | `[16204,104]` / `[16204,109]` | yes -- same first token |
+| ෙ / ේ | `[17811,247]` / `[17811,248]` | yes -- same first token, adjacent second |
+| ි / ී | `[17811,240]` / `[17811,241]` | yes -- same first token, adjacent second |
+| ත / ද | `[16204,255]` / `[16204,107]` | yes -- same first token |
+| **ල / ළ** | `[16204,121]` / `[17811,227]` | **no -- completely disjoint** |
+
+Four of the five pairs at least share their first byte-token (an accident of
+adjacent Unicode codepoints falling in the same byte-BPE fallback bucket, not
+a learned relationship) -- some structural proximity for the model to lean on.
+**ල/ළ, the single most frequent confusion in this analysis (35 occurrences,
+more than any other pair), is the one exception**: fully disjoint token IDs,
+sharing nothing. Combined with the earlier phoneme-identity finding, this pair
+gets no help from either the acoustic signal (same phoneme) or the token
+representation (no shared structure) -- the two independent weakest links
+this analysis found line up on the exact same pair.
+
+This is a real, structural candidate lever the current priority order does
+not yet name explicitly: extending the tokenizer with dedicated Sinhala
+subword tokens (and resizing the model's token embeddings accordingly) before
+fine-tuning, rather than relying on the base byte-level fallback throughout.
+This is a bigger engineering step than anything currently queued -- it
+changes the model's vocabulary, not just its weights, and would need its own
+bounded pilot to check it does not destabilize what the base model already
+knows -- so it is recorded here as a candidate, not added to the priority
+order unilaterally.
+
 ## How common are the pairs this analysis is about, versus the missing coverage?
 
 Cross-checked against a syllable-frequency table over a large natural Sinhala

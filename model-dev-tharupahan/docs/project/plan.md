@@ -217,6 +217,17 @@ unit of time/risk, not by raw expected benefit alone:
 1. Cheap, no-GPU diagnostic checks first (for example, how Whisper's tokenizer
    encodes the specific Sinhala near-homophone character pairs identified in
    the error analysis) -- near-zero cost, do these before committing compute.
+   Done: `openai/whisper-small`'s tokenizer has **zero dedicated Sinhala
+   tokens** at all (every one of the 128 Sinhala Unicode codepoints is two raw
+   UTF-8 byte-level fallback tokens; none of the 51,865 vocabulary entries
+   decode to clean standalone Sinhala). See
+   [the near-homophone analysis](../audits/e006-near-homophone-error-analysis.md#tokenizer-check-whisper-small-has-zero-dedicated-sinhala-vocabulary)
+   for the full finding, including why ල/ළ specifically -- the single most
+   frequent confusion found -- gets no help from either the acoustic signal or
+   the token representation. That analysis records tokenizer vocabulary
+   extension as a candidate lever bigger than anything currently in this list
+   (it changes the model's vocabulary, not just its weights, and needs its own
+   scoped pilot); it is not added to this ordered list unilaterally.
 2. Adapter target-width/rank ablation (item 3 above) -- cheap, bounded, reuses
    the proven training pipeline; run this before considering full-parameter
    work. Use `scripts/training/optuna_search.py` (an automated search over
