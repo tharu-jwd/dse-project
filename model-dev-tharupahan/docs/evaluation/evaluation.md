@@ -77,3 +77,22 @@ not an improvement. Distinguish demonstrated causes from plausible mechanisms:
 a controlled one-factor ablation can support attribution; an uncontrolled
 comparison can only establish association. No WER/CER change may be reported
 without an accompanying comparison record and explanation status.
+
+`scripts/evaluation/compare_predictions.py` computes exactly this paired
+comparison (row-matched by `sample_id`, both strict and canonical, with the
+95% confidence intervals above) between two prediction files; every
+experiment comparison from E002 onward uses it rather than diffing aggregate
+WER/CER by hand.
+
+## Deeper diagnostic analyses
+
+When aggregate and subgroup metrics are not enough to explain *why* an error
+rate sits where it does, a targeted local analysis on an experiment's already-
+scored predictions can be more informative than another training run --
+for example, tabulating character-substitution pairs to check whether error
+is concentrated in a small, known confusion set versus broadly spread. These
+are diagnostics, not trained experiments, and belong in `docs/audits/` with a
+clear statement of what was computed, on what data, and what it does and does
+not explain; see
+[the E006 near-homophone error analysis](../audits/e006-near-homophone-error-analysis.md)
+for the pattern.

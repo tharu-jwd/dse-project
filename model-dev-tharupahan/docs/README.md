@@ -15,7 +15,8 @@
 ## Model development
 
 - [Training operations](training/training.md)
-- [Colab CLI and storage safety](training/colab-cli.md)
+- [Kaggle operations policy](training/kaggle-cli.md) (current, E003 onward)
+- [Colab CLI and storage safety](training/colab-cli.md) (historical, E000-E002)
 - [Evaluation protocol](evaluation/evaluation.md)
 - [Experiment registry](experiments/README.md)
 

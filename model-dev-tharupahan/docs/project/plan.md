@@ -46,10 +46,12 @@ history, contradictions, evaluation policy, and experiment rationale.
    hard-coded cloud paths.
 6. Training must be resumable. From E002 onward, Colab jobs do not mount Google
    Drive: checkpoints are downloaded into the experiment's local artifact
-   directory and verified before a cloud instance is terminated.
-   Follow the heartbeat, checkpoint-completion, attempt-log, bounded-retry, and
+   directory and verified before a cloud instance is terminated. Follow the
+   heartbeat, checkpoint-completion, attempt-log, bounded-retry, and
    deterministic-resume procedure in
-   [the Colab CLI policy](../training/colab-cli.md).
+   [the Colab CLI policy](../training/colab-cli.md) (historical, E000-E002) or
+   [the Kaggle operations policy](../training/kaggle-cli.md) (current, E003
+   onward), whichever platform applies.
 7. Generated datasets, checkpoints, predictions, and reports are not committed
    unless they are deliberately selected compact reference artifacts.
 
@@ -191,9 +193,43 @@ Initial controlled experiments after evaluating the untouched model:
    and the available Sinhala-English code-switched samples.
 3. Adapter target-width and learning-rate comparison on the same frozen data.
 4. Low-learning-rate continuation of the historical 17% checkpoint only if its
-   exact artifact, optimizer state, and dataset identity can be recovered.
+   exact artifact, optimizer state, and dataset identity can be recovered --
+   and only after re-measuring its accuracy on the current frozen,
+   speaker-disjoint v4 evaluation set. [The historical audit](../audits/historical-audit.md)
+   has since confirmed the original 17%/25.99% historical numbers were measured
+   on a split with pervasive speaker leakage (a plain random row-level split
+   with no speaker column at all), so neither is a trustworthy target or
+   comparison point until re-measured; this option is deprioritized relative to
+   item 3 accordingly.
 5. Augmentation ablations only after error analysis shows the matching need.
 6. Whisper-medium only after the winning small-model recipe and budget review.
+
+### Next-step priority order after E006/E007
+
+Once the nested data-scale curve (E004-E007) is measured, further scale is not
+expected to close the remaining gap to the under-10% target: the curve fit
+through E004-E006's three real points already implies diminishing returns, and
+[the near-homophone error analysis](../audits/e006-near-homophone-error-analysis.md)
+shows most of the remaining error is genuine, broader recognition failure, not
+a small fixable confusion set. Rank the next levers by expected benefit per
+unit of time/risk, not by raw expected benefit alone:
+
+1. Cheap, no-GPU diagnostic checks first (for example, how Whisper's tokenizer
+   encodes the specific Sinhala near-homophone character pairs identified in
+   the error analysis) -- near-zero cost, do these before committing compute.
+2. Adapter target-width/rank ablation (item 3 above) -- cheap, bounded, reuses
+   the proven training pipeline; run this before considering full-parameter
+   work.
+3. A properly scoped, bounded full-parameter fine-tuning pilot -- potentially
+   the largest remaining lever given LoRA's measured ceiling, but currently
+   out of scope per this plan and requires its own cost/scope review before
+   starting; do not treat the historical (leakage-tainted) 17% number as
+   evidence this will work, only as a reason to check.
+4. A human-in-the-loop correction batch targeted specifically at rows
+   containing the near-homophone confusions identified in the error analysis,
+   rather than a random sample -- higher signal per reviewed row, but spends
+   reviewer time rather than compute, and is worth less before the recipe
+   itself is more settled.
 
 Before full-data recipe comparisons, measure a nested data learning curve using
 approximately 10, 25, 50, and 100 verified speech hours plus the full retained
@@ -276,9 +312,16 @@ checkpoints before terminating it. Do not use a stopped GPU volume as long-term
 storage. Record the instance type and displayed hourly price at run start, and
 terminate compute automatically after success or error.
 
-For Colab specifically, follow [the CLI isolation policy](../training/colab-cli.md):
-use only `/content/sinhala-asr-job` remotely, never mount Drive, and keep durable
-per-experiment artifacts under `reports/experiments/eNNN-...` locally.
+For Colab specifically (historical, E000-E002), follow
+[the CLI isolation policy](../training/colab-cli.md): use only
+`/content/sinhala-asr-job` remotely, never mount Drive, and keep durable
+per-experiment artifacts under `reports/experiments/eNNN-...` locally. For
+Kaggle (current, E003 onward), follow
+[the Kaggle operations policy](../training/kaggle-cli.md): verify dataset/
+kernel-source anchor filenames are unique before every push, poll with
+`kernels output` on a multi-minute interval rather than `kernels status`, and
+split a run into checkpoint-resumed stages ahead of time if it is projected
+close to the platform's session ceiling.
 
 ## Completion criteria
 

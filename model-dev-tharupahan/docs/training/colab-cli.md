@@ -1,5 +1,12 @@
 # Colab CLI Operations and Storage Safety
 
+**Historical.** Colab was abandoned as the execution platform after E002,
+following repeated free-T4 allocation failures during E003 preparation (four
+consecutive `503` errors across three work cycles, no session ever created).
+Every experiment from E003 onward has run on Kaggle instead; see
+[the Kaggle operations policy](kaggle-cli.md) for current operations. This
+document is retained for reference and in case Colab is used again.
+
 ## Default policy from E002 onward
 
 Google Drive is not mounted. Colab is treated as disposable compute while the
