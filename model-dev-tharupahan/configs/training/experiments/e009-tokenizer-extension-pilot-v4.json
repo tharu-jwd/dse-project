@@ -19,5 +19,5 @@
   "estimated_hours": 0.0,
   "maximum_cost_usd": 0.0,
   "crop_training_audio": false,
-  "extended_tokenizer_path": "artifacts/tokenizer-extension/whisper-small-si-250"
+  "extended_tokenizer_path": "reports/e009-tokenizer-extension/whisper-small-si-250"
 }

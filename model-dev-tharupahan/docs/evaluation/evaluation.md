@@ -102,8 +102,9 @@ for the pattern.
 `scripts/review/try_model_app.py` is a local Streamlit UI for hearing and
 reading a specific completed experiment's actual behavior, not just its
 aggregate numbers: pick any experiment with a locally-available final adapter
-(or the untouched baseline), then feed it your own uploaded audio, a real row
-from the frozen 206-row Sinhala validation set, or a row from the 2,620-row
+(or the untouched baseline), then feed it your own live-recorded voice
+(microphone, via `st.audio_input`), uploaded audio, a real row from the
+frozen 206-row Sinhala validation set, or a row from the 2,620-row
 English-retention benchmark. It plays the audio, shows the raw prediction, a
 word-level diff against the reference when one exists, and that one clip's
 strict/canonical WER/CER. Runs fully offline once the base model is cached.
@@ -111,6 +112,14 @@ This is a qualitative complement to aggregate metrics, not a replacement --
 one clip is not statistically meaningful, and it must never substitute for the
 frozen, paired, confidence-interval-backed evaluation an experiment report
 relies on.
+
+The model list also includes third-party checkpoints for direct qualitative
+comparison, each explicitly labeled `EXTERNAL -- <source>` so it is never
+mistaken for one of this project's own experiments -- currently
+Yohan2003/whisper-small-sinhala's full fine-tune. Independently re-evaluated
+against this project's own frozen validation set; a full write-up covering
+all four of that repo's checkpoints is pending (evaluation in progress as of
+2026-09-07).
 
 ```bash
 pip install -e '.[review,train]'

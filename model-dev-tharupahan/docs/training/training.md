@@ -142,9 +142,9 @@ state and continue to the original global-step target.
 
 ## Automated hyperparameter search and NEFTune
 
-Two additions available for the adapter target-width/learning-rate comparison
-(plan phase 4, item 3), once the nested data-scale curve (E004-E007) is
-complete:
+Two additions for the adapter target-width/learning-rate comparison (plan
+phase 4, item 3), run in parallel with the nested data-scale curve
+(E004-E007) rather than waiting on it to finish:
 
 `scripts/training/optuna_search.py` runs an
 [Optuna](https://optuna.org/) study over LoRA rank and learning rate instead
@@ -154,12 +154,22 @@ next; the objective is the trial's final validation WER, read from the same
 `trainer_state.json` log every run already writes. `lora_alpha` is fixed to
 2x the trial's rank (the standard convention) rather than searched
 independently, keeping the search to the two axes the plan actually calls
-out. The study is stored in a local SQLite file, so a search can be
-interrupted and resumed with the same `--study-name`/`--storage` without
-losing completed trials -- the same resumability discipline as a training run
-itself. Install with `pip install -e '.[search,train]'`. Smoke-tested locally
-end to end (2 trials on `whisper-tiny`, 2 rows, CPU/MPS) before ever pointing
-it at a real pilot; see the script's own docstring for the exact command.
+out. The study is stored in a SQLite file, so a search can be interrupted and
+resumed with the same `--study-name`/`--storage` without losing completed
+trials -- the same resumability discipline as a training run itself, though
+running it against a stash-synced SQLite file on Camber from more than one
+job at a time is not actually safe in practice; see
+[the E008 rank/LR search results](../experiments/e008-optuna-rank-lr-search-v4.md)
+for the concurrency bug this caused. Install with
+`pip install -e '.[search,train]'`.
+
+Run as **E008** (a search, not a controlled experiment on its own): found
+rank=32, learning_rate~2.3e-4 outperforming this project's historical
+default (rank=16, lr=5e-5) at a 100-step proxy budget. That finding is not
+adopted directly -- see **E010**
+([report](../experiments/e010-rank-lr-validation-v4.md)), a clean,
+single-job, 500-step controlled comparison built specifically to validate it
+before it earns a place in any real recipe.
 
 `TrainConfig.neftune_noise_alpha` (optional, default disabled) wires
 [NEFTune](https://arxiv.org/abs/2310.05914) noise-embedding regularization
@@ -168,3 +178,14 @@ and the shared Kaggle/Colab runner (`run_e002_colab.py`, via an optional
 `neftune_noise_alpha` job-config field so older configs remain unaffected).
 Untested at Sinhala-adapter scale here; available as a cheap addition to try
 alongside the rank/LR search, not yet part of any frozen recipe.
+
+A related, separately-run lever: `scripts/training/extend_tokenizer.py`
+extends the tokenizer with 250 dedicated Sinhala subword tokens (the stock
+tokenizer has zero). Run as **E009**
+([report](../experiments/e009-tokenizer-extension-pilot-v4.md)): its first
+pilot destabilized for a confirmed, structural, now-fixed reason (the new
+embedding rows were frozen under this project's LoRA recipe); re-run with
+the fix pending.
+
+All three of E008, E009, and E010 run on Camber Cloud, not Kaggle -- see
+[the Camber operating notes](camber-cli.md).

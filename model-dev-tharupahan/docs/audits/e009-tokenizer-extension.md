@@ -68,7 +68,7 @@ The first 18 selected tokens are single Sinhala consonants/vowel-signs
 tokens, so a single new token per character is already a 2x win on its
 own), followed by space-prefixed word-initial variants, consistent with
 what a frequency-driven BPE trainer should surface first. Full list and
-report: `artifacts/tokenizer-extension/whisper-small-si-250/extension-report.json`.
+report: `reports/e009-tokenizer-extension/whisper-small-si-250/extension-report.json`.
 
 The 57.1% reduction is above the external precedent's reported 30-61% range
 (Hindi 27%, Malayalam 61%), consistent with the near-homophone analysis's
