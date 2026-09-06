@@ -167,10 +167,10 @@ free and excluded).
 | `25175` | GPU/PyTorch smoke test | 4.7 min |
 | `25184`-`25194` | E009 pilot, 6 failed attempts (see below) | 49.7 min |
 | `25195` | E009 pilot, succeeded | 9.9 min |
-| `25196` | E008 search, stuck `PENDING` (accumulated-output bug above), abandoned | unknown -- never left `PENDING`, likely free (billing appears tied to `RUNNING`, not confirmed) |
-| `25199` | E008 search, resubmitted against cleaned path | in progress |
-| **Total, excluding `25196`'s unknown cost (2026-09-06)** | | **~1.07 hours + `25199`** |
-| **Remaining of the 5-hour budget** | | **~3.93 hours, minus `25199`** |
+| `25196` | E008 search, initially looked stuck `PENDING` (accumulated-output bug above); re-checked later and shows `COMPLETED` | 83.6 min (created_at-to-finished_at; billing may be `RUNNING`-time only, still not confirmed) |
+| `25199` | E008 search, resubmitted against cleaned path | 66.0 min, ended `CANCELLED` (the `PENDING`-then-auto-cancel behavior documented above) |
+| **Total (2026-09-06, re-verified 2026-09-07 via `camber job get --output json`)** | | **~3.57 hours** |
+| **Remaining of the 5-hour budget** | | **~1.43 hours** |
 
 Update this table (recompute from `camber job get <id> --output json` for
 every `--gpu` job since the last entry) whenever a new Camber job runs, not
