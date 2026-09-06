@@ -40,6 +40,25 @@ def test_cost_gate_uses_safety_margin() -> None:
     assert config.planned_cost_usd == 1.0
 
 
+def test_extended_tokenizer_path_defaults_to_none_and_round_trips(tmp_path: Path) -> None:
+    config = TrainConfig("model", "manifest", "run")
+    assert config.extended_tokenizer_path is None
+
+    path = tmp_path / "config.json"
+    path.write_text(
+        json.dumps(
+            {
+                "model_name": "model",
+                "manifest": "manifest.parquet",
+                "output_dir": "run",
+                "extended_tokenizer_path": "artifacts/tokenizer-extension/whisper-small-si-250",
+            }
+        )
+    )
+    loaded = TrainConfig.load(path)
+    assert loaded.extended_tokenizer_path == "artifacts/tokenizer-extension/whisper-small-si-250"
+
+
 def test_unreviewed_validation_is_smoke_only(tmp_path: Path) -> None:
     path = tmp_path / "manifest.parquet"
     pq.write_table(

@@ -265,7 +265,21 @@ unit of time/risk, not by raw expected benefit alone:
    random initialization of the new tokens) but should be expected to yield a
    modest improvement (roughly -0.7 percentage points WER in the closest
    published study), not a breakthrough. Set expectations accordingly before
-   scoping the pilot. Not yet scoped or started.
+   scoping the pilot. Status: build done, pilot not yet run. Registered as
+   E009. `scripts/training/extend_tokenizer.py` trains 250 new tokens from
+   the real v4 corpus and wires them into `train.py`/`TrainConfig` via
+   `extended_tokenizer_path`; measured a 57.1% tokens-per-word reduction
+   (10.214 -> 4.386) on real text, above the external precedent's 30-61%
+   range, consistent with Sinhala's worse starting point (zero dedicated
+   vocabulary) predicting a larger relative gain. A real bug was found and
+   fixed in the process -- `add_tokens()` silently no-ops on the tokenizer's
+   internal byte-remapped token strings; needs the text decoded back first.
+   See [the E009 audit](../audits/e009-tokenizer-extension.md) for the full
+   trace. The bounded pilot itself
+   (`configs/training/experiments/e009-tokenizer-extension-pilot-v4.json`,
+   same recipe as E001 for direct comparability) is queued for Camber once
+   its current E008 data upload finishes, not run locally, to avoid loading
+   down the machine during interactive use.
 4. A properly scoped, bounded full-parameter fine-tuning pilot -- potentially
    the largest remaining lever given LoRA's measured ceiling, but currently
    out of scope per this plan and requires its own cost/scope review before

@@ -38,6 +38,7 @@ class TrainConfig:
     crop_training_audio: bool = False
     crop_proposals: str | None = None
     neftune_noise_alpha: float | None = None
+    extended_tokenizer_path: str | None = None
 
     @classmethod
     def load(cls, path: Path) -> "TrainConfig":

@@ -1,0 +1,23 @@
+{
+  "model_name": "openai/whisper-small",
+  "manifest": "data/versions/v4/manifest.parquet",
+  "output_dir": "runs/e009-tokenizer-extension-pilot-v4",
+  "method": "lora",
+  "max_steps": 100,
+  "learning_rate": 5e-5,
+  "train_batch_size": 4,
+  "eval_batch_size": 8,
+  "gradient_accumulation_steps": 4,
+  "eval_steps": 50,
+  "save_steps": 50,
+  "logging_steps": 5,
+  "fp16": true,
+  "bf16": false,
+  "gradient_checkpointing": true,
+  "dataloader_num_workers": 2,
+  "hourly_price_usd": 0.0,
+  "estimated_hours": 0.0,
+  "maximum_cost_usd": 0.0,
+  "crop_training_audio": false,
+  "extended_tokenizer_path": "artifacts/tokenizer-extension/whisper-small-si-250"
+}

@@ -20,6 +20,7 @@ from transformers import (
     Seq2SeqTrainingArguments,
     WhisperForConditionalGeneration,
     WhisperProcessor,
+    WhisperTokenizer,
 )
 
 from sinhala_asr.evaluation.metrics import score_pair, strict_normalize
@@ -118,7 +119,21 @@ def main() -> None:
     processor = WhisperProcessor.from_pretrained(
         config.model_name, language="si", task="transcribe"
     )
+    if config.extended_tokenizer_path:
+        # Swap in a tokenizer with extra Sinhala subword tokens appended via
+        # add_tokens() (see scripts/training/extend_tokenizer.py); the base
+        # tokenizer's own vocab/merges are untouched, only new IDs are added
+        # on top, so this is purely additive.
+        processor.tokenizer = WhisperTokenizer.from_pretrained(
+            config.extended_tokenizer_path, language="si", task="transcribe"
+        )
     model = WhisperForConditionalGeneration.from_pretrained(config.model_name)
+    if config.extended_tokenizer_path:
+        # New rows get the model's default (random) initialization -- the
+        # same approach used, without reported instability, by the external
+        # precedent for this exact technique (see
+        # docs/audits/e006-near-homophone-error-analysis.md#external-precedent-for-this-exact-fix).
+        model.resize_token_embeddings(len(processor.tokenizer))
     model.generation_config.language = "si"
     model.generation_config.task = "transcribe"
     model.generation_config.forced_decoder_ids = None
