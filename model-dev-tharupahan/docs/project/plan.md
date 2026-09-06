@@ -99,8 +99,15 @@ only when a recorded result changes the evidence.
 
 ### 1. Complete the E007 decoding comparison
 
-Finish greedy-versus-beam evaluation on E007. This has zero training cost and
-composes with later models, but is not expected to close the full WER gap.
+**Complete.** Beam search (`num_beams=5`) gives a modest, real WER
+improvement over greedy (76.26% vs 81.40% canonical WER) with CER
+essentially flat (26.67% vs 26.15%) -- confirmed on the same Kaggle T4
+platform and code path as E007's own original evaluation, not a different
+platform's non-matching baseline. As expected, does not close the WER gap
+to target; adopt beam search as the default decoding choice going forward
+regardless of which model wins the bake-off below, since it is free and
+composes with any checkpoint. See
+[the E007 report](../experiments/e007-whisper-small-wide-lora-r16-full-v4-teacher-replay.md#decoding-time-check-greedy-versus-beam-search).
 
 ### 2. Strengthen evaluation
 

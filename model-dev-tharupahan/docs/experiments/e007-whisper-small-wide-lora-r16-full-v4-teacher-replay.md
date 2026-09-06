@@ -160,6 +160,57 @@ Paired bootstrap 95% intervals (2,000 iterations):
   E004. Scaling Sinhala exposure from 100 to 220.877 hours did not
   measurably worsen retention under the teacher-replay recipe.
 
+## Decoding-time check: greedy versus beam search
+
+Zero-training follow-up (item 1 in [the plan's ranked execution
+order](../project/plan.md#3-ranked-execution-plan)): re-ran the same final
+adapter through E007's own original evaluation code path (batched, fp16,
+`attention_mask`, `max_new_tokens=64`, same Kaggle T4 platform) with
+`num_beams=5` instead of `num_beams=1`, via a new kernel
+(`kaggle/e007-decoding-comparison/`) rather than reusing the training
+kernel, since this needed to be directly comparable to E007's own reported
+number.
+
+A real methodological finding surfaced first: an earlier attempt at this
+same comparison, run locally and on Camber, produced individual
+predictions that differed from E007's actual recorded output for the same
+row, at first suspected to be cross-hardware divergence. Repeating the
+check on the identical Kaggle T4 platform still produced a different
+per-row prediction for the first validation row -- ruling out
+cross-hardware divergence specifically. This project's greedy decoding is
+not perfectly deterministic row-by-row on repeat runs (a known property of
+unforced-non-deterministic GPU kernels), but the **aggregate** metric over
+206 rows is stable: this run's own `num_beams=1` result (81.40% canonical
+WER, 26.15% canonical CER) reproduces E007's original reported number
+(81.71% WER, 26.15% CER exactly) within a fraction of a point, confirming
+the two evaluations are measuring the same underlying model quality
+despite individual predictions not being byte-identical. Worth remembering
+for any future single-row spot-check: a differing individual prediction is
+not on its own evidence of a bug.
+
+Hash-verified predictions (`predictions-beam1.parquet`
+`sha256:d6db4ccc6cd2b2f00cd3176a6fe7f01485c5db9ce23d9c475eab9e93f53333cc`,
+`predictions-beam5.parquet`
+`sha256:778497d674d3ca24031c0d6ace6507db072a035351b86f406d1ddf9b36dc3c34`),
+independently re-scored with this project's own metrics:
+
+| Decoding | Canonical WER | Canonical CER |
+|---|---:|---:|
+| Greedy (`num_beams=1`) | 81.40% | 26.15% |
+| Beam search (`num_beams=5`) | **76.26%** | 26.67% |
+
+Beam search gives a real, modest WER improvement (-5.14pp) but CER is
+essentially flat, slightly worse (+0.52pp) -- a smaller, more nuanced
+effect than an earlier, non-matching-platform attempt at this comparison
+suggested (which showed a much larger apparent gap, an artifact of
+comparing two runs that had each converged to a different, non-identical
+sequence of individual predictions, not a real property of beam search).
+Consistent with beam search generally reducing word-level errors (fewer
+wrong whole-word choices) without necessarily improving character-level
+precision. Zero training cost, composes with any future checkpoint
+(rank/LR rerun, tokenizer extension, etc.) as an independent decoding-time
+choice on top of whichever model wins.
+
 ## Decision rule
 
 Report strict and canonical Sinhala WER/CER with paired bootstrap deltas against
