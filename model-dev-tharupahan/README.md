@@ -24,7 +24,9 @@ Dataset source, fingerprinting, audit, and native-speaker review commands are in
 ignored by Git.
 
 Prediction scoring and error-analysis rules are in
-[evaluation protocol](docs/evaluation/evaluation.md).
+[evaluation protocol](docs/evaluation/evaluation.md), which also documents a
+local Streamlit UI for trying any completed experiment's model yourself on
+real or uploaded audio.
 Training, resume, and cost-gate commands are in
 [the training guide](docs/training/training.md).
 The completed text-only label experiment and its rejected automatic-refinement

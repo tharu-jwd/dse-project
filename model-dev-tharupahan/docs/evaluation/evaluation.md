@@ -96,3 +96,23 @@ clear statement of what was computed, on what data, and what it does and does
 not explain; see
 [the E006 near-homophone error analysis](../audits/e006-near-homophone-error-analysis.md)
 for the pattern.
+
+## Interactively trying a model
+
+`scripts/review/try_model_app.py` is a local Streamlit UI for hearing and
+reading a specific completed experiment's actual behavior, not just its
+aggregate numbers: pick any experiment with a locally-available final adapter
+(or the untouched baseline), then feed it your own uploaded audio, a real row
+from the frozen 206-row Sinhala validation set, or a row from the 2,620-row
+English-retention benchmark. It plays the audio, shows the raw prediction, a
+word-level diff against the reference when one exists, and that one clip's
+strict/canonical WER/CER. Runs fully offline once the base model is cached.
+This is a qualitative complement to aggregate metrics, not a replacement --
+one clip is not statistically meaningful, and it must never substitute for the
+frozen, paired, confidence-interval-backed evaluation an experiment report
+relies on.
+
+```bash
+pip install -e '.[review,train]'
+PYTHONPATH=src streamlit run scripts/review/try_model_app.py
+```
