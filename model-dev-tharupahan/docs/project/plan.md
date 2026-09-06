@@ -248,7 +248,14 @@ unit of time/risk, not by raw expected benefit alone:
    confusion pair, making it a more targeted, better-diagnosed bet than the
    full-parameter pilot below, and a smaller one -- it needs "only" a
    tokenizer change plus a bounded pilot to confirm nothing destabilizes, not
-   a full retrain from scratch. Not yet scoped or started.
+   a full retrain from scratch. Real precedent exists for this exact
+   technique on comparable non-Latin-script low-resource languages -- see
+   [the near-homophone analysis's external-precedent section](../audits/e006-near-homophone-error-analysis.md#external-precedent-for-this-exact-fix)
+   -- and says it is safe (no training instability reported even with plain
+   random initialization of the new tokens) but should be expected to yield a
+   modest improvement (roughly -0.7 percentage points WER in the closest
+   published study), not a breakthrough. Set expectations accordingly before
+   scoping the pilot. Not yet scoped or started.
 4. A properly scoped, bounded full-parameter fine-tuning pilot -- potentially
    the largest remaining lever given LoRA's measured ceiling, but currently
    out of scope per this plan and requires its own cost/scope review before

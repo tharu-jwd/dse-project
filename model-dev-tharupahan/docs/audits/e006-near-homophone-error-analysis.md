@@ -123,6 +123,57 @@ destabilize what the base model already knows. See
 (item 3) for where this sits relative to the rank/LR search and the
 full-parameter pilot, and why.
 
+### External precedent for this exact fix
+
+Checked whether this has been tried for comparable languages, rather than
+treating it as a novel idea. Most directly relevant:
+[Enhancing Whisper's Accuracy and Speed for Indian Languages through
+Prompt-Tuning and Tokenization](https://arxiv.org/abs/2412.19785) (ICASSP
+2025) -- 8 Indic-script languages (Hindi, Gujarati, Marathi, Bengali, Tamil,
+Telugu, Kannada, Malayalam), non-Latin scripts similarly underrepresented in
+Whisper's pretraining, about as close a precedent to Sinhala as exists in the
+literature. They added new BPE tokens learned from language-specific data
+(tested 125/250/500/1000 tokens; 250 was optimal), extended the model's final
+layer with **randomly-initialized weights for the new tokens** -- the same
+approach this document flagged as risky above -- and reported:
+
+- 30-61% fewer tokens per word (Hindi 27->19, Malayalam 79->31)
+- ~35-44% faster inference (fewer tokens to generate)
+- WER improved modestly: ~24.54% -> 23.81% average (about -0.7 percentage
+  points)
+- **No training instability reported**, even with plain random
+  initialization and no special handling of the embedding/LM-head freezing
+  concern raised above
+
+Their starting point (27-79 tokens/word) already had some multi-byte merges
+-- better than Sinhala's confirmed literal zero (this document's finding
+above). That makes their -0.7pp a plausible conservative floor for this
+project, not a ceiling -- a worse starting point could mean a larger relative
+gain -- but that is inference, not something either paper measured.
+
+A complementary, cheaper, and separately validated technique: [Whispering in
+Amharic](https://arxiv.org/abs/2503.18485) -- another genuinely comparable
+low-resource, non-Latin-script language -- found that **normalizing
+homophones** (treating known sound-equivalent spelling variants as the same
+at the text level) "significantly enhances WER." This is a different lever
+from tokenizer extension, closer to what this project's own
+`metric_normalize` already does for other normalization concerns, except it
+does not currently fold ල/ළ or ණ/න together. Worth considering alongside the
+tokenizer change, not only as a substitute for it.
+
+This project's own diagnosis is not an isolated observation either: [Beyond
+WER: Probing Whisper's Sub-token Decoder Across Diverse Language Resource
+Levels](https://arxiv.org/html/2509.25516v1) independently documents that
+low-resource languages get "lower-ranked correct sub-tokens, reduced model
+confidence, higher predictive entropy" from Whisper's tokenizer -- the same
+phenomenon found here for Sinhala -- though that paper stops at diagnosis and
+does not test a fix.
+
+**Bottom line for scoping the pilot**: real precedent says this is safe to
+try (no instability reported, even without extra care around the frozen-
+embedding risk) but should be expected to yield a modest improvement, not a
+breakthrough -- consistent with every other lever examined in this document.
+
 ## How common are the pairs this analysis is about, versus the missing coverage?
 
 Cross-checked against a syllable-frequency table over a large natural Sinhala
