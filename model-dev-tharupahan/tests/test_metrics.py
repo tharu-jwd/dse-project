@@ -1,5 +1,8 @@
+import pytest
+
 from sinhala_asr.evaluation.metrics import (
     edit_counts,
+    error_labels,
     evaluate_rows,
     paired_delta_interval,
     strict_normalize,
@@ -40,6 +43,21 @@ def test_evaluation_reports_strict_canonical_and_subgroups() -> None:
 
 def test_strict_normalization_only_collapses_whitespace_and_nfc() -> None:
     assert strict_normalize("  මම\n  යමි. ") == "මම යමි."
+
+
+def test_error_labels_skip_colloquial_check_without_sinling(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "sinhala_asr.evaluation.metrics._sinling_stemmer", lambda: None
+    )
+    labels = error_labels("කරනවා යනවා", "කරයි යනවා")
+    assert "substitution" in labels
+    assert "colloquial_formal_mismatch" not in labels
+
+
+def test_error_labels_flag_colloquial_formal_mismatch() -> None:
+    pytest.importorskip("sinling", reason="optional morphology extra not installed")
+    labels = error_labels("කරනවා යනවා", "කරයි යනවා")
+    assert "colloquial_formal_mismatch" in labels
 
 
 def test_paired_delta_interval_detects_consistent_improvement() -> None:

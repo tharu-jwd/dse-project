@@ -116,3 +116,25 @@ relies on.
 pip install -e '.[review,train]'
 PYTHONPATH=src streamlit run scripts/review/try_model_app.py
 ```
+
+## Colloquial/formal mismatch label
+
+`error_labels()` can tag a substitution as `colloquial_formal_mismatch` when
+the reference and prediction words reduce to the same root under the optional
+SinLing stemmer (`pip install -e '.[dev]' && pip install -e '.[morphology]'` --
+or add `morphology` alongside whatever other extras are already in use).
+Without that extra installed, this check is skipped silently and every other
+label is unaffected -- `evaluate_predictions.py` and the rest of the official
+scoring path do not require it.
+
+This fills the "Colloquial/formal mismatch" category from the plan's Phase 3
+taxonomy, previously unimplemented. Like every other automatic label, it is a
+triage signal, not linguistic ground truth, and the false-positive risk here
+is real and observed, not theoretical: `SinhalaStemmer` is a rule-based
+suffix stripper, not a dictionary-backed morphological analyzer, so it can
+report a shared root for words that are not actually the same word with a
+different formality register -- for example, it flagged an E006 validation
+row where the prediction was simply a garbled misrecognition
+(`ලැබුණු` -> `ලැබලු`), not a genuine formal/colloquial variant. Treat this
+label the same way as every other one: a reason to look at the row, not a
+verdict on it.

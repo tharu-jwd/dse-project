@@ -2,12 +2,70 @@
 
 from __future__ import annotations
 
+import difflib
 import random
 import unicodedata
 from collections import Counter, defaultdict
 from typing import Any, Callable, Sequence
 
 from sinhala_asr.text.normalizer import metric_normalize
+
+_STEMMER: Any = None
+_STEMMER_UNAVAILABLE = False
+
+
+def _sinling_stemmer() -> Any:
+    """Lazily load and cache the optional SinLing stemmer.
+
+    Returns None (never raises) when the `morphology` extra is not
+    installed, so error_labels() degrades gracefully rather than requiring
+    every caller of evaluate_predictions.py to install it.
+    """
+    global _STEMMER, _STEMMER_UNAVAILABLE
+    if _STEMMER_UNAVAILABLE:
+        return None
+    if _STEMMER is None:
+        try:
+            from sinling import SinhalaStemmer
+        except ImportError:
+            _STEMMER_UNAVAILABLE = True
+            return None
+        _STEMMER = SinhalaStemmer()
+    return _STEMMER
+
+
+def _shares_stem(reference_word: str, prediction_word: str) -> bool:
+    """Whether two different words reduce to the same SinLing root.
+
+    Heuristic, not ground truth: catches formal/colloquial suffix variants
+    and other inflectional differences a plain string comparison cannot.
+    """
+    stemmer = _sinling_stemmer()
+    if stemmer is None:
+        return False
+    try:
+        reference_root, _ = stemmer.stem(reference_word)
+        prediction_root, _ = stemmer.stem(prediction_word)
+    except Exception:
+        return False
+    return bool(reference_root) and reference_root == prediction_root
+
+
+def _substituted_word_pairs(reference: str, prediction: str) -> list[tuple[str, str]]:
+    """Word pairs a simple alignment treats as substituted.
+
+    A separate, self-contained alignment for this triage label only -- not
+    the DP alignment edit_counts() uses for scored WER/CER -- so it can
+    never disagree with or change an official metric.
+    """
+    reference_words = reference.split()
+    prediction_words = prediction.split()
+    matcher = difflib.SequenceMatcher(None, reference_words, prediction_words, autojunk=False)
+    pairs = []
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "replace":
+            pairs.extend(zip(reference_words[i1:i2], prediction_words[j1:j2]))
+    return pairs
 
 
 def strict_normalize(text: str) -> str:
@@ -169,6 +227,12 @@ def error_labels(
     counts = edit_counts(strict_reference.split(), strict_prediction.split())
     if counts["substitutions"]:
         labels.append("substitution")
+        substituted_pairs = _substituted_word_pairs(strict_reference, strict_prediction)
+        if any(
+            reference_word != prediction_word and _shares_stem(reference_word, prediction_word)
+            for reference_word, prediction_word in substituted_pairs
+        ):
+            labels.append("colloquial_formal_mismatch")
     if counts["deletions"]:
         labels.append("deletion")
     if counts["insertions"]:
