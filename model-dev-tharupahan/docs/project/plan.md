@@ -265,21 +265,32 @@ unit of time/risk, not by raw expected benefit alone:
    random initialization of the new tokens) but should be expected to yield a
    modest improvement (roughly -0.7 percentage points WER in the closest
    published study), not a breakthrough. Set expectations accordingly before
-   scoping the pilot. Status: build done, pilot not yet run. Registered as
-   E009. `scripts/training/extend_tokenizer.py` trains 250 new tokens from
-   the real v4 corpus and wires them into `train.py`/`TrainConfig` via
-   `extended_tokenizer_path`; measured a 57.1% tokens-per-word reduction
-   (10.214 -> 4.386) on real text, above the external precedent's 30-61%
-   range, consistent with Sinhala's worse starting point (zero dedicated
-   vocabulary) predicting a larger relative gain. A real bug was found and
-   fixed in the process -- `add_tokens()` silently no-ops on the tokenizer's
-   internal byte-remapped token strings; needs the text decoded back first.
-   See [the E009 audit](../audits/e009-tokenizer-extension.md) for the full
-   trace. The bounded pilot itself
+   scoping the pilot. Status: build done, first pilot run done on Camber and
+   diagnosed unstable for a confirmed, fixable reason -- **not** the "modest
+   improvement" outcome expected. `scripts/training/extend_tokenizer.py`
+   trains 250 new tokens from the real v4 corpus and wires them into
+   `train.py`/`TrainConfig` via `extended_tokenizer_path`; measured a 57.1%
+   tokens-per-word reduction (10.214 -> 4.386) on real text, above the
+   external precedent's 30-61% range. The pilot run itself
    (`configs/training/experiments/e009-tokenizer-extension-pilot-v4.json`,
-   same recipe as E001 for direct comparability) is queued for Camber once
-   its current E008 data upload finishes, not run locally, to avoid loading
-   down the machine during interactive use.
+   same recipe as E001) came back with WER *rising* over training (169% ->
+   999% between step 50 and 100) and, on direct inspection of real
+   generated text, the model outputting actual Khmer script on two of four
+   sampled clips -- not the target language at all. Root cause confirmed
+   structurally, not guessed: this project's LoRA `target_modules`
+   (`q_proj,k_proj,v_proj,out_proj,fc1,fc2`) does not include Whisper's tied
+   embedding/output-projection layer, so the 250 newly-added token rows stay
+   frozen at their random initialization for the entire run -- exactly the
+   embedding-freezing risk flagged before building anything, now confirmed
+   for this project's specific LoRA recipe (the external paper's "no
+   instability" result came from full fine-tuning, where nothing is frozen,
+   so it never tested this failure mode). Fix identified but not yet
+   applied: add `modules_to_save=["embed_tokens", "proj_out"]` to the LoRA
+   config so those layers train alongside the adapters. See
+   [the E009 audit](../audits/e009-tokenizer-extension.md) for the full
+   trace, including the earlier `add_tokens()` byte-remapping bug and the
+   Camber environment issues hit along the way. Second pilot run, with the
+   fix, not yet done.
 4. A properly scoped, bounded full-parameter fine-tuning pilot -- potentially
    the largest remaining lever given LoRA's measured ceiling, but currently
    out of scope per this plan and requires its own cost/scope review before

@@ -76,16 +76,85 @@ prediction that Sinhala's worse starting point (literal zero vocabulary,
 versus the precedent languages' 27-79 tokens/word) should mean a *larger*
 relative gain, not a smaller one.
 
+## Pilot run: destabilization confirmed (real finding, recipe needs a fix)
+
+Ran on Camber Cloud (2026-09-06, job `25195`, `--gpu --size xsmall`, real L4)
+after several environment-only failed attempts (wrong project-root path in
+`download_openslr52.py`/`inventory_sources.py`/`index_openslr52.py`, a
+Python-version mismatch needing a `numpy<2.2` pin, `git_commit()` crashing
+outside a git checkout -- all fixed in-session, see commits `f1037d1` and
+`49b8218`). The job itself completed (exit 0) but the *result* is bad, and
+directly explains why:
+
+```
+step 50:  eval_wer=1.691   eval_cer=0.938   (169% / 94%)
+step 100: eval_wer=9.994   eval_cer=2.423   (999% / 242%) -- got WORSE, not better
+train_loss: 40.6 (started ~50, this project's normal runs start ~11-12)
+```
+
+WER *increasing* over training, plus a starting loss roughly 4-5x higher
+than any other experiment in this project at the same step count, is not
+"a modest improvement" -- it is instability. Downloaded `checkpoint-100`
+and ran the same direct-reproduction check used for the E008 bug (load the
+real checkpoint, generate on real validation clips, read the actual text,
+not just the aggregate metric):
+
+```
+REF: ඒත් අපිට ලැබුණු උත්තර පට්ට පල් බොරු
+HYP: ' ស ឡ វ ល ហ ផ រ ឧ ភ ឦ ឰ ប ...'   (222 tokens, ran to near the cap)
+```
+
+That is **Khmer script**, not Sinhala, not garbage byte-fallback text --
+actual Khmer Unicode characters, on two of four sampled clips. The other
+two produced short, wrong-but-real Sinhala fragments. This is a
+structurally different failure from the E008 repetition loop (which was a
+decoding-only issue on an otherwise-healthy model) -- here the model itself
+is unstable.
+
+### Root cause (structurally confirmed, not inferred)
+
+`WhisperForConditionalGeneration` ties its input embeddings and output
+projection (`model.config.tie_word_embeddings == True`;
+`model.decoder.embed_tokens` and `proj_out` share one weight matrix, verified
+directly). `resize_token_embeddings()` correctly grows that matrix to 52115
+rows with the new 250 rows randomly initialized (the same approach the
+external precedent used). But `model.decoder.embed_tokens`/`proj_out` are
+**not** in this project's LoRA `target_modules`
+(`q_proj,k_proj,v_proj,out_proj,fc1,fc2`) -- and `get_peft_model()` freezes
+every parameter outside the target modules (and outside `modules_to_save`,
+which the current recipe does not set). So the 250 new embedding rows are
+frozen at their random initial values for the entire run: no gradient ever
+reaches them. Every time the extended tokenizer's greedy BPE merges route
+real training text through one of those 250 tokens (which is often --
+that's the whole point of the extension, 57.1% fewer tokens/word), the model
+is being asked to learn from/predict a token whose representation can never
+move. That is a plausible, sufficient explanation for both the rising WER
+and the specific failure mode (the model falling back on unrelated
+high-probability tokens from its original 99-language pretraining,
+including Khmer, when its Sinhala-token predictions are anchored to noise).
+
+This is exactly the risk [the near-homophone
+analysis](e006-near-homophone-error-analysis.md#external-precedent-for-this-exact-fix)
+flagged before building anything ("no special handling of the
+embedding/LM-head freezing concern raised above") -- confirmed now, for
+this project's specific LoRA recipe, not the full-fine-tune recipe the
+external paper actually used (full fine-tuning leaves nothing frozen, so
+their "no instability" result was never testing this failure mode at all).
+
+### The fix, not yet applied
+
+PEFT's documented pattern for exactly this situation: add
+`modules_to_save=["embed_tokens", "proj_out"]` to the `LoraConfig`, which
+keeps those two modules fully trainable (not LoRA-adapted, plain fine-tuned)
+alongside the LoRA adapters on the attention/MLP projections. Requires
+plumbing a new field through `TrainConfig`/`train.py`'s LoRA branch --
+currently `LoraConfig(...)` is called with no `modules_to_save` argument at
+all. Not yet implemented; the pilot needs to be re-run with this fix before
+concluding anything about the tokenizer extension's real effect on WER/CER.
+
 ## Status
 
-Build and unit-level verification done; **the actual bounded pilot training
-run has not been executed yet.** Config is ready:
-`configs/training/experiments/e009-tokenizer-extension-pilot-v4.json` --
-identical recipe to E001 (rank=16, lr=5e-5, 100 steps) plus
-`extended_tokenizer_path`, so its result is directly comparable to E001's
-already-known number (114.26% strict WER at this same tiny step budget) as
-the destabilization check the plan called for. Deliberately held rather
-than run locally: the local machine was in active interactive use, and a
-100-step LoRA run at local MPS speed would visibly lag it (confirmed
-firsthand earlier this session with the E008 search). Will run on Camber
-Cloud once its current data upload for E008 finishes.
+Build done, first pilot run done and diagnosed as unstable for a specific,
+confirmed, fixable reason (frozen new-token embeddings under LoRA). Recipe
+fix (`modules_to_save`) not yet implemented. Second pilot run pending that
+fix.
