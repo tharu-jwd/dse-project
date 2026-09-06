@@ -1,5 +1,5 @@
 {
-  "id": "tharupahan/sinhala-asr-e007-phase-a-training",
+  "id": "tharupahan/sinhala-asr-e007-full-v4-teacher-replay-phase-a",
   "title": "Sinhala ASR E007 Full v4 Teacher Replay Phase A",
   "code_file": "e007-phase-a-training.py",
   "language": "python",

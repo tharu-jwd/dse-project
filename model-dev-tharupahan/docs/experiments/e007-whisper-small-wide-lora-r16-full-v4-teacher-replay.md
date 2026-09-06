@@ -2,7 +2,7 @@
 
 ## Status
 
-Prepared. Phase A has not yet started.
+Running. Phase A kernel version 1 started on 2026-09-06 at 12:17 Asia/Colombo.
 
 ## Question
 
@@ -50,7 +50,15 @@ archive hash and trainer state match the frozen handoff.
   202,961 occurrences.
 - The private Kaggle orchestration runtime was published with independently
   indexed copies of the generic runner and E007 orchestrator. The full audio
-  input dataset must also be verified server-side before Phase A is submitted.
+  input dataset reached Kaggle's `ready` state with all 186 expected server
+  files present and all indexed payload sizes matching local sources.
+
+## Execution
+
+Phase A is running as private Kaggle kernel
+`tharupahan/sinhala-asr-e007-full-v4-teacher-replay-phase-a`, version 1. Its
+expected durable handoff is `checkpoint-004077.tar.gz`. No Phase B kernel will
+be published until that archive is downloaded and independently hashed.
 
 ## Decision rule
 
