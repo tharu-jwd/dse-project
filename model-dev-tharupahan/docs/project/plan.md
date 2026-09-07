@@ -277,6 +277,59 @@ Advance full adaptation only if it substantially breaks the LoRA ceiling.
 Protect English through measured replay/regularization rather than assuming
 full fine-tuning necessarily destroys it.
 
+**Cost estimate.** Anchored on E007's own measured throughput (4,077 steps
+in 6.9h wall-clock on a Kaggle T4, so ~591 steps/hour), a full-parameter
+epoch over the complete 220.877-hour split at the same one-epoch,
+~10%-replay convention would take roughly **14-21 GPU-hours (~17h central
+estimate)**. LoRA's trainable set here is only ~5M of Whisper-small's
+~244M parameters, so forward/backward FLOPs are close to identical between
+the two; the slowdown comes from full AdamW optimizer state for every
+parameter and the smaller per-device batch size that forces on a 16GB T4,
+not from materially more compute per example. This must run on Kaggle,
+matching E007's own two-phase, checkpoint-resumed pattern across the
+12-hour session ceiling -- the ~0.66h Camber budget remaining cannot cover
+any meaningful fraction of it, and even Kaggle's own separate weekly free
+allowance would take most of a week in one run.
+
+**Deciding the learning rate.** Reuse the E008-then-E010 pattern (cheap
+Optuna search, then validate the winner with a longer controlled
+comparison) rather than guessing, but do not reuse E008's search space:
+its winning LR (~2.345e-4) is appropriate for a small LoRA subspace and is
+not expected to transfer to full-parameter updates, which move every
+weight and typically need a rate an order of magnitude or more lower.
+Search log-uniform over roughly **1e-6 to 5e-5**, not E008's range.
+
+**Deciding the replay ratio.** Checked directly: the ~10% replay ratio
+used in every teacher-replay experiment since E004 was a **design choice
+picked once**, never itself searched -- it was carried forward unchanged
+through E005-E007 only because it kept passing the retention gate as
+Sinhala data scaled up under LoRA, where 99% of weights stay frozen by
+construction. That safety margin does not exist for full-parameter
+adaptation, so 10% is an unvalidated assumption here, not a proven number,
+and must be swept rather than carried over silently.
+
+**Combined search plan, before committing to the full run:**
+
+1. Run a small joint grid over LR x replay ratio (e.g. 3 LR values x
+   {10%, 20%, 30%}) at a cheap ~100-step budget, mirroring E008's trial
+   size.
+2. Fix the one real gap in E008's own search design before reusing it:
+   E008 optimized `eval_wer` alone. For full-parameter adaptation the
+   selection objective must include **both** pre-registered gates --
+   Sinhala WER improving *and* the retention check (paired bootstrap CI
+   against the untouched model on the frozen 2,620-row LibriSpeech set)
+   passing -- otherwise the search can hand back a configuration that
+   wins on WER by destroying English, which an eval_wer-only objective
+   would never catch.
+3. Validate the surviving best configuration with one E010-style longer
+   controlled comparison (same paired-CI methodology) before committing
+   to the full ~17h run.
+4. Estimated cost of this search phase alone: roughly **3-5 GPU-hours**
+   (full-parameter trials cost more per step than E008's LoRA trials, per
+   the estimate above) -- small next to the full run, and the part that
+   actually de-risks the English-forgetting question rather than assuming
+   the LoRA-era 10% number still holds unchanged.
+
 ### 8. Test alternative multilingual CTC families if needed
 
 If Omnilingual is unavailable or leaves a material gap, evaluate MMS Sinhala
@@ -493,6 +546,8 @@ completed items into summaries or remove them when priorities change.
 - [x] Re-run the corrected E009 tokenizer pilot -- fix confirmed correct,
   stopped per its own stop condition (still doesn't beat E010).
 - [ ] Compare bounded Whisper full-parameter adaptation with rank-32 LoRA.
+  Cost (~17h) and the LR/replay-ratio search strategy are now documented
+  in section 3, item 7; not yet run.
 - [ ] Run only evidence-triggered fallback models and ablations.
 - [ ] Freeze the selected candidate and run the final unopened test.
 - [ ] Complete deployment benchmark and model card.
