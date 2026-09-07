@@ -80,9 +80,24 @@ def stage_model(runtime: Path) -> None:
 
 def main() -> None:
     runtime = one_file("whisper-small--model.safetensors").parent
-    predict_script = one_file("predict.py")
     sinhala_asr_src = one_dir("sinhala_asr")
-    adapter_dir = one_file("adapter_model.safetensors").parent
+    # predict.py is a direct sibling of sinhala_asr/ in the orchestration
+    # dataset, by construction -- not found via one_file("predict.py"),
+    # which also matches sinhala_asr/evaluation/predict.py (a same-named
+    # module inside the package) and raises on the ambiguity.
+    predict_script = sinhala_asr_src.parent / "predict.py"
+    if not predict_script.is_file():
+        raise RuntimeError(f"predict.py not found at {predict_script}")
+    # adapter_model.safetensors is not unique -- the e007-phase-b kernel
+    # source also carries several intermediate checkpoint-N/adapter_model
+    # .safetensors files. Anchor on the run's own small, unique result
+    # marker instead, then take the fixed relative path to final-adapter/,
+    # same convention kaggle/e007-decoding-comparison/e007-decoding-
+    # comparison.py already established.
+    result_path = one_file("e007-phase-b-kaggle-result.json")
+    adapter_dir = result_path.parent / "e007-phase-b/final-adapter"
+    if not adapter_dir.is_dir():
+        raise RuntimeError(f"E007 final-adapter not found at {adapter_dir}")
 
     adapter_hash = sha256(adapter_dir / "adapter_model.safetensors")
     if adapter_hash != ADAPTER_SHA256:
