@@ -1,5 +1,5 @@
 {
-  "id": "tharupahan/sinhala-asr-e012-full-finetune-search",
+  "id": "tharupahan/sinhala-asr-e012-full-finetune-lr-replay-search",
   "title": "Sinhala ASR E012 Full-Finetune LR Replay Search",
   "code_file": "e012-full-finetune-search.py",
   "language": "python",

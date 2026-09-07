@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -157,12 +158,23 @@ def main() -> None:
                 print(f"trial {trial_id} FAILED, see {log_path}", flush=True)
                 results.append({"trial": trial_id, "replay_ratio": replay_ratio,
                                  "learning_rate": learning_rate, "status": "failed"})
-                continue
-            metrics = read_trainer_state(trial_dir)
-            row = {"trial": trial_id, "replay_ratio": replay_ratio,
-                   "learning_rate": learning_rate, "status": "complete", **metrics}
-            results.append(row)
-            print(json.dumps(row, indent=2), flush=True)
+            else:
+                metrics = read_trainer_state(trial_dir)
+                row = {"trial": trial_id, "replay_ratio": replay_ratio,
+                       "learning_rate": learning_rate, "status": "complete", **metrics}
+                results.append(row)
+                print(json.dumps(row, indent=2), flush=True)
+
+            # Full-parameter checkpoints are ~3GB/trial (model.safetensors +
+            # AdamW optimizer states), unlike LoRA's few-MB adapters -- the
+            # first attempt at this search filled Kaggle's working disk by
+            # trial 5 and crashed mid-write (torch.serialization RuntimeError:
+            # "basic_ios::clear: iostream error"). Only trainer_state.json/
+            # all_results.json/train.log are needed for the search decision,
+            # so delete the actual model weights immediately after reading them.
+            for checkpoint_dir in trial_dir.glob("checkpoint-*"):
+                shutil.rmtree(checkpoint_dir, ignore_errors=True)
+            shutil.rmtree(trial_dir / "final", ignore_errors=True)
 
     output_path = WORK / "e012-search-results.json"
     output_path.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")

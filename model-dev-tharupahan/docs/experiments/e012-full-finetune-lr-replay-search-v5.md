@@ -2,11 +2,39 @@
 
 ## Status
 
-**Running.** Kernel `tharupahan/sinhala-asr-e012-full-finetune-lr-replay-search`
+**Running (version 2), after a diagnosed and fixed crash in version 1.**
+Kernel `tharupahan/sinhala-asr-e012-full-finetune-lr-replay-search`
 submitted to Kaggle (T4, `enable_internet: false`) on 2026-09-07. This is the
 search step of [plan.md item 7](../project/plan.md#7-compare-full-whisper-adaptation-with-lora)
 -- de-risking the full-fine-tune LR and replay ratio cheaply before committing
 to the ~15-19h full run, per direct owner decision.
+
+**Version 1 crashed at trial 5 of 9** (`replay20-lr5e-05`) with
+`RuntimeError: basic_ios::clear: iostream error` inside
+`torch.serialization.save` -- a disk-full error, not a training failure.
+Root cause, confirmed directly from the trial's own log (not guessed):
+full-parameter checkpoints are ~3GB each (`model.safetensors` ~967MB +
+AdamW `optimizer.pt` ~1.9GB fp32 states), unlike LoRA's few-MB adapters, and
+the kernel never deleted a completed trial's checkpoint before starting the
+next -- by trial 5, 4 prior trials' checkpoints (~12GB) plus the crashing
+trial's own in-progress write exceeded Kaggle's working-disk quota. Fixed by
+deleting each trial's `checkpoint-*`/`final` directories immediately after
+reading its `trainer_state.json`, before the next trial starts -- at most
+one trial's ~3GB is ever resident on disk. Training and evaluation
+themselves were never the problem: trial 5's own log shows it completed
+100 steps and eval successfully (`eval_wer=0.9225`, `eval_cer=0.2901`)
+before crashing on the save.
+
+The 6 trials that did complete before the crash (all of replay10's 3 LRs,
+2 of replay20's 3 LRs) already show a clear, consistent pattern worth
+recording even though the search must be rerun in full: at this 100-step
+pilot scale, only the highest learning rate tested (5e-5) shows real
+convergence -- the two lower rates (1e-6, 5e-6) barely move off the
+untouched model's initialization (`eval_wer` 1.01-1.13, i.e. at or above
+100%) while 5e-5 reaches `eval_wer` ~0.91-0.92 and, more tellingly,
+`eval_cer` ~0.29 on both replay ratios tested. Consistent with expectations
+for full-parameter updates needing a meaningfully larger step than LoRA's
+adapter subspace; not yet enough trials to call a replay-ratio winner.
 
 ## Question
 
