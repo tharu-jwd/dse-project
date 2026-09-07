@@ -18,7 +18,7 @@ and result report.
 | E009 | Sinhala tokenizer vocabulary extension (+250 tokens) on the E001 recipe | Stopped -- fix confirmed correct, technique still doesn't beat E010 at pilot scale | [Fix verified; corrected pilot still degenerate, does not beat E010](e009-tokenizer-extension-pilot-v4.md) |
 | E010 | Controlled validation of E008's rank/LR search finding at 500 steps | Complete -- finding validated | [rank=32, lr~2.3e-4 wins on every metric](e010-rank-lr-validation-v4.md) |
 | E011 | Zero-training bake-off: Meta Omnilingual ASR CTC 300M v2 vs. E007 | Complete for CTC 300M; loses as officially scored, but a real wrong-script anomaly masks the true result | [Official loss, but real evidence of a masked, likely-fixable script-conditioning issue](e011-omnilingual-ctc-bakeoff-v4.md) |
-| E012 | Full-parameter fine-tune: LR x replay-ratio search (v5 data) | Running on Kaggle | [E012](e012-full-finetune-lr-replay-search-v5.md) |
+| E012 | Full-parameter fine-tune: LR x replay-ratio search (v5 data) | Complete -- lr=5e-5 wins decisively over lr=1e-6/5e-6; replay ratio (10/20/30%) barely differs on Sinhala-only signal, English retention not yet checked | [E012](e012-full-finetune-lr-replay-search-v5.md) |
 
 The fixed 2,620-row LibriSpeech test-clean benchmark is evaluated after every
 adapter experiment without changing its references or normalization protocol.

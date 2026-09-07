@@ -80,13 +80,44 @@ Sinhala validation result without an early sign of English forgetting?
 
 ## Result
 
-Pending -- kernel still running as of this write-up. Will be filled in once
-`e012-search-results.json` is downloaded and verified.
+**Complete.** All 9 trials finished cleanly on version 2 (the disk-cleanup
+fix held). Full grid, 100-step Sinhala-only validation (200-row slice):
+
+| Trial | eval_wer | eval_cer | eval_loss |
+|---|---:|---:|---:|
+| replay10%, lr=1e-6 | 1.1311 | 0.8851 | 1.9460 |
+| replay10%, lr=5e-6 | 1.0143 | 0.6568 | 1.2567 |
+| **replay10%, lr=5e-5** | **0.9058** | **0.2908** | **0.2846** |
+| replay20%, lr=1e-6 | 1.1037 | 0.8683 | 1.9567 |
+| replay20%, lr=5e-6 | 1.0119 | 0.6792 | 1.2929 |
+| replay20%, lr=5e-5 | 0.9201 | 0.2906 | 0.2885 |
+| replay30%, lr=1e-6 | 1.1085 | 0.8724 | 1.9684 |
+| replay30%, lr=5e-6 | 1.0131 | 0.6967 | 1.3328 |
+| replay30%, lr=5e-5 | 0.9190 | 0.3019 | 0.3020 |
+
+**Learning rate is the dominant factor, not replay ratio.** At every replay
+ratio, lr=5e-5 wins decisively (CER ~0.29-0.30 vs 0.66-0.89 for the two
+lower rates) -- the two lower rates barely move off the untouched model's
+initialization in just 100 steps. Replay ratio itself shows only a small,
+likely-within-noise spread at lr=5e-5 (WER 0.906-0.920, CER 0.291-0.302);
+**replay10% is marginally best on both metrics**, though not by a margin
+this pilot scale (200-row eval, 100 steps) can call decisive on its own.
+
+**Caveat, important:** this is a Sinhala-only validation signal. It says
+nothing about English retention -- that is exactly what replay ratio is
+supposed to protect, and this search's objective never measured it (see
+"Getting it right" above -- the real retention check belongs on the
+narrowed winner only, not all 9 pilot trials). A low replay ratio winning
+on Sinhala WER/CER alone is not evidence it's safe for English; it could
+equally mean 10% is already enough, or that 100 steps is too short for the
+replay-forgetting tradeoff to show up yet.
 
 ## Next step
 
-1. Read off the grid's best Sinhala-validation config.
-2. Run the real English-retention check (frozen LibriSpeech benchmark) on
-   that one config only.
+1. **Done:** grid search identified lr=5e-5, replay=10% as the leading
+   Sinhala-validation config.
+2. **Not yet done:** run the real English-retention check (frozen
+   2,620-row LibriSpeech benchmark) on this one config, at a longer,
+   more representative step count -- not skippable given the caveat above.
 3. If it passes, validate with one longer controlled run (E010-style)
    before committing to the full ~15-19h run.
