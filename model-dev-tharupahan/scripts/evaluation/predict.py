@@ -20,16 +20,30 @@ from sinhala_asr.training.dataset import ManifestAudioDataset
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model", required=True)
+    parser.add_argument("--model", required=True, help="base model id/path")
+    parser.add_argument(
+        "--adapter",
+        type=Path,
+        help="optional local PEFT/LoRA adapter directory, merged into --model before inference",
+    )
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--split", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--max-rows", type=int)
     parser.add_argument("--unlock-test", action="store_true")
+    parser.add_argument(
+        "--num-beams",
+        type=int,
+        default=5,
+        help="beam search width; 1 = greedy. Default 5 matches this project's "
+        "decoding-time finding (see plan.md item 1: beam5 beats greedy on WER).",
+    )
     args = parser.parse_args()
     if args.batch_size <= 0 or (args.max_rows is not None and args.max_rows <= 0):
         raise SystemExit("batch-size and max-rows must be positive")
+    if args.num_beams <= 0:
+        raise SystemExit("num-beams must be positive")
     manifest = args.manifest.expanduser().resolve()
     rows = pq.read_table(manifest).to_pylist()
     selected = select_prediction_rows(
@@ -45,6 +59,13 @@ def main() -> None:
         args.model, language="si", task="transcribe"
     )
     model = WhisperForConditionalGeneration.from_pretrained(args.model)
+    model_label = args.model
+    if args.adapter is not None:
+        from peft import PeftModel
+
+        adapter_path = str(args.adapter.expanduser().resolve())
+        model = PeftModel.from_pretrained(model, adapter_path).merge_and_unload()
+        model_label = f"{args.model}+{adapter_path}"
     device = torch.device(
         "cuda"
         if torch.cuda.is_available()
@@ -75,6 +96,7 @@ def main() -> None:
             generated = model.generate(
                 features.input_features.to(device),
                 attention_mask=features.attention_mask.to(device),
+                num_beams=args.num_beams,
             )
             predictions.extend(
                 processor.tokenizer.batch_decode(generated, skip_special_tokens=True)
@@ -87,18 +109,19 @@ def main() -> None:
             | {
                 "reference": str(row.get("text_reviewed") or row["text_canonical"]),
                 "prediction": prediction.strip(),
-                "model": args.model,
+                "model": model_label,
             }
         )
     output = args.output.expanduser().resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     pq.write_table(pa.Table.from_pylist(output_rows), output, compression="zstd")
     metadata = {
-        "model": args.model,
+        "model": model_label,
         "manifest": str(manifest),
         "split": args.split,
         "rows": len(output_rows),
         "device": str(device),
+        "num_beams": args.num_beams,
         "runtime_seconds": time.monotonic() - started,
     }
     output.with_suffix(".json").write_text(
