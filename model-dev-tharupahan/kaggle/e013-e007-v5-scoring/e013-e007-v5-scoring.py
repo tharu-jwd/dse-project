@@ -133,7 +133,13 @@ def main() -> None:
         ]
         if unlock_test:
             args.append("--unlock-test")
-        subprocess.run(args, check=True, env=subprocess_env)
+        # Both manifests store source_path as relative paths
+        # ("data/raw/<name>/data.parquet") matching their own dataset's
+        # local repo layout at build time -- same reasoning as E012's
+        # search kernel. cwd must be each manifest's OWN dataset root
+        # (its parent dir), not a single fixed directory, since the test
+        # and validation manifests come from two different datasets.
+        subprocess.run(args, check=True, env=subprocess_env, cwd=str(manifest.parent))
 
 
 if __name__ == "__main__":
