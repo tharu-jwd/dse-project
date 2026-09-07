@@ -1,0 +1,22 @@
+{
+  "id": "tharupahan/sinhala-asr-e013-e007-v5-scoring",
+  "title": "Sinhala ASR E013 E007 Dataset V5 Scoring",
+  "code_file": "e013-e007-v5-scoring.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_internet": "false",
+  "machine_shape": "NvidiaTeslaT4",
+  "dataset_sources": [
+    "tharupahan/sinhala-asr-e003-runtime",
+    "tharupahan/sinhala-asr-e012-orchestration-runtime",
+    "tharupahan/sinhala-asr-e012-search-inputs",
+    "tharupahan/sinhala-asr-e013-test-scoring-inputs"
+  ],
+  "competition_sources": [],
+  "kernel_sources": [
+    "tharupahan/sinhala-asr-e007-full-v4-teacher-replay-phase-b"
+  ],
+  "model_sources": []
+}
