@@ -8,8 +8,9 @@ ignored by Git, and identified by the revisions in `configs/data/sources.json`.
 
 | Source | Role | License status |
 |---|---|---|
-| Official OpenSLR-52 | Primary corpus | CC BY-SA 4.0 declared upstream |
-| SPEAK-ASR YouTube Sinhala | Candidate domain/code-switch corpus | Unresolved; private audit only until clarified |
+| Official OpenSLR-52 | Primary corpus (train + validation only, see v5 below) | CC BY-SA 4.0 declared upstream |
+| SPEAK-ASR YouTube Sinhala | Test set (eval-only, never train) | Unresolved upstream; owner-approved for private eval-only use (2026-09-07) |
+| Path Nirvana Sinhala TTS | Test set (eval-only, never train) | GPL-3; voices donated for non-obscene speech generation -- read as covering private transcription-accuracy evaluation, not redistribution/resynthesis |
 | SPEAK-ASR BizBrains | Candidate domain/code-switch corpus | Unresolved; private audit only until clarified |
 | Lingalingeswaran JSON v1 | Provenance comparison only | Unresolved and suspected OpenSLR overlap |
 | Team GCS `finalData` | Processed comparison artifact | Unavailable while owning billing account is delinquent |
@@ -271,3 +272,91 @@ V4 leaves all 182,665 training rows and their audio/transcript content
 unchanged. It also retains 626 `heldout_unused` rows and has six exclusions in
 total. Train, validation, and test remain speaker-disjoint. Its fingerprint is
 `d232747fbf019f06a6449404d3d0251e8f4547ed02471482c07d85014c81abdb`.
+
+## Dataset v5: OpenSLR-only train/validation, external-only test (2026-09-07)
+
+**v4 is unchanged and remains frozen.** Every completed experiment
+(E000-E011) stays exactly reproducible against it. v5 is a separate,
+additive restructuring, decided directly with the project owner in this
+session: OpenSLR never appears in test again; test is built entirely from
+two external, non-OpenSLR sources; and the train/validation boundary inside
+OpenSLR was deliberately moved to land near an 80/10/10 split of the whole
+corpus (OpenSLR + external test). Any training run built after this point
+should use v5's manifests below, not v4's `train`/`validation` splits, to
+get this design; anything using v4 directly still reproduces the historical
+experiments exactly.
+
+**Sources added:**
+
+- **SPEAK-ASR YouTube corpus**: already indexed at
+  `reports/dataset-audit/youtube-upstream/manifest.parquet` (4,037 rows,
+  9.11h, 34 uploaders as a speaker/condition proxy, not verified individual
+  voices). License was "unresolved, private-audit-only"; the owner approved
+  private eval-only use on 2026-09-07 -- never train on it, never
+  redistribute it.
+- **Path Nirvana Sinhala TTS**: a separately cloned corpus, not part of this
+  repo, at `/Users/tharupahan/Code/ASR-prior-works/sinhala-tts-dataset`
+  (2 speakers -- `mettananda`, `oshadi` -- 6,386 clips, 13.61h, GPL-3, studio
+  read speech, heavily Pali/Sanskrit-vocabulary religious texts, a different
+  domain from OpenSLR's or YouTube's natural speech). Ingested with
+  `scripts/data/prepare_pathnirvana_tts_manifest.py`, which resamples the
+  source's native 22.05kHz mono audio to this project's 16kHz convention and
+  runs it through the same `sinhala_asr.data.manifest.build_manifest_rows`
+  pipeline used for every other source. Raw resampled copy:
+  `data/raw/sinhala-tts-pathnirvana/data.parquet` (gitignored, 1.4GB).
+  Manifest: `reports/dataset-audit/sinhala-tts-pathnirvana/manifest.parquet`
+  (6,386 rows, 0 invalid).
+
+**Build order** (each script additive; none modifies v4's manifest.parquet):
+
+```bash
+PYTHONPATH=.:src python scripts/data/prepare_pathnirvana_tts_manifest.py \
+  --raw-output data/raw/sinhala-tts-pathnirvana/data.parquet \
+  --manifest-output reports/dataset-audit/sinhala-tts-pathnirvana/manifest.parquet
+
+PYTHONPATH=.:src python scripts/data/build_external_eval_manifest.py
+# -> reports/dataset-audit/external-eval-v1/manifest.parquet (test, TTS+YouTube only)
+
+PYTHONPATH=.:src python scripts/data/build_openslr_validation_v2.py
+# -> reports/dataset-audit/openslr-validation-v2/manifest.parquet
+#    (v4's validation+test+heldout_unreviewed+heldout_unused merged)
+
+PYTHONPATH=.:src python scripts/data/build_train_val_8010.py
+# -> reports/dataset-audit/openslr-train-v2/manifest.parquet (reduced train)
+# -> reports/dataset-audit/openslr-validation-v2/manifest.parquet (overwritten,
+#    enlarged again with 45 whole speakers moved out of train)
+```
+
+**Result:**
+
+| Split | Source | Rows | Hours | Speakers | Share |
+|---|---|---:|---:|---:|---:|
+| Train | OpenSLR, `openslr-train-v2` | 165,055 | 199.49 | 426 | 80.7% |
+| Validation | OpenSLR, `openslr-validation-v2` | 20,232 | 24.98 | 52 | 10.1% |
+| Test | TTS + YouTube, `external-eval-v1` | 10,423 | 22.72 | 2 + 34 uploaders | 9.2% |
+
+`dataset_split` in `external-eval-v1` is set to `test` (gated behind
+`--unlock-test` in `scripts/evaluation/select_prediction_rows`, same
+discipline as any other test split -- do not score iterative candidates
+against it). `source_dataset` in `external-eval-v1` is relabeled per source
+(`sinhala-tts-pathnirvana` / `youtube`) so
+`sinhala_asr.evaluation.metrics.evaluate_rows`'s existing `by_source_dataset`
+grouping reports the two test sources separately, alongside the aggregate,
+with no new evaluation code.
+
+**Known label-quality caveat, accepted deliberately, not silently:** of
+validation's 20,232 rows, only 392 (the original v4 `validation`+`test`
+rows) are audio-verified. The remaining 19,840 -- both the pre-existing
+`heldout_unreviewed`/`heldout_unused` rows and the 45 newly moved train
+speakers -- were never audio-reviewed. Their reference transcripts carry
+whatever error rate the original v3->v4 audio-verification pass found
+elsewhere in this corpus (9.09% of a spot-checked control sample had
+transcript errors -- see the v4 section above). The owner explicitly chose
+speed over review for this validation set ("just use them, no need to
+review manually"). If a validation WER/CER number looks surprising, check
+whether the disagreement lands in the unreviewed 19,840 before trusting it.
+
+**A future training run selecting `openslr-train-v2`'s `train` split gets
+199.49h across 426 speakers, not v4's 220.877h across 471** -- a real,
+smaller pool than every completed experiment (E000-E011) trained on. This
+is intentional per this section, not a regression to fix.

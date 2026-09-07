@@ -28,18 +28,32 @@ model pretraining.
 
 ### Data
 
-- Dataset v4 is the current controlled dataset.
-- Training: 182,665 OpenSLR-52 rows, 220.877 hours, 471 speakers.
-- Validation: 206 rows, 17.6 minutes, 3 speakers.
-- Test: 186 rows, 16.2 minutes, 4 speakers.
-- Train, validation, and test speakers do not overlap.
+- Dataset v4 is still the frozen dataset behind every completed experiment
+  (E000-E011); it is unchanged and remains the historical record.
+- **Dataset v5 (2026-09-07) is the current design for new work**, decided
+  directly with the project owner: OpenSLR-52 supplies train and validation
+  only, and test is built entirely from two external, non-OpenSLR sources
+  (SPEAK-ASR YouTube, Path Nirvana Sinhala TTS). See
+  [the dataset specification's v5 section](../data/dataset.md#dataset-v5-openslr-only-trainvalidation-external-only-test-2026-09-07)
+  for the full build trace, scripts, and fingerprints.
+  - Training: 165,055 OpenSLR-52 rows, 199.49 hours, 426 speakers (80.7%).
+  - Validation: 20,232 OpenSLR-52 rows, 24.98 hours, 52 speakers (10.1%) --
+    only 392 of these rows are audio-verified; the remaining 19,840 are not
+    reviewed, a deliberate owner-approved tradeoff of review time for size.
+  - Test: 10,423 rows, 22.72 hours (9.2%) -- 6,386 rows / 13.61h from Path
+    Nirvana TTS (2 speakers, GPL-3, eval-only), 4,037 rows / 9.11h from
+    YouTube (34 uploaders, license unresolved but owner-approved for private
+    eval-only use). Zero OpenSLR rows in test.
+- Train, validation, and test speakers/sources do not overlap in v5.
 - Raw sources are immutable; corrections are versioned overlays.
 - Automatic GPT/Bedrock transcript rewriting was not adopted as a general data
-  policy. Only audio-verified corrections are trusted for evaluation labels.
+  policy. v4's audio-verified 392 rows remain the only fully-reviewed
+  evaluation labels; v5's validation set knowingly includes unreviewed rows
+  by explicit owner decision (see the dataset spec).
 
-The validation split is honest but too small and speaker-narrow to estimate
-broad generalization. It remains frozen for continuity while a genuinely
-independent and more speaker-diverse benchmark is constructed.
+v4's original validation split (206 rows, 3 speakers) was honest but too
+small and speaker-narrow to estimate broad generalization -- v5 exists to fix
+that. v4 itself remains frozen for continuity with E000-E011.
 
 See the [dataset specification](../data/dataset.md),
 [text policy](../data/text-policy.md), [audio audit](../data/audio-audit.md),
@@ -123,37 +137,38 @@ composes with any checkpoint. See
   to 86.83-89.68% (two longest quartiles) -- error concentrates in longer
   clips, not evenly spread. Still owed: backfilling this same breakdown for
   E004-E006, and re-running it whenever a new candidate is scored.
-- Add a seen-speaker holdout only as a diagnostic for separating adaptation
-  failure from unseen-speaker generalization failure. **Not started, and
-  cannot be applied retroactively to E007** -- E007 already trained on 100%
-  of the v4 train split, so there is no already-trained-on-but-withheld
-  sample to mine after the fact. Carving one out means a future training
-  run trains on slightly less than "the complete split" in order to reserve,
-  e.g., ~300-500 rows spread across many train speakers as a same-speaker/
-  held-back-utterance eval set. That changes what "full training data" means
-  for every subsequent experiment (items 6, 7, 9 below) -- worth adopting,
-  but a decision for a human to confirm before it's baked into a config,
-  not something to decide silently.
-- Build an independent benchmark with more speakers and recording
-  conditions. **Checked, and the existing OpenSLR-52-based corpus cannot
-  supply this**: the entire speaker-disjoint held-out pool is exactly 7
-  speakers (`heldout_unreviewed`/`heldout_unused` in `data/versions/v4/manifest.parquet`
-  are the same 7 speakers already split across validation and test, not
-  additional ones) -- confirmed by direct inspection, not assumed. The
-  only candidate source with real speaker diversity already indexed in this
-  repo is the SPEAK-ASR YouTube corpus
-  (`reports/dataset-audit/youtube-upstream/manifest.parquet`: 4,037 rows,
-  9.1 hours, 34 distinct uploaders as a speaker/condition proxy -- BizBrains
-  and the Lingalingeswaran JSON are each single-uploader and don't help
-  here). Its licensing is explicitly "Unresolved; private audit only until
-  clarified" per [the source policy](../data/dataset.md#source-policy).
-  Using it even eval-only, kept private and never redistributed, is a
-  licensing/compliance call outside what this plan has decided -- flagged
-  for a human decision, not resolved unilaterally.
-- Fingerprint it and exclude it from adaptation and model selection. Applies
-  once the above is decided.
-- Keep the existing test set unopened until a candidate is frozen. Still
-  holding -- test set untouched.
+- **Resolved directly with the project owner on 2026-09-07 -- see dataset v5
+  above and its full trace in
+  [the dataset spec](../data/dataset.md#dataset-v5-openslr-only-trainvalidation-external-only-test-2026-09-07).**
+  Both items below that were previously flagged as blocking human decisions
+  are now decided:
+  - Seen-speaker holdout: superseded by a bigger design decision rather than
+    adopted as originally scoped. Instead of a small same-speaker diagnostic
+    carved out of train, the owner chose to move 45 whole train speakers
+    (21.4h) into validation, on top of the existing held-out pool, to land
+    v5's OpenSLR train/validation boundary near 80/10 of the combined
+    corpus. New v5 train is 199.49h/426 speakers, smaller than every
+    completed experiment's 220.877h/471 speakers -- intentional, not a
+    regression.
+  - Independent speaker-diverse benchmark: the YouTube corpus's unresolved
+    license was owner-approved for private eval-only use (never train,
+    never redistribute). Path Nirvana Sinhala TTS (2 speakers, 13.61h,
+    GPL-3) was added as a second, differently-domained test source. Together
+    they are now the entire test set (10,423 rows, 22.72h, zero OpenSLR) --
+    a much larger jump in diversity than the original 7-speaker OpenSLR pool
+    could ever supply.
+  - Real tradeoff accepted, not hidden: v5's validation set includes 19,840
+    rows that were never audio-reviewed (only 392 are verified), by explicit
+    owner direction to skip manual review for speed. Treat validation
+    numbers on this set as noisier than a fully-verified benchmark until/
+    unless those rows are reviewed.
+- Fingerprint and exclude test from adaptation/model selection. Applies as
+  designed: v5's test (`dataset_split == "test"`) is gated behind
+  `--unlock-test` in `scripts/evaluation/predict.py`, same discipline as v4's
+  test.
+- Keep the existing v4 test set unopened until a candidate is frozen. Still
+  holding -- v4's original 186-row test remains untouched and is superseded,
+  not opened, by v5's design.
 
 ### 3. Run a zero-training model-family bake-off
 
@@ -532,11 +547,11 @@ completed items into summaries or remove them when priorities change.
 - [x] Complete per-speaker/duration/length evaluation reports for E007, the
   current best checkpoint (still owed for E004-E006, lower priority since
   they are no longer active candidates).
-- [ ] Build a broader independent, speaker-diverse Sinhala evaluation set.
-  Blocked on a licensing decision: the existing corpus has no unused
-  speakers left (confirmed by inspection); the only candidate with real
-  diversity already indexed here is the SPEAK-ASR YouTube corpus (34
-  uploaders, 9.1h), whose license is unresolved.
+- [x] Build a broader independent, speaker-diverse Sinhala evaluation set.
+  Resolved 2026-09-07: dataset v5 makes YouTube (34 uploaders, 9.1h,
+  owner-approved private eval-only) plus Path Nirvana TTS (2 speakers,
+  13.61h, added this session) the entire test set, replacing OpenSLR
+  entirely for testing. See the dataset spec's v5 section.
 - [x] Run the Omnilingual zero-training model-family bake-off (CTC 300M
   only; loses as officially scored, but a real wrong-script anomaly on
   70% of rows means this isn't the final word -- see E011).
