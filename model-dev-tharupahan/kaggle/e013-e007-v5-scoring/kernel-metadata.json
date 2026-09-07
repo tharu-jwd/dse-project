@@ -1,5 +1,5 @@
 {
-  "id": "tharupahan/sinhala-asr-e013-e007-v5-scoring",
+  "id": "tharupahan/sinhala-asr-e013-e007-dataset-v5-scoring",
   "title": "Sinhala ASR E013 E007 Dataset V5 Scoring",
   "code_file": "e013-e007-v5-scoring.py",
   "language": "python",
