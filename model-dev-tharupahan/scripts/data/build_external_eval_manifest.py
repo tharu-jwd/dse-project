@@ -21,9 +21,19 @@ from each source's own manifest for provenance.
 from __future__ import annotations
 
 import hashlib
+import os
 from pathlib import Path
 
 import pandas as pd
+
+# Kaggle transport needs source_path relative (matching each dataset's own
+# local layout, resolved via cwd -- see kaggle/e013-e007-v5-scoring). The
+# youtube-upstream manifest was built in an earlier session before that
+# convention existed and stores absolute local Mac paths; confirmed directly
+# from a real E013 crash (FileNotFoundError on this exact absolute path,
+# 5.29h into a run, after TTS's already-relative rows worked fine). Strip
+# this repo's own root prefix from any source_path that starts with it.
+REPO_ROOT = str(Path(__file__).resolve().parents[2]) + os.sep
 import pyarrow as pa
 import pyarrow.parquet as pq
 
@@ -44,6 +54,9 @@ def main() -> None:
     for eval_source, path in SOURCES.items():
         df = pd.read_parquet(path)
         df = df.drop(columns=[c for c in ("dataset_split", "exclusion_reason") if c in df.columns])
+        df["source_path"] = df["source_path"].apply(
+            lambda p: p[len(REPO_ROOT):] if p.startswith(REPO_ROOT) else p
+        )
         # Relabel source_dataset to the distinguishing eval_source name so the
         # existing evaluate_rows()/aggregate() by_source_dataset grouping
         # (src/sinhala_asr/evaluation/metrics.py) separates these three sets
