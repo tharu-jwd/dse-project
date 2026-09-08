@@ -188,24 +188,3 @@ even on a run that reports success. A job declaring success is a claim, not
 proof; every experiment in this project treats it as one until the hashes and
 the raw log confirm it independently.
 
-## `enable_gpu: true` silently downgrades to CPU on a non-phone-verified account
-
-Discovered on the university (`forlolabs`) account: GPU access on Kaggle
-requires phone verification. A kernel pushed with `enable_gpu: "true"` on
-an unverified account does **not** fail or warn -- it just runs on CPU,
-indistinguishable from a real GPU run in the CLI's `kernels status` output
-(`RUNNING`, no error) and in `kernels push`'s own response. Two real jobs
-(E013's scoring run, E014's validation run) sat "RUNNING" for 2+ hours each
-with no completion, only caught because the user checked the Kaggle web
-UI's live GPU-utilization graph directly and saw 0%.
-
-There is no CLI-exposed way to check phone-verification status or actual
-allocated hardware for a running kernel -- confirmed by checking `kaggle
-kernels --help` and related subcommands, none expose this. There is also
-no `kaggle kernels cancel`/`delete` command; a wrongly-CPU-bound (or any)
-running kernel can only be stopped from the browser (open the running
-session, click Stop).
-
-**Before trusting a new Kaggle account's GPU jobs, verify phone
-verification first** (`kaggle.com/settings`) rather than assuming
-`enable_gpu: true` succeeding at push time means anything.
