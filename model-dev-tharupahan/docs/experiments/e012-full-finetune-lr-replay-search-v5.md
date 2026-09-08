@@ -116,8 +116,11 @@ replay-forgetting tradeoff to show up yet.
 
 1. **Done:** grid search identified lr=5e-5, replay=10% as the leading
    Sinhala-validation config.
-2. **Not yet done:** run the real English-retention check (frozen
-   2,620-row LibriSpeech benchmark) on this one config, at a longer,
-   more representative step count -- not skippable given the caveat above.
+2. **Blocked:** run the real English-retention check (frozen 2,620-row
+   LibriSpeech benchmark) on this one config, at a longer, more
+   representative step count -- not skippable given the caveat above.
+   **Kaggle's weekly GPU quota (30h) is exhausted as of 2026-09-08** (see
+   [E013's report](e013-e007-v5-scoring.md) for the same blocker hit while
+   scoring E007). Cannot proceed on Kaggle until the quota resets.
 3. If it passes, validate with one longer controlled run (E010-style)
    before committing to the full ~15-19h run.
