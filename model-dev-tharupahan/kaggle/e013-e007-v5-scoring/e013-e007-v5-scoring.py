@@ -88,16 +88,13 @@ def main() -> None:
     predict_script = sinhala_asr_src.parent / "predict.py"
     if not predict_script.is_file():
         raise RuntimeError(f"predict.py not found at {predict_script}")
-    # adapter_model.safetensors is not unique -- the e007-phase-b kernel
-    # source also carries several intermediate checkpoint-N/adapter_model
-    # .safetensors files. Anchor on the run's own small, unique result
-    # marker instead, then take the fixed relative path to final-adapter/,
-    # same convention kaggle/e007-decoding-comparison/e007-decoding-
-    # comparison.py already established.
-    result_path = one_file("e007-phase-b-kaggle-result.json")
-    adapter_dir = result_path.parent / "e007-phase-b/final-adapter"
-    if not adapter_dir.is_dir():
-        raise RuntimeError(f"E007 final-adapter not found at {adapter_dir}")
+    # E007's adapter is its own standalone dataset now (forlolabs/sinhala-
+    # asr-e007-final-adapter) -- just the final-adapter files at the
+    # dataset root, no competing checkpoint-N copies, so a direct
+    # one_file() lookup is unambiguous here (unlike the original tharupahan
+    # version, which pulled this via kernel_sources from E007's own
+    # training kernel output and had to dodge several checkpoint dirs).
+    adapter_dir = one_file("adapter_model.safetensors").parent
 
     adapter_hash = sha256(adapter_dir / "adapter_model.safetensors")
     if adapter_hash != ADAPTER_SHA256:
