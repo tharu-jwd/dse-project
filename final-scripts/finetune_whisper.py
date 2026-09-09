@@ -1,5 +1,8 @@
 """Full fine-tune of Whisper-small for Sinhala ASR (every weight unfrozen) on
-the `stratified/` split of the final datasets. Meant to run on a GPU pod
+the `stratified_v4/` split of the final datasets (speaker-disjoint,
+spacing-normalized text -- see data/stratified_v4/README or the
+Yohan2003/whisper-sl-data dataset card for how it differs from `stratified/`).
+Meant to run on a GPU pod
 (e.g. RunPod) -- tokenization (audio decode + log-mel feature extraction +
 text tokenization) happens on the fly via `WhisperASRDataset` from
 `prepare_whisper_dataset.py`, inside the `DataLoader` workers, overlapped
@@ -13,9 +16,9 @@ instead of the full model, see `finetune_whisper_lora.py` -- same CLI shape,
 same data pipeline, far less GPU memory and a much smaller artifact to save.
 
 Per SinhaSpeech_Proporsal.pdf section 4.2:
-  - stratified/train.parquet + stratified/validation.parquet for training
-    and per-epoch WER/CER validation (best-checkpoint selection, not
-    last-checkpoint)
+  - stratified_v4/train.parquet + stratified_v4/validation.parquet for
+    training and per-epoch WER/CER validation (best-checkpoint selection,
+    not last-checkpoint)
   - Mixed precision (bf16 on Ampere+ GPUs, fp16 otherwise -- auto-detected)
     to cut memory use and speed up training
   - SpecAugment (time + frequency masking) enabled via WhisperConfig's
@@ -32,23 +35,31 @@ file's own directory:
     final-scripts/
       finetune_whisper.py          <- this file
       data/
-        stratified/
+        stratified_v4/
           train.parquet
           validation.parquet
           test.parquet             <- used by evaluate_finetuned.py
 
-See README.md for how to get the data into that layout (GCS download or
-local copy) before running this script.
+See README.md for how to get the data into that layout. `stratified_v4/`
+lives on Hugging Face (Yohan2003/whisper-sl-data and
+Yohan2003/whisper-small-sinhala, both under `data/stratified_v4/`), not in
+the gs://singen/whisper/finalData/stratified/ bucket -- that bucket only has
+the older `stratified/` (v1) split.
 
 Usage (on a RunPod GPU pod, or any machine with a GPU -- run from inside
-final-scripts/, with data/stratified/ already populated):
+final-scripts/, with data/stratified_v4/ already populated). This example
+reproduces run1's exact recipe (see finetune_tracker.csv) on stratified_v4,
+for a direct WER/CER comparison against run1's v1 numbers:
     python3 finetune_whisper.py \\
-        --output-dir /workspace/whisper-small-sinhala/run5-lr3e-5-bs32 \\
-        --run-name run5-lr3e-5-bs32 \\
+        --output-dir /workspace/whisper-small-sinhala/run7-v4-lr3e-5-bs32 \\
+        --run-name run7-v4-lr3e-5-bs32 \\
         --wandb-project whisper \\
         --learning-rate 3e-5 \\
-        --per-device-train-batch-size 32 \\
-        --num-train-epochs 4
+        --lr-scheduler-type linear \\
+        --per-device-train-batch-size 8 \\
+        --gradient-accumulation-steps 4 \\
+        --num-train-epochs 4 \\
+        --warmup-steps 500
 
 Smoke test on CPU (no GPU needed, a handful of steps, sanity-checks the
 pipeline without a real training run):
@@ -78,7 +89,7 @@ from prepare_whisper_dataset import (  # noqa: E402
 
 # Fixed, not CLI flags: scripts and data are uploaded to the GPU pod together
 # (see README.md), so there's no need to pass paths at run time.
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "stratified")
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "stratified_v4")
 TRAIN_PARQUET = os.path.join(DATA_DIR, "train.parquet")
 EVAL_PARQUET = os.path.join(DATA_DIR, "validation.parquet")
 
@@ -157,6 +168,11 @@ def main():
     parser.add_argument("--wandb-project", default=None, help="omit to disable W&B logging")
     parser.add_argument("--smoke-test", action="store_true",
                          help="tiny CPU run (a few steps, no generation-based eval) to sanity-check the pipeline")
+    parser.add_argument("--resume-from-checkpoint", default=None,
+                         help="path to a checkpoint dir (e.g. --output-dir/checkpoint-3852) saved by an earlier "
+                              "run of this script -- restores model, optimizer, scheduler, and RNG state, and "
+                              "continues from that global_step instead of starting over. --output-dir should "
+                              "point at the same run's parent dir so later checkpoints land alongside earlier ones.")
     args = parser.parse_args()
 
     print(f"Loading processor + model: {args.model_name}")
@@ -270,8 +286,9 @@ def main():
         processing_class=processor,
     )
 
-    print("\nStarting training...")
-    trainer.train()
+    print("\nStarting training..." if not args.resume_from_checkpoint
+          else f"\nResuming training from {args.resume_from_checkpoint}...")
+    trainer.train(resume_from_checkpoint=args.resume_from_checkpoint)
 
     print(f"\nSaving best checkpoint to {args.output_dir}")
     trainer.save_model(args.output_dir)

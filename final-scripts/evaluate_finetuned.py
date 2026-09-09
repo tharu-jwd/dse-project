@@ -16,8 +16,8 @@ by cosmetic punctuation/casing choices would swamp real transcription
 differences between runs.
 
 The test-set path is NOT a CLI flag -- same as the fine-tune scripts, it
-expects data/stratified/test.parquet to already sit next to this file (see
-finetune_whisper.py's module docstring for the expected layout, and
+expects data/stratified_v4/test.parquet to already sit next to this file
+(see finetune_whisper.py's module docstring for the expected layout, and
 README.md for how to get it there).
 
 Usage: compare a full fine-tune against a LoRA run
@@ -59,7 +59,7 @@ TARGET_SR = 16000
 
 # Fixed, not a CLI flag: scripts and data are uploaded to the GPU pod
 # together (see README.md), so there's no need to pass a path at run time.
-TEST_PARQUET = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "stratified", "test.parquet")
+TEST_PARQUET = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "stratified_v4", "test.parquet")
 
 NORMALIZE = jiwer.Compose([
     jiwer.ToLowerCase(),
