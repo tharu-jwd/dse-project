@@ -167,8 +167,8 @@ compare directly against `run1`'s numbers on v1:
 
 ```bash
 python3 finetune_whisper.py \
-    --output-dir /workspace/whisper-small-sinhala/run7-v4-lr3e-5-bs32 \
-    --run-name run7-v4-lr3e-5-bs32 \
+    --output-dir /workspace/whisper-small-sinhala/run5-v4-lr3e-5-bs32 \
+    --run-name run5-v4-lr3e-5-bs32 \
     --wandb-project whisper \
     --learning-rate 3e-5 \
     --lr-scheduler-type linear \

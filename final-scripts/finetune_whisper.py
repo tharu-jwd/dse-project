@@ -51,8 +51,8 @@ final-scripts/, with data/stratified_v4/ already populated). This example
 reproduces run1's exact recipe (see finetune_tracker.csv) on stratified_v4,
 for a direct WER/CER comparison against run1's v1 numbers:
     python3 finetune_whisper.py \\
-        --output-dir /workspace/whisper-small-sinhala/run7-v4-lr3e-5-bs32 \\
-        --run-name run7-v4-lr3e-5-bs32 \\
+        --output-dir /workspace/whisper-small-sinhala/run5-v4-lr3e-5-bs32 \\
+        --run-name run5-v4-lr3e-5-bs32 \\
         --wandb-project whisper \\
         --learning-rate 3e-5 \\
         --lr-scheduler-type linear \\

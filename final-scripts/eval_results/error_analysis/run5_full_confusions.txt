@@ -1,4 +1,4 @@
-=== run7-v4-lr3e-5-bs64_predictions: top 25 word substitutions (reference -> prediction) ===
+=== run5_full: top 25 word substitutions (reference -> prediction) ===
      91  'කියල'               -> 'කියලා'
      33  'කල'                 -> 'කළ'
      32  'ඉතිං'               -> 'ඉතින්'
@@ -25,7 +25,7 @@
      12  'තුල'                -> 'තුළ'
      11  'ලංකාවෙ'             -> 'ලංකාවේ'
 
-=== run7-v4-lr3e-5-bs64_predictions: top 25 deleted words (model dropped these) ===
+=== run5_full: top 25 deleted words (model dropped these) ===
     106  'ය'
      80  'ම'
      73  'ද'
@@ -52,7 +52,7 @@
       8  'යන'
       7  'හා'
 
-=== run7-v4-lr3e-5-bs64_predictions: top 25 inserted words (model hallucinated these) ===
+=== run5_full: top 25 inserted words (model hallucinated these) ===
      19  'ඒ'
      16  'බුදු'
      15  'ලබා'
@@ -79,7 +79,7 @@
       5  'රස'
       5  'ද'
 
-=== run7-v4-lr3e-5-bs64_predictions: severity distribution ===
+=== run5_full: severity distribution ===
   exact_match   8384 samples (52.9%)
   minor         2875 samples (18.1%)
   moderate      3242 samples (20.4%)
