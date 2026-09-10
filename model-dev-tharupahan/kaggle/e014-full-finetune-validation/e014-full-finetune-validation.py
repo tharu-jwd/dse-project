@@ -24,6 +24,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -147,51 +148,78 @@ def main() -> None:
     subprocess_env = os.environ.copy()
     subprocess_env["PYTHONPATH"] = str(sinhala_asr_src.parent)
 
-    config = {
-        "model_name": str(MODEL),
-        "manifest": str(manifest),
-        "output_dir": str(TRAIN_OUTPUT),
-        "method": "full",
-        "max_steps": 500,
-        "learning_rate": 5e-5,
-        "train_batch_size": 4,
-        "eval_batch_size": 4,
-        "gradient_accumulation_steps": 4,
-        "eval_steps": 500,
-        "save_steps": 500,
-        "logging_steps": 10,
-        "fp16": True,
-        "bf16": False,
-        "gradient_checkpointing": True,
-        "dataloader_num_workers": 2,
-        "hourly_price_usd": 0.0,
-        "estimated_hours": 0.0,
-        "maximum_cost_usd": 0.0,
-    }
-    TRAIN_OUTPUT.mkdir(parents=True, exist_ok=True)
-    config_path = TRAIN_OUTPUT / "config.json"
-    config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    # Two arms, per docs/audits/yohan-finetune-lessons.md: Yohan's independent
+    # runs show a full fine-tune at lr=3e-5/linear drove English WER 4.3% ->
+    # 80.9% (+76.6 pts, severe forgetting), and only lr=1e-5 + cosine kept
+    # English intact (+1.79 pts, mild). E012's Sinhala-only search picked
+    # lr=5e-5 -- higher than his catastrophic 3e-5. So test both here, each
+    # scored against the frozen LibriSpeech benchmark, before trusting either
+    # for the full run. Teacher replay (10%, baked into the manifest) is our
+    # own addition Yohan does not use -- it may rescue the higher LR, but
+    # this measures rather than assumes that.
+    arms = [
+        {"name": "lr5e-5-linear", "learning_rate": 5e-5, "lr_scheduler_type": "linear"},
+        {"name": "lr1e-5-cosine", "learning_rate": 1e-5, "lr_scheduler_type": "cosine"},
+    ]
 
-    print("=== training: lr=5e-5, replay=10%, 500 steps ===", flush=True)
-    completed = subprocess.run(
-        [sys.executable, str(train_script), "--config", str(config_path)],
-        env=subprocess_env,
-        cwd=str(manifest.parent),
-    )
-    if completed.returncode != 0:
-        raise SystemExit(f"training failed with exit code {completed.returncode}")
+    results = []
+    for arm in arms:
+        arm_dir = TRAIN_OUTPUT / arm["name"]
+        config = {
+            "model_name": str(MODEL),
+            "manifest": str(manifest),
+            "output_dir": str(arm_dir),
+            "method": "full",
+            "max_steps": 500,
+            "learning_rate": arm["learning_rate"],
+            "lr_scheduler_type": arm["lr_scheduler_type"],
+            "warmup_steps": 50,
+            "train_batch_size": 4,
+            "eval_batch_size": 4,
+            "gradient_accumulation_steps": 4,
+            "eval_steps": 500,
+            "save_steps": 500,
+            "logging_steps": 10,
+            "fp16": True,
+            "bf16": False,
+            "gradient_checkpointing": True,
+            "dataloader_num_workers": 2,
+            "hourly_price_usd": 0.0,
+            "estimated_hours": 0.0,
+            "maximum_cost_usd": 0.0,
+        }
+        arm_dir.mkdir(parents=True, exist_ok=True)
+        config_path = arm_dir / "config.json"
+        config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
 
-    final_dir = TRAIN_OUTPUT / "final"
-    if not final_dir.is_dir():
-        raise RuntimeError(f"expected final checkpoint at {final_dir}")
+        print(f"=== training arm {arm['name']}: replay=10%, 500 steps ===", flush=True)
+        completed = subprocess.run(
+            [sys.executable, str(train_script), "--config", str(config_path)],
+            env=subprocess_env,
+            cwd=str(manifest.parent),
+        )
+        if completed.returncode != 0:
+            raise SystemExit(f"training arm {arm['name']} failed with exit code {completed.returncode}")
 
-    print("=== scoring English retention (frozen LibriSpeech benchmark) ===", flush=True)
-    retention_output = WORK / "e014-english-retention-predictions.parquet"
-    metadata = run_retention_eval(final_dir, benchmark, retention_output)
-    (WORK / "e014-english-retention-metadata.json").write_text(
-        json.dumps(metadata, indent=2) + "\n", encoding="utf-8"
-    )
-    print(json.dumps(metadata, indent=2))
+        final_dir = arm_dir / "final"
+        if not final_dir.is_dir():
+            raise RuntimeError(f"expected final checkpoint at {final_dir}")
+
+        print(f"=== arm {arm['name']}: scoring English retention (frozen LibriSpeech benchmark) ===", flush=True)
+        retention_output = WORK / f"e014-{arm['name']}-english-retention-predictions.parquet"
+        metadata = run_retention_eval(final_dir, benchmark, retention_output)
+        metadata["arm"] = arm["name"]
+        results.append(metadata)
+
+        # Free disk before the next arm (full-parameter checkpoints are ~3GB;
+        # same reason E012's search kernel had to clean up between trials).
+        for checkpoint_dir in arm_dir.glob("checkpoint-*"):
+            shutil.rmtree(checkpoint_dir, ignore_errors=True)
+        shutil.rmtree(final_dir, ignore_errors=True)
+
+    (WORK / "e014-results.json").write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
+    print("=== ALL ARMS ===")
+    print(json.dumps(results, indent=2))
 
 
 if __name__ == "__main__":

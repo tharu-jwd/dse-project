@@ -16,6 +16,8 @@ class TrainConfig:
     method: str = "full"
     max_steps: int = 1000
     learning_rate: float = 1e-5
+    lr_scheduler_type: str = "linear"
+    warmup_steps: int = 0
     train_batch_size: int = 8
     eval_batch_size: int = 8
     gradient_accumulation_steps: int = 1
@@ -53,6 +55,17 @@ class TrainConfig:
     def validate(self) -> None:
         if self.method not in {"full", "lora"}:
             raise ValueError("method must be 'full' or 'lora'")
+        if self.lr_scheduler_type not in {
+            "linear",
+            "cosine",
+            "cosine_with_restarts",
+            "polynomial",
+            "constant",
+            "constant_with_warmup",
+        }:
+            raise ValueError(f"unsupported lr_scheduler_type: {self.lr_scheduler_type}")
+        if self.warmup_steps < 0:
+            raise ValueError("warmup_steps cannot be negative")
         for name in (
             "max_steps",
             "train_batch_size",

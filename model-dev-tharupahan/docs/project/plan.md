@@ -345,6 +345,54 @@ and must be swept rather than carried over silently.
    actually de-risks the English-forgetting question rather than assuming
    the LoRA-era 10% number still holds unchanged.
 
+**Status (2026-09-10).**
+
+- **E012 (the LR x replay-ratio grid): complete.** lr=5e-5 wins decisively
+  over 1e-6/5e-6 at 100-step pilot scale (eval_cer ~0.29 vs 0.66-0.89);
+  replay ratio (10/20/30%) barely differs on the Sinhala-only signal.
+  See [the E012 report](../experiments/e012-full-finetune-lr-replay-search-v5.md).
+- **E014 (retention validation): built, not yet run.** Kernel and data are
+  ready; needs a real GPU (a non-phone-verified Kaggle account silently
+  runs on CPU -- treat `kernels status: RUNNING` as unverified until the
+  web UI's GPU-utilization graph or a completed run's `run-metadata.json`
+  confirms `cuda_available`).
+- **E014 must be expanded before it runs**, per
+  [Yohan's fine-tune lessons](../audits/yohan-finetune-lessons.md): his
+  independent runs show a **full fine-tune at lr=3e-5 drove English WER
+  from 4.3% to 80.9% (+76.6 pts, severe forgetting)**, and only
+  **lr=1e-5 + cosine schedule** kept English intact (+1.79 pts, mild) --
+  better than his wide-LoRA run despite being a full fine-tune. Our
+  E012 winner is lr=5e-5, *higher* than his catastrophic 3e-5. So E014's
+  arms are **lr=5e-5 vs lr=1e-5 + cosine**, both with 10% teacher-replay,
+  both scored against the frozen 2,620-row LibriSpeech benchmark. Teacher
+  replay is our own addition Yohan does not use -- it may rescue the
+  higher LR, but that is the thing to measure, not assume.
+
+**Further constraints for the full run itself, from the same lessons doc:**
+
+- **Per-epoch generation eval on a large validation set dominates GPU
+  time** -- on Yohan's 4-epoch RTX 4090 run, per-epoch eval on 15,763
+  rows was ~84 min each, ~40% of total GPU time. Do per-epoch eval on a
+  small fixed subset (the 200-row pilot slice); run full v5 validation
+  once at the end.
+- **Plan for 3-4 epochs, not one.** Full fine-tune keeps improving every
+  epoch through 4 in Yohan's runs (val WER 31 -> 26 -> 24 -> 22); the
+  historical one-effective-epoch LoRA convention undertrains a full
+  fine-tune. This roughly quadruples the ~15-19h single-epoch estimate.
+- **OOM: eval is the memory bottleneck, not training.** On a 24GB card,
+  train batch 8 / eval batch 4 + gradient accumulation to the target
+  effective batch, plus
+  `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`.
+- **Transcript cleanup before training** (NFC/ZWJ normalization, strip
+  ZWNJ, enforce one compounding/spacing convention, confirm no audio-byte
+  duplicates across sources) -- Yohan's error analysis shows a large share
+  of the residual WER is label inconsistency the model cannot fix.
+- **Dependency pins are load-bearing** -- `transformers>=4.46` for
+  `eval_strategy`, `accelerate>=1.0`, `numpy<2`; for any checkpoint
+  resume pin `transformers==4.46.3` and strip `best_global_step` from
+  `trainer_state.json`. Smoke-test the training entry point, not just
+  `pip install -r`.
+
 ### 8. Test alternative multilingual CTC families if needed
 
 If Omnilingual is unavailable or leaves a material gap, evaluate MMS Sinhala
