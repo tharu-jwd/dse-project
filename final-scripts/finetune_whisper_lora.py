@@ -1,7 +1,7 @@
 """LoRA fine-tune of Whisper-small for Sinhala ASR: a small low-rank adapter
 is trained on top of a frozen base model, instead of unfreezing every weight
 (see `finetune_whisper.py` for that full fine-tune). Same data pipeline, same
-`stratified/` split, same CLI shape as `finetune_whisper.py` -- only the
+`stratified_v4/` split, same CLI shape as `finetune_whisper.py` -- only the
 model-construction and checkpoint-saving steps differ, so the two scripts'
 runs are directly comparable in W&B.
 
@@ -12,8 +12,8 @@ general multilingual ability -- useful to compare against the full fine-tune
 on the same eval set.
 
 Per SinhaSpeech_Proporsal.pdf section 4.2, same as the full fine-tune script:
-  - stratified/train.parquet + stratified/validation.parquet for training
-    and per-epoch WER/CER validation (best-checkpoint selection)
+  - stratified_v4/train.parquet + stratified_v4/validation.parquet for
+    training and per-epoch WER/CER validation (best-checkpoint selection)
   - Mixed precision (bf16 on Ampere+ GPUs, fp16 otherwise -- auto-detected)
   - SpecAugment (time + frequency masking) via WhisperConfig, active only
     during `model.train()`
@@ -26,16 +26,19 @@ file's own directory:
     final-scripts/
       finetune_whisper_lora.py     <- this file
       data/
-        stratified/
+        stratified_v4/
           train.parquet
           validation.parquet
           test.parquet             <- used by evaluate_finetuned.py
 
-See README.md for how to get the data into that layout (GCS download or
-local copy) before running this script.
+See README.md for how to get the data into that layout. `stratified_v4/`
+lives on Hugging Face (Yohan2003/whisper-sl-data and
+Yohan2003/whisper-small-sinhala, both under `data/stratified_v4/`), not in
+the gs://singen/whisper/finalData/stratified/ bucket -- that bucket only has
+the older `stratified/` (v1) split.
 
 Usage (on a RunPod GPU pod, or any machine with a GPU -- run from inside
-final-scripts/, with data/stratified/ already populated):
+final-scripts/, with data/stratified_v4/ already populated):
     python3 finetune_whisper_lora.py \\
         --output-dir /workspace/whisper-small-sinhala-lora/run1-lr1e-4-bs32 \\
         --run-name run1-lr1e-4-bs32 \\
@@ -78,7 +81,7 @@ from prepare_whisper_dataset import (  # noqa: E402
 
 # Fixed, not CLI flags: scripts and data are uploaded to the GPU pod together
 # (see README.md), so there's no need to pass paths at run time.
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "stratified")
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "stratified_v4")
 TRAIN_PARQUET = os.path.join(DATA_DIR, "train.parquet")
 EVAL_PARQUET = os.path.join(DATA_DIR, "validation.parquet")
 

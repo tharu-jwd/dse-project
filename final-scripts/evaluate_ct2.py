@@ -24,7 +24,7 @@ from faster_whisper import WhisperModel
 from tqdm import tqdm
 
 TARGET_SR = 16000
-TEST_PARQUET = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "stratified", "test.parquet")
+TEST_PARQUET = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "stratified_v4", "test.parquet")
 
 NORMALIZE = jiwer.Compose([
     jiwer.ToLowerCase(),

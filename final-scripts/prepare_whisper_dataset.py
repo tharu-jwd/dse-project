@@ -29,8 +29,13 @@ set; no bucket auth handling lives in this module.
 
 Usage as a smoke test (from inside final-scripts/):
 
-    python3 prepare_whisper_dataset.py data/stratified/test.parquet
-    python3 prepare_whisper_dataset.py gs://singen/whisper/finalData/stratified/test.parquet
+    python3 prepare_whisper_dataset.py data/stratified_v4/test.parquet
+
+`stratified_v4/` (speaker-disjoint, spacing-normalized) lives on Hugging Face
+(Yohan2003/whisper-sl-data and Yohan2003/whisper-small-sinhala, both under
+`data/stratified_v4/`) -- it is NOT in the
+gs://singen/whisper/finalData/stratified/ bucket, which only has the older
+`stratified/` (v1) split.
 """
 
 import io

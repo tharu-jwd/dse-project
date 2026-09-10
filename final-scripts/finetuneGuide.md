@@ -31,13 +31,20 @@ final-scripts/
   prepare_whisper_dataset.py
   requirements.txt
   data/
-    stratified/
+    stratified_v4/
       train.parquet         <- used by both fine-tune scripts
       validation.parquet    <- used by both fine-tune scripts
       test.parquet          <- used by evaluate_finetuned.py
 ```
 
-Nothing else needs to change between runs — just make sure `data/stratified/`
+`stratified_v4/` is the current default (speaker-disjoint train/test/validation,
+plus spacing-normalized text — see the `Yohan2003/whisper-sl-data` dataset
+card). It lives on Hugging Face only, under `data/stratified_v4/` in both
+`Yohan2003/whisper-sl-data` and `Yohan2003/whisper-small-sinhala` — it is
+**not** in the `gs://singen/whisper/finalData/stratified/` bucket, which only
+has the older `stratified/` (v1) split. See "Method C" below to pull it.
+
+Nothing else needs to change between runs — just make sure `data/stratified_v4/`
 is populated (see below) before running any script, and run everything from
 inside `final-scripts/`.
 
@@ -54,15 +61,36 @@ Pinned versions (`torch`, `transformers>=4.41.0,<5.0.0`, `accelerate`, `peft`,
 file rather than picking versions ad hoc, since `numpy>=2` in particular can
 silently break `pyarrow`/`soundfile`/`librosa` at import or ABI level.
 
-## 2. Getting the data into `data/stratified/` — two methods
+## 2. Getting the data into `data/stratified_v4/` — three methods
 
-The training/eval data lives in a GCP bucket. Pick **one** method to
-populate `data/stratified/` before training; the scripts themselves don't
-care which one you used.
+`stratified_v4` lives on Hugging Face, not in the GCS bucket (the bucket only
+has the older `stratified/` v1 split). Pick **one** method to populate
+`data/stratified_v4/` before training; the scripts themselves don't care
+which one you used.
 
-### Method A — Download straight onto the GPU pod from GCS
+### Method C — Download from Hugging Face (recommended for `stratified_v4`)
+
+```bash
+mkdir -p final-scripts/data/stratified_v4
+python3 -c "
+from huggingface_hub import hf_hub_download
+import shutil
+for split in ['train', 'validation', 'test']:
+    p = hf_hub_download(repo_id='Yohan2003/whisper-sl-data', repo_type='dataset',
+                         filename=f'data/stratified_v4/{split}.parquet')
+    shutil.copy(p, f'final-scripts/data/stratified_v4/{split}.parquet')
+"
+```
+
+`train.parquet` is ~12.5GB (embedded audio) — on a slow/unreliable
+connection, set `HF_HUB_DISABLE_XET=1` in the environment first if the
+default transfer backend keeps timing out.
+
+### Method A — Download straight onto the GPU pod from GCS (v1 `stratified/` only)
 
 Do this once, right after the pod comes up and before starting training.
+**Note:** this only has the v1 `stratified/` split, not `stratified_v4/` —
+use Method C for the current recommended split.
 
 1. Install/confirm `gsutil` is available on the pod (RunPod images usually
    have `gcloud`/`gsutil` preinstalled; otherwise `pip install gsutil` or
@@ -120,25 +148,41 @@ SSH keys/IP needed) — this is the method actually used for this project.
    cd final-scripts
    ```
 
-Either method (A or B) ends the same way: `final-scripts/data/stratified/{train,validation,test}.parquet`
-exist on the pod before you run anything.
+Any of the three methods ends the same way:
+`final-scripts/data/stratified_v4/{train,validation,test}.parquet` (or
+`data/stratified/...` if you deliberately used Method A/B for the older
+split) exist on the pod before you run anything.
 
 ## 3. Fine-tuning
 
-Run these from inside `final-scripts/`, with `data/stratified/` already
+Run these from inside `final-scripts/`, with `data/stratified_v4/` already
 populated (§2).
 
 ### Full fine-tune
 
+`run1`'s exact recipe (full fine-tune, `openai/whisper-small`, effective
+batch size 32 via per-device 8 × grad-accum 4, linear schedule, 4 epochs,
+500 warmup steps) — this is the recipe to replicate on `stratified_v4` to
+compare directly against `run1`'s numbers on v1:
+
 ```bash
 python3 finetune_whisper.py \
-    --output-dir /workspace/whisper-small-sinhala/run1-lr3e-5-bs32 \
-    --run-name run1-lr3e-5-bs32 \
+    --output-dir /workspace/whisper-small-sinhala/run5-v4-lr3e-5-bs32 \
+    --run-name run5-v4-lr3e-5-bs32 \
     --wandb-project whisper \
     --learning-rate 3e-5 \
-    --per-device-train-batch-size 32 \
-    --num-train-epochs 4
+    --lr-scheduler-type linear \
+    --per-device-train-batch-size 8 \
+    --gradient-accumulation-steps 4 \
+    --num-train-epochs 4 \
+    --warmup-steps 500
 ```
+
+(the older example of `--per-device-train-batch-size 32` with no
+`--gradient-accumulation-steps` below is a *different* effective batch size
+than `run1` — 32 vs. run1's 8×4=32 are numerically the same effective batch,
+but per-device 32 needs much more GPU memory per step; use the block above
+to match `run1` exactly on a smaller GPU via gradient accumulation.)
 
 ### LoRA fine-tune
 
@@ -202,7 +246,7 @@ test below).
 ### Smoke test (no GPU, before committing to a real run)
 
 Both scripts accept `--smoke-test`: 2 training steps, no generation-based
-eval, runs on CPU. Still reads real rows from `data/stratified/`, so make
+eval, runs on CPU. Still reads real rows from `data/stratified_v4/`, so make
 sure §2 is done first, even for this:
 
 ```bash
@@ -212,7 +256,7 @@ python3 finetune_whisper_lora.py --smoke-test
 
 ## 4. Evaluating on the test set — finding your best model
 
-`evaluate_finetuned.py` reads `data/stratified/test.parquet` and scores
+`evaluate_finetuned.py` reads `data/stratified_v4/test.parquet` and scores
 whichever of your own fine-tuned runs you point it at: a full checkpoint via
 `--model` (repeatable) and/or a LoRA adapter via `--lora <adapter-dir>:<base-model>`
 (repeatable). Pass every run you want to compare in one invocation — it
@@ -250,8 +294,9 @@ test-set run; omit it for the real number to report.
 1. Launch a GPU pod (an A100/A10 template with CUDA preinstalled is
    simplest — SpecAugment aside, the scripts auto-detect `bf16` on Ampere+
    and fall back to `fp16` otherwise, no manual flag needed).
-2. On your local machine: zip `final-scripts/` (with `data/stratified/`
-   already populated from GCS) and send it with `runpodctl` (§2 Method B):
+2. On your local machine: populate `data/stratified_v4/` from Hugging Face
+   (§2 Method C), then zip `final-scripts/` and send it with `runpodctl`
+   (§2 Method B):
    ```bash
    zip -r final-scripts.zip final-scripts/
    runpodctl send final-scripts.zip
@@ -265,7 +310,7 @@ test-set run; omit it for the real number to report.
    cd final-scripts
    ```
    (Alternatively, skip steps 2–3 and pull the data straight onto the pod
-   with §2 Method A instead.)
+   with §2 Method C instead.)
 4. `pip install -r requirements.txt`
 5. `wandb login` if you want experiment tracking.
 6. Run `finetune_whisper.py` and/or `finetune_whisper_lora.py` as shown in
@@ -285,10 +330,10 @@ test-set run; omit it for the real number to report.
 ## 6. Running locally
 
 Only realistic for a smoke test or a small-scale run if you have a capable
-GPU — the full `stratified/train.parquet` split is large (123,862 rows).
+GPU — the full `stratified_v4/train.parquet` split is large (123,205 rows).
 
 1. `pip install -r requirements.txt` in a virtualenv.
-2. Populate `data/stratified/` via §2 Method A or B (Method A — a one-time
-   `gsutil cp` — is usually simplest locally).
+2. Populate `data/stratified_v4/` via §2 Method C (a one-time
+   `hf_hub_download` — usually simplest locally).
 3. Run the same commands as §3/§4. If you don't have a CUDA GPU locally, use
    `--smoke-test` to validate the pipeline, then move the real run to RunPod.
