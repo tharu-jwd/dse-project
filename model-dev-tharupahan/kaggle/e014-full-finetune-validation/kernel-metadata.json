@@ -1,5 +1,5 @@
 {
-  "id": "forlolabs/sinhala-asr-e014-validation",
+  "id": "tharupahan/sinhala-asr-e014-validation",
   "title": "Sinhala ASR E014 Validation",
   "code_file": "e014-full-finetune-validation.py",
   "language": "python",
@@ -9,10 +9,10 @@
   "enable_internet": "false",
   "machine_shape": "NvidiaTeslaT4",
   "dataset_sources": [
-    "forlolabs/sinhala-asr-e003-runtime",
-    "forlolabs/sinhala-asr-e012-orchestration-runtime",
-    "forlolabs/sinhala-asr-e012-search-inputs",
-    "forlolabs/sinhala-asr-english-retention-benchmark"
+    "tharupahan/sinhala-asr-e003-runtime",
+    "tharupahan/sinhala-asr-e014-orchestration-runtime",
+    "tharupahan/sinhala-asr-e012-search-inputs",
+    "tharupahan/sinhala-asr-e003-english-evaluation-inputs"
   ],
   "competition_sources": [],
   "kernel_sources": [],

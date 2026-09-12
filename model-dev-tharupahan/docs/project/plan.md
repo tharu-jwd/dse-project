@@ -351,11 +351,12 @@ and must be swept rather than carried over silently.
   over 1e-6/5e-6 at 100-step pilot scale (eval_cer ~0.29 vs 0.66-0.89);
   replay ratio (10/20/30%) barely differs on the Sinhala-only signal.
   See [the E012 report](../experiments/e012-full-finetune-lr-replay-search-v5.md).
-- **E014 (retention validation): built, not yet run.** Kernel and data are
-  ready; needs a real GPU (a non-phone-verified Kaggle account silently
-  runs on CPU -- treat `kernels status: RUNNING` as unverified until the
-  web UI's GPU-utilization graph or a completed run's `run-metadata.json`
-  confirms `cuda_available`).
+- **E014 (retention validation): running on the personal Kaggle account,
+  version 2, since 2026-09-12.** Version 1 failed before training because its
+  reused E012 orchestration dataset predated the scheduler configuration
+  fields. A current, E014-specific immutable orchestration dataset was
+  published and version 2 submitted after its files were verified visible.
+  See [the E014 report](../experiments/e014-full-finetune-retention-validation-v5.md).
 - **E014 must be expanded before it runs**, per
   [Yohan's fine-tune lessons](../audits/yohan-finetune-lessons.md): his
   independent runs show a **full fine-tune at lr=3e-5 drove English WER
