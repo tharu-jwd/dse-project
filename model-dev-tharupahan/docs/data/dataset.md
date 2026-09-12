@@ -384,3 +384,19 @@ This closes the mechanical Unicode, duplicate-audio, and split-isolation
 preflight. It does not close the separate known label-quality caveat above or
 standardize legitimate but inconsistent Sinhala word compounding; those remain
 evaluation/training-policy issues rather than hidden-character defects.
+
+A corpus-wide candidate screen confirms the compounding issue is not marginal.
+It counted every adjacent token pair whose concatenated spelling also occurs as
+a standalone token, retaining forms seen at least twice both split and joined.
+The train manifest contains 2,664 such candidate types, covering 24,112 split
+occurrences and 45,741 joined-token occurrences. Frequent examples include
+`බුදුරජාණන් වහන්සේ`/`බුදුරජාණන්වහන්සේ` (713/12),
+`පිළිබඳ ව`/`පිළිබඳව` (20/429), `කර ගෙන`/`කරගෙන` (21/420),
+`බුදු දහම`/`බුදුදහම` (146/97), and `උප සිරැසි`/`උපසිරැසි`
+(27/159). These are candidate counts, not 2,664 proven errors: the screen also
+captures legitimate phrases whose concatenation occurs elsewhere and forms
+with attached punctuation. Therefore no automatic rewrite was applied. Before
+an expensive final run, derive an allow-listed spacing policy from the highest-
+frequency candidates, apply it identically to training and validation targets,
+and validate the resulting dataset as a new version in a controlled text-policy
+A/B; never mutate v5 in place.
