@@ -43,3 +43,7 @@ model-dev-tharupahan/data/
 model-dev-tharupahan/checkpoints/
 model-dev-tharupahan/reports/
 model-dev-tharupahan/runs/
+model-dev-tharupahan/src/*.egg-info/
+
+# Personal academic records
+model-dev-tharupahan/docs/project/tharupahan-academic-logbook.md
