@@ -360,3 +360,27 @@ whether the disagreement lands in the unreviewed 19,840 before trusting it.
 199.49h across 426 speakers, not v4's 220.877h across 471** -- a real,
 smaller pool than every completed experiment (E000-E011) trained on. This
 is intentional per this section, not a regression to fix.
+
+### v5 pre-full-training integrity check (2026-09-12)
+
+Rechecked the three generated manifests directly before authorizing any
+multi-epoch full fine-tune. Text checks use `text_canonical`; audio identity
+uses decoded-PCM SHA-256 where available and the encoded-audio SHA-256
+otherwise.
+
+| Manifest | Rows | SHA-256 | non-NFC | ZWNJ | invalid-context ZWJ | duplicate-audio rows |
+|---|---:|---|---:|---:|---:|---:|
+| `openslr-train-v2` | 165,055 | `a19795aafc3a9c08cbc0592f63477a2fbfd32253ab082bfc0bdcfd15b342ce84` | 0 | 0 | 0 | 0 |
+| `openslr-validation-v2` | 20,232 | `715fe1fb977b0abd29e05c8f5d7f7ff47c0d51ba7516d3af45bef65035ccbb12` | 0 | 0 | 0 | 0 |
+| `external-eval-v1` | 10,423 | `1be721f451a0e97405421856998044ef89971888e6d1f75093b8fa9dde04473b` | 0 | 0 | 0 | 0 |
+
+Valid ZWJ conjuncts remain deliberately: 24,015 train rows, 2,951 validation
+rows, and 3,713 external-evaluation rows contain at least one ZWJ, always in
+the permitted virama-ZWJ-Sinhala-consonant context. Pairwise checks found zero
+sample-ID overlap and zero audio-hash overlap between train/validation,
+train/external-evaluation, and validation/external-evaluation.
+
+This closes the mechanical Unicode, duplicate-audio, and split-isolation
+preflight. It does not close the separate known label-quality caveat above or
+standardize legitimate but inconsistent Sinhala word compounding; those remain
+evaluation/training-policy issues rather than hidden-character defects.
