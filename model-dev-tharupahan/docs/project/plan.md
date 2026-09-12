@@ -357,7 +357,7 @@ and must be swept rather than carried over silently.
   fields. A current, E014-specific immutable orchestration dataset was
   published and version 2 submitted after its files were verified visible.
   See [the E014 report](../experiments/e014-full-finetune-retention-validation-v5.md).
-- **E014 must be expanded before it runs**, per
+- **E014's two-arm design was expanded before submission**, per
   [Yohan's fine-tune lessons](../audits/yohan-finetune-lessons.md): his
   independent runs show a **full fine-tune at lr=3e-5 drove English WER
   from 4.3% to 80.9% (+76.6 pts, severe forgetting)**, and only

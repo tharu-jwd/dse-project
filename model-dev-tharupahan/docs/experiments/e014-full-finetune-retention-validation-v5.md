@@ -36,6 +36,14 @@ After each arm, score the resulting full checkpoint on the frozen 2,620-row
 LibriSpeech test-clean English-retention benchmark. The full fine-tune remains
 unauthorized until these results are independently verified.
 
+The immutable untouched comparison is the existing per-row prediction file
+with SHA-256
+`96d029665c2449c410bce6bace47476b0f400ede41cbf1b89070edd4c789d9af`.
+Its canonical baseline is 4.2338% WER and 1.9240% CER. The pre-registered
+retention gate is unchanged: canonical WER point degradation no greater than
++0.50 percentage points and the paired 95% interval's upper bound no greater
+than +1.00 point.
+
 ## Required result handling
 
 - Verify CUDA hardware and all artifact hashes from runtime metadata.
