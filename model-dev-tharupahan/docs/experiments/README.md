@@ -20,7 +20,7 @@ and result report.
 | E011 | Zero-training bake-off: Meta Omnilingual ASR CTC 300M v2 vs. E007 | Complete for CTC 300M; loses as officially scored, but a real wrong-script anomaly masks the true result | [Official loss, but real evidence of a masked, likely-fixable script-conditioning issue](e011-omnilingual-ctc-bakeoff-v4.md) |
 | E012 | Full-parameter fine-tune: LR x replay-ratio search (v5 data) | Complete -- lr=5e-5 wins decisively over lr=1e-6/5e-6; replay ratio (10/20/30%) barely differs on Sinhala-only signal, English retention not yet checked | [E012](e012-full-finetune-lr-replay-search-v5.md) |
 | E013 | Score E007 against dataset v5's new test set (TTS+YouTube) and validation | Blocked -- 3 real bugs found and fixed, then Kaggle's weekly 30h GPU quota exhausted before a scored result | [E013](e013-e007-v5-scoring.md) |
-| E014 | Bounded full-finetune LR/scheduler comparison with real English-retention evaluation | Running -- personal Kaggle version 2 after version 1 exposed and fixed a stale orchestration-runtime mismatch | [E014](e014-full-finetune-retention-validation-v5.md) |
+| E014 | Bounded full-finetune LR/scheduler comparison with real English-retention evaluation | Complete -- both 500-step arms overfit the 1,600-row pilot; no multi-epoch escalation | [E014](e014-full-finetune-retention-validation-v5.md) |
 
 The fixed 2,620-row LibriSpeech test-clean benchmark is evaluated after every
 adapter experiment without changing its references or normalization protocol.

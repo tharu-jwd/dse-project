@@ -351,12 +351,19 @@ and must be swept rather than carried over silently.
   over 1e-6/5e-6 at 100-step pilot scale (eval_cer ~0.29 vs 0.66-0.89);
   replay ratio (10/20/30%) barely differs on the Sinhala-only signal.
   See [the E012 report](../experiments/e012-full-finetune-lr-replay-search-v5.md).
-- **E014 (retention validation): running on the personal Kaggle account,
-  version 2, since 2026-09-12.** Version 1 failed before training because its
-  reused E012 orchestration dataset predated the scheduler configuration
-  fields. A current, E014-specific immutable orchestration dataset was
-  published and version 2 submitted after its files were verified visible.
-  See [the E014 report](../experiments/e014-full-finetune-retention-validation-v5.md).
+- **E014 (retention validation): complete; do not escalate either final
+  checkpoint.** Both 500-step arms saw the 1,600-row manifest 10 times and
+  overfit: 5e-5/linear ended at 98.81% WER / 34.61% CER and 1e-5/cosine at
+  114.30% / 52.08%. Canonical English WER was 5.7794% and 4.7044%
+  respectively versus the untouched 4.2338%. The high-rate arm fails the
+  frozen gate (+1.546 points; paired 95% CI +1.324 to +1.770); the conservative
+  arm passes (+0.471 points; CI +0.251 to +0.679) but has the worse Sinhala
+  result. Version 1's stale-runtime failure and version 2's successful run are
+  both preserved. The immediate
+  next test is the 100-step 5e-5/linear/replay-10 checkpoint, where E012's
+  Sinhala signal was strongest, with both Sinhala and English row-level
+  predictions retained and independently scored. See
+  [the E014 report](../experiments/e014-full-finetune-retention-validation-v5.md).
 - **E014's two-arm design was expanded before submission**, per
   [Yohan's fine-tune lessons](../audits/yohan-finetune-lessons.md): his
   independent runs show a **full fine-tune at lr=3e-5 drove English WER
@@ -610,8 +617,10 @@ completed items into summaries or remove them when priorities change.
 - [x] Re-run the corrected E009 tokenizer pilot -- fix confirmed correct,
   stopped per its own stop condition (still doesn't beat E010).
 - [ ] Compare bounded Whisper full-parameter adaptation with rank-32 LoRA.
-  Cost (~17h) and the LR/replay-ratio search strategy are now documented
-  in section 3, item 7; not yet run.
+  E012 completed the 100-step search and E014 rejected both 500-step final
+  checkpoints due pilot-manifest overfit. Next: independently validate the
+  100-step 5e-5/linear/replay-10 point on Sinhala and English before any
+  full-data escalation.
 - [ ] Run only evidence-triggered fallback models and ablations.
 - [ ] Freeze the selected candidate and run the final unopened test.
 - [ ] Complete deployment benchmark and model card.
