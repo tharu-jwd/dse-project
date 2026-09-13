@@ -228,6 +228,22 @@ export function SettingsPage() {
 
 const guides = [
   {
+    icon: 'dashboard',
+    title: 'Find your way around the dashboard',
+    en: [
+      'Open Dashboard from the sidebar to see your shortcuts and recent activity.',
+      'Use New lecture, New note or New quiz to jump straight into a task.',
+      'Recent transcripts and submissions appear below, ordered by last update.',
+      'The sidebar stays visible on every page so you can switch tasks at any time.',
+    ],
+    si: [
+      'ප්‍රවේශ මාර්ගයෙන් උපකරණ පුවරුව විවෘත කර ඔබේ කෙටිමං සහ මෑත ක්‍රියාකාරකම් බලන්න.',
+      'නව දේශනයක්, නව සටහනක් හෝ නව ප්‍රශ්නාවලියක් ඇරඹීමට ඒ බොත්තම් භාවිතා කරන්න.',
+      'මෑත පිටපත් සහ ඉදිරිපත් කිරීම් පහළින් අවසන් යාවත්කාලීන කිරීම අනුව පෙන්වයි.',
+      'ඕනෑම පිටුවක සිට කාර්යයක් මාරු කිරීමට ප්‍රවේශ මාර්ගය සැමවිටම දිස්වේ.',
+    ],
+  },
+  {
     icon: 'upload',
     title: 'Caption a lecture',
     en: [
@@ -260,6 +276,22 @@ const guides = [
     ],
   },
   {
+    icon: 'file',
+    title: 'Find and edit a transcript',
+    en: [
+      'Open Transcripts to browse every lecture and note you have access to.',
+      'Use the search bar and filters to narrow by title, type or status.',
+      'Open a transcript to correct text and review words flagged as low-confidence.',
+      'Finalize it when ready, then export as TXT, DOCX or PDF.',
+    ],
+    si: [
+      'ඔබට ප්‍රවේශය ඇති සියලුම දේශන සහ සටහන් බැලීමට පිටපත් පිටුව විවෘත කරන්න.',
+      'මාතෘකාව, වර්ගය හෝ තත්ත්වය අනුව පෙරීමට සෙවුම් තීරුව සහ පෙරහන් භාවිතා කරන්න.',
+      'පිටපතක් විවෘත කර පෙළ නිවැරදි කරන්න සහ අඩු විශ්වාසනීයත්වයෙන් සලකුණු කළ වචන පරීක්ෂා කරන්න.',
+      'සූදානම් වූ පසු අවසන් කර, TXT, DOCX හෝ PDF ලෙස බාගන්න.',
+    ],
+  },
+  {
     icon: 'quiz',
     title: 'Answer a spoken quiz',
     en: [
@@ -273,6 +305,54 @@ const guides = [
       'සෑම අනිවාර්ය ප්‍රශ්නයකටම පිළිතුරක් පටිගත කරන්න.',
       'සිංහල පිටපත පරීක්ෂා කර නිවැරදි කරන්න.',
       'සියලු පිළිතුරු සම්පූර්ණ වූ පසු තහවුරු කරන්න.',
+    ],
+  },
+  {
+    icon: 'quiz',
+    title: 'Create and publish a quiz (Teacher)',
+    en: [
+      'Open Manage quizzes from the teacher menu and choose Create quiz.',
+      'Add multiple-choice or spoken questions and mark the required ones.',
+      'Save as a draft to keep editing, or Publish to make it visible to students.',
+      'Track responses from the same quiz list once students start answering.',
+    ],
+    si: [
+      'ගුරු මෙනුවෙන් ප්‍රශ්නාවලි කළමනාකරණය විවෘත කර ප්‍රශ්නාවලියක් සාදන්න තෝරන්න.',
+      'බහුවරණ හෝ කථන ප්‍රශ්න එක් කර අනිවාර්ය ඒවා සලකුණු කරන්න.',
+      'තවදුරටත් සංස්කරණය කිරීමට කෙටුම්පතක් ලෙස සුරකින්න, නැතහොත් සිසුන්ට පෙනෙන පරිදි පළ කරන්න.',
+      'සිසුන් පිළිතුරු දීම ආරම්භ කළ පසු එම ප්‍රශ්නාවලි ලැයිස්තුවෙන්ම පිළිතුරු නිරීක්ෂණය කරන්න.',
+    ],
+  },
+  {
+    icon: 'users',
+    title: 'Review and mark submissions (Teacher)',
+    en: [
+      'Open Submissions to see every student response waiting for review.',
+      'Open a submission to read the spoken-answer transcript alongside the question.',
+      'Give a mark and written feedback for each answer.',
+      'Save your review; students can see their marks and feedback once you do.',
+    ],
+    si: [
+      'සමාලෝචනය සඳහා රැඳී සිටින සියලුම සිසු පිළිතුරු බැලීමට ඉදිරිපත් කිරීම් විවෘත කරන්න.',
+      'ප්‍රශ්නය සමඟ කථන පිළිතුරේ පිටපත කියවීමට ඉදිරිපත් කිරීමක් විවෘත කරන්න.',
+      'සෑම පිළිතුරකටම ලකුණු සහ ලිඛිත ප්‍රතිපෝෂණ ලබා දෙන්න.',
+      'ඔබේ සමාලෝචනය සුරකින්න; සුරැකූ පසු සිසුන්ට ඔවුන්ගේ ලකුණු සහ ප්‍රතිපෝෂණ බැලිය හැක.',
+    ],
+  },
+  {
+    icon: 'settings',
+    title: 'Personalize accessibility and voice commands',
+    en: [
+      'Open Settings to choose text size, high contrast and confidence-flag sensitivity.',
+      'Students can switch to Command mode to add voice-controlled buttons throughout the app.',
+      'Enroll a few voice samples per command language so SinhaSpeech recognizes your voice.',
+      'Preferences save automatically and apply the next time you open the app.',
+    ],
+    si: [
+      'අකුරු ප්‍රමාණය, විශාල ප්‍රභේදතාවය සහ විශ්වාසනීයත්ව සලකුණු සංවේදීතාව තෝරා ගැනීමට සැකසුම් විවෘත කරන්න.',
+      'යෙදුම පුරාම හඬ-පාලිත බොත්තම් එක් කිරීමට සිසුන්ට විධාන ප්‍රකාරය වෙත මාරු විය හැක.',
+      'SinhaSpeech ඔබේ හඬ හඳුනා ගැනීමට එක් එක් විධාන භාෂාව සඳහා හඬ නියැදි කිහිපයක් ලියාපදිංචි කරන්න.',
+      'මනාපයන් ස්වයංක්‍රීයව සුරැකෙන අතර ඊළඟ වතාවේ යෙදුම විවෘත කරන විට ක්‍රියාත්මක වේ.',
     ],
   },
 ]
