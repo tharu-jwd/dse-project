@@ -1,8 +1,8 @@
-# Error Analysis — Whisper Small Sinhala (run1–run4)
+# Error Analysis — Whisper Small Sinhala (run1–run5)
 
-This folder holds the output of `error_analysis.py` run against the test-set predictions of all four fine-tuning runs. For each run it groups every wrong sample into 8 clusters (TF-IDF over **character n-grams** + KMeans — chosen so it works directly on Sinhala script without needing a word tokenizer), buckets every sample by severity, and tallies the most common substitution / deletion / insertion words. This document summarizes what those outputs actually show and why.
+This folder holds the output of `error_analysis.py` run against the test-set predictions of the fine-tuning runs. For each run it groups every wrong sample into 8 clusters (TF-IDF over **character n-grams** + KMeans — chosen so it works directly on Sinhala script without needing a word tokenizer), buckets every sample by severity, and tallies the most common substitution / deletion / insertion words. This document summarizes what those outputs actually show and why.
 
-Files per run: `<run>_clusters.txt` (themed failure groups), `<run>_errors_by_severity.csv` (every wrong sample, worst first), `<run>_confusions.txt` (top substitution/deletion/insertion words).
+Each run has its own subfolder: `<run>/clusters.txt` (themed failure groups), `<run>/errors_by_severity.csv` (every wrong sample, worst first), `<run>/confusions.txt` (top substitution/deletion/insertion words). `comparison_summary.csv` (one row per run) sits at the top level alongside this README.
 
 ## 1. Headline numbers (15,483 test samples per run)
 
