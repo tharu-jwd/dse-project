@@ -413,11 +413,19 @@ unseen-utterance claim.
 V6 fixes that evaluation issue without changing or enlarging training. It is a
 set of derived evaluation views over immutable v5 sources:
 
-| Role | Rows | Hours | Speaker coverage | Change from v5 |
-|---|---:|---:|---:|---|
-| Train | 165,055 | 199.49 | 426 speakers | Unchanged |
-| Primary validation | 6,493 | 8.32 | All 52 held-out speakers | Excludes 13,739 training-text matches |
-| External test | 10,420 | 22.72 | 2 speaker IDs + 34 uploader groups | Excludes 3 training-text matches |
+| Role | Rows | Hours | Share by hours | Speaker coverage | Change from v5 |
+|---|---:|---:|---:|---:|---|
+| Train | 165,055 | 199.49 | 86.5% | 426 speakers | Unchanged |
+| Primary validation | 6,493 | 8.32 | 3.6% | All 52 held-out speakers | Excludes 13,739 training-text matches |
+| External test | 10,420 | 22.72 | 9.9% | 2 speaker IDs + 34 uploader groups | Excludes 3 training-text matches |
+
+This is not an exact conventional 80/10/10 split after enforcing transcript
+disjointness, but it is methodologically adequate: validation still contains
+8.32 hours across every held-out OpenSLR speaker, while test remains a large
+independent 22.72-hour cross-domain benchmark. Reducing the external test would
+not add licensed OpenSLR training data, and moving text-overlapping validation
+rows into training would weaken the audit trail. Absolute evaluation size,
+coverage, and independence take priority over matching round percentages.
 
 The retained validation set includes 6,201 Sinhala-only and 292 Latin-only
 rows; 308 rows are audio-reviewed. The retained test includes 8,215

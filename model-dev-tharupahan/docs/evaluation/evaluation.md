@@ -43,6 +43,13 @@ validation remains an overlap-inclusive secondary diagnostic and must not be
 the sole checkpoint-selection signal. Dataset v6's 10,420-row external test is
 also exact-text-disjoint from both train and primary validation.
 
+Because 6,383 of the 10,420 test rows come from two Path Nirvana studio
+speakers while 4,037 come from YouTube with uploader—not speaker—identity,
+never publish only the micro-averaged aggregate. Report the aggregate together
+with Path Nirvana, YouTube, Sinhala-only, and code-switched WER/CER. This keeps
+the two-speaker studio portion from silently defining the interpretation of
+the final score.
+
 ## English retention benchmark
 
 Standalone English retention uses the complete 2,620-row LibriSpeech
