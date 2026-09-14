@@ -1,6 +1,6 @@
 # Sinhala ASR Development Plan
 
-Last updated: 2026-09-07
+Last updated: 2026-09-14
 
 This is the canonical project plan. Detailed experiment narratives belong in
 docs/experiments/, audits in docs/audits/, and operational instructions in
@@ -15,8 +15,9 @@ Build a reproducible Sinhala ASR system with:
 - Strict CER below 10%.
 - Canonical WER and CER reported alongside strict metrics.
 - Evaluation on a frozen, fingerprinted, leakage-checked test set.
-- Standalone English retention measured, although it is not a hard acceptance
-  condition.
+- Standalone canonical English WER at or below 10.00% on the frozen
+  LibriSpeech test-clean benchmark. Delta and paired uncertainty remain
+  mandatory diagnostics but are no longer rejection gates.
 - Sinhala-English code-switching retained as part of the primary task.
 
 The target must not be reached through speaker leakage, training-corpus overlap,
@@ -355,14 +356,16 @@ and must be swept rather than carried over silently.
   checkpoint.** Both 500-step arms saw the 1,600-row manifest 10 times and
   overfit: 5e-5/linear ended at 98.81% WER / 34.61% CER and 1e-5/cosine at
   114.30% / 52.08%. Canonical English WER was 5.7794% and 4.7044%
-  respectively versus the untouched 4.2338%. The high-rate arm fails the
-  frozen gate (+1.546 points; paired 95% CI +1.324 to +1.770); the conservative
-  arm passes (+0.471 points; CI +0.251 to +0.679) but has the worse Sinhala
-  result. Version 1's stale-runtime failure and version 2's successful run are
-  both preserved. The immediate
-  next test is the 100-step 5e-5/linear/replay-10 checkpoint, where E012's
-  Sinhala signal was strongest, with both Sinhala and English row-level
-  predictions retained and independently scored. See
+  respectively versus the untouched 4.2338%. Under the original gate the
+  high-rate arm failed (+1.546 points; paired 95% CI +1.324 to +1.770) and the
+  conservative arm passed (+0.471 points; CI +0.251 to +0.679). Effective
+  2026-09-14, the owner-approved absolute ceiling is 10.00%; therefore both
+  arms pass current English acceptance, while the high-rate arm remains the
+  better Sinhala recipe. Version 1's stale-runtime failure and version 2's
+  successful run are both preserved. The redundant 100-step English rerun is
+  cancelled: E014 already establishes that this recipe remains below the new
+  ceiling after greater exposure. Proceed to a checkpointed, **one-epoch
+  maximum** full-v5 training stage, not an unchecked 3-4-epoch run. See
   [the E014 report](../experiments/e014-full-finetune-retention-validation-v5.md).
 - **E014's two-arm design was expanded before submission**, per
   [Yohan's fine-tune lessons](../audits/yohan-finetune-lessons.md): his
@@ -383,10 +386,12 @@ and must be swept rather than carried over silently.
   rows was ~84 min each, ~40% of total GPU time. Do per-epoch eval on a
   small fixed subset (the 200-row pilot slice); run full v5 validation
   once at the end.
-- **Plan for 3-4 epochs, not one.** Full fine-tune keeps improving every
-  epoch through 4 in Yohan's runs (val WER 31 -> 26 -> 24 -> 22); the
-  historical one-effective-epoch LoRA convention undertrains a full
-  fine-tune. This roughly quadruples the ~15-19h single-epoch estimate.
+- **Treat 3-4 epochs as an external observation, not present authorization.**
+  Yohan's full tune improved through epoch 4 (val WER 31 -> 26 -> 24 -> 22),
+  but its split is not valid under this project's leakage controls. E014 also
+  demonstrates that repeated exposure can overfit. Run one full-v5 epoch with
+  intermediate checkpoints first; authorize later epochs only from its own
+  validation curve and remaining compute allowance.
 - **OOM: eval is the memory bottleneck, not training.** On a 24GB card,
   train batch 8 / eval batch 4 + gradient accumulation to the target
   effective batch, plus
@@ -509,6 +514,10 @@ paid compute. Free resources are still measured.
 - Download predictions, logs, metadata, and important checkpoints before the
   environment expires.
 - Analyze and document failures before retrying.
+- For Whisper full-parameter training, evaluate fixed validation checkpoints
+  during the first full-data epoch and stop at one epoch unless the measured
+  learning curve justifies a separately approved continuation. A candidate
+  checkpoint must remain at or below 10.00% canonical English WER.
 
 Follow the [Kaggle](../training/kaggle-cli.md),
 [Colab](../training/colab-cli.md), [Camber](../training/camber-cli.md), and
@@ -617,10 +626,10 @@ completed items into summaries or remove them when priorities change.
 - [x] Re-run the corrected E009 tokenizer pilot -- fix confirmed correct,
   stopped per its own stop condition (still doesn't beat E010).
 - [ ] Compare bounded Whisper full-parameter adaptation with rank-32 LoRA.
-  E012 completed the 100-step search and E014 rejected both 500-step final
-  checkpoints due pilot-manifest overfit. Next: independently validate the
-  100-step 5e-5/linear/replay-10 point on Sinhala and English before any
-  full-data escalation.
+  E012 completed the 100-step search. E014 found small-manifest overfit but
+  measured 5.7794% English WER for the stronger 5e-5/linear arm, which passes
+  the owner-revised 10.00% ceiling. Next: one checkpointed full-v5 epoch with
+  intermediate validation and stop gates; no multi-epoch authorization yet.
 - [ ] Run only evidence-triggered fallback models and ablations.
 - [ ] Freeze the selected candidate and run the final unopened test.
 - [ ] Complete deployment benchmark and model card.

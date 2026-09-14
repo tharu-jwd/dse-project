@@ -8,7 +8,7 @@ and result report.
 |---|---|---|---|
 | E000 | Untouched Whisper-small on v4 validation | Complete | [E000](e000-whisper-small-zero-shot-v4.md) |
 | E001 | Whisper-small wide LoRA rank 16, 100 steps, v4 pilot | Complete | [E001](e001-whisper-small-wide-lora-r16-100-step-v4.md) |
-| E002 | Whisper-small wide LoRA rank 16, 500 steps, nested v4 data | Complete | [Sinhala improved; English-retention gate failed](e002-whisper-small-wide-lora-r16-500-step-v4.md) |
+| E002 | Whisper-small wide LoRA rank 16, 500 steps, nested v4 data | Complete | [Sinhala improved; failed original English gate, passes current 10% ceiling](e002-whisper-small-wide-lora-r16-500-step-v4.md) |
 | E003 | E002 recipe with 10% raw-reference English replay | Complete | [Sinhala improved; English retention failed](e003-whisper-small-wide-lora-r16-english-replay-v4.md) |
 | E004 | E003 recipe with untouched-model teacher-target English replay | Complete | [English retention passed; Sinhala remained far above target](e004-whisper-small-wide-lora-r16-teacher-replay-v4.md) |
 | E005 | E004 teacher replay scaled to 50k Sinhala rows and one effective epoch | Complete | [Sinhala improved materially; English retention passed](e005-whisper-small-wide-lora-r16-50k-teacher-replay-v4.md) |
@@ -20,7 +20,7 @@ and result report.
 | E011 | Zero-training bake-off: Meta Omnilingual ASR CTC 300M v2 vs. E007 | Complete for CTC 300M; loses as officially scored, but a real wrong-script anomaly masks the true result | [Official loss, but real evidence of a masked, likely-fixable script-conditioning issue](e011-omnilingual-ctc-bakeoff-v4.md) |
 | E012 | Full-parameter fine-tune: LR x replay-ratio search (v5 data) | Complete -- lr=5e-5 wins decisively over lr=1e-6/5e-6; replay ratio (10/20/30%) barely differs on Sinhala-only signal, English retention not yet checked | [E012](e012-full-finetune-lr-replay-search-v5.md) |
 | E013 | Score E007 against dataset v5's new test set (TTS+YouTube) and validation | Blocked -- 3 real bugs found and fixed, then Kaggle's weekly 30h GPU quota exhausted before a scored result | [E013](e013-e007-v5-scoring.md) |
-| E014 | Bounded full-finetune LR/scheduler comparison with real English-retention evaluation | Complete -- both 500-step arms overfit the 1,600-row pilot; no multi-epoch escalation | [E014](e014-full-finetune-retention-validation-v5.md) |
+| E014 | Bounded full-finetune LR/scheduler comparison with real English-retention evaluation | Complete -- both arms overfit the repeated pilot; both pass the current 10% English ceiling, enabling one checkpointed full-v5 epoch | [E014](e014-full-finetune-retention-validation-v5.md) |
 
 The fixed 2,620-row LibriSpeech test-clean benchmark is evaluated after every
 adapter experiment without changing its references or normalization protocol.

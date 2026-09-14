@@ -4,8 +4,10 @@
 
 Complete. Kaggle kernel version 2 under the personal account
 (`tharupahan/sinhala-asr-e014-validation`) finished on 2026-09-13. Neither
-arm is eligible for a longer run: both overfit the small pilot manifest and
-the high-rate arm also fails the English-retention gate.
+arm is eligible for more repeated passes over the small pilot manifest: both
+overfit it. Under the original pre-registered English gate, the high-rate arm
+also failed; under the owner-revised absolute 10% ceiling adopted on
+2026-09-14, both arms pass English acceptance.
 
 Version 1 failed before training after 55 seconds. The kernel supplied the new
 `lr_scheduler_type` and `warmup_steps` fields, but its reused E012
@@ -96,7 +98,7 @@ observability defect in the experiment harness and must be fixed before the
 next run. English predictions, trainer state, resolved configuration, runtime
 metadata, and the complete log were preserved.
 
-### English gate
+### Original English gate and current reclassification
 
 The 5e-5/linear arm fails decisively: canonical WER degrades by 1.546
 percentage points, with a paired 95% interval of +1.324 to +1.770 points.
@@ -104,21 +106,27 @@ The 1e-5/cosine arm passes the pre-registered gate, narrowly on the point
 threshold but comfortably on its uncertainty threshold: +0.471 points, 95%
 interval +0.251 to +0.679 points. Its regression is nevertheless real (389
 rows regressed versus 205 improved), driven mainly by 215 additional word
-substitutions and 37 insertions. English preservation alone cannot rescue
-that arm because its Sinhala result is the worse of the two.
+substitutions and 37 insertions. English preservation alone could not rescue
+that arm under the original decision because its Sinhala result was the worse
+of the two. Under the current absolute 10.00% policy, both arms pass; the
+deltas and intervals remain important diagnostics rather than rejection
+criteria.
 
 ## Decision and next experiment
 
-Do **not** start a multi-epoch full-data fine-tune from either final E014
-checkpoint. The highest-value next test is a single 100-step rerun of the
-E012 winner (5e-5, linear, 10% teacher replay), with Sinhala and English
-per-row predictions copied outside the checkpoint directory before cleanup.
-This costs roughly 25 minutes on the observed Kaggle hardware and directly
-tests English retention at the point where Sinhala was best, instead of
-spending another 1.5 hours training into demonstrated overfit. If that
-checkpoint passes the frozen English gate, the full v5 run should use
-epoch-based early stopping and validation checkpoints rather than copying the
-500-step/10-epoch pilot budget.
+Do **not** continue either final E014 checkpoint or authorize an unchecked
+multi-epoch run. On 2026-09-14 the owner changed English acceptance to an
+absolute canonical WER ceiling of 10.00%. Both E014 arms now pass that current
+bar, including the stronger Sinhala arm at 5.7794%; the planned 100-step
+English rerun would therefore no longer answer a blocking question.
+
+Proceed instead to a fresh, checkpointed full-v5 run from Whisper-small using
+5e-5, linear scheduling, and 10% teacher replay. Cap the first stage at one
+full-data epoch, preserve Sinhala predictions outside checkpoint cleanup, and
+measure intermediate checkpoints so training can stop before validation turns.
+Run the full frozen English benchmark on the selected checkpoint before any
+second epoch. E014 changed two factors together, so this advances a measured
+recipe—not a claim that learning rate alone caused the result.
 
 ## Artifact trace
 

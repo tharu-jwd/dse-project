@@ -55,9 +55,12 @@ original versus Bedrock-proposed training labels separately for Sinhala-only
 and Latin-only rows. Dataset v3 and all validation references remained unchanged
 during that completed historical diagnostic.
 
-Full-parameter fine-tuning is out of scope. Current pilots use wide-target LoRA
-over `q_proj`, `k_proj`, `v_proj`, `out_proj`, `fc1`, and `fc2`, while the base
-Whisper-small weights remain frozen.
+Wide-target LoRA remains the completed historical baseline. Full-parameter
+Whisper-small training is now in scope under the E012/E014 gates: the first
+full-v5 stage is capped at one checkpointed epoch using 5e-5, linear scheduling,
+and 10% teacher-behavior English replay. Further epochs require a new decision
+after Sinhala validation and the frozen English benchmark (canonical WER must
+remain at or below 10.00%).
 
 Colab execution and storage isolation for E002 onward are defined in
 [the Colab CLI policy](colab-cli.md). Google Drive is not mounted; verified

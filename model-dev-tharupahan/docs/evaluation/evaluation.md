@@ -57,6 +57,39 @@ benchmark is evaluation-only and is never mixed into Sinhala training unless a
 later, separately documented English-replay experiment explicitly introduces a
 licensed training split.
 
+### Current English acceptance threshold
+
+Effective 2026-09-14, the project owner accepts a candidate when its absolute
+canonical English WER on this frozen benchmark is **at most 10.00%**. Strict
+English WER remains diagnostic because reference casing and punctuation make it
+unsuitable as the retention gate. Canonical CER, the change from untouched
+Whisper-small, paired confidence intervals, and row-level regressions must still
+be reported, but they no longer independently reject a candidate below the
+10.00% WER ceiling.
+
+This is a post-hoc project policy change. Earlier experiment reports preserve
+their original pre-registered gate (+0.50 WER points with paired 95% upper bound
+at +1.00 point); their historical decisions must not be rewritten. Current
+selection uses the new absolute ceiling and labels any retrospective status
+change explicitly.
+
+| Completed checkpoint | Canonical English WER | Current status |
+|---|---:|---|
+| Untouched Whisper-small | 4.2338% | Pass |
+| E001 | 4.2978% | Pass |
+| E002 | 6.3535% | Pass (failed the original tighter gate) |
+| E003 raw-reference replay | 13.84% | **Fail** |
+| E004 teacher replay | 4.62% | Pass |
+| E005 teacher replay | 4.52% | Pass |
+| E006 teacher replay | 4.5821% | Pass |
+| E007 teacher replay | 4.5971% | Pass |
+| E014 5e-5/linear full tune | 5.7794% | Pass (failed the original tighter gate) |
+| E014 1e-5/cosine full tune | 4.7044% | Pass |
+
+Yohan's external 3e-5 full tune (about 80.9% English WER) remains a clear
+failure under either policy. His 1e-5/cosine result is contextual evidence, not
+a row-aligned project result, and is therefore not included in the table.
+
 ## Explaining metric changes
 
 Every experiment comparison must record the run IDs, starting checkpoint,

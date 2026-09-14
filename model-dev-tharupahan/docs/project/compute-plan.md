@@ -1,6 +1,6 @@
 # Compute and Experiment Gate
 
-Last verified 2026-09-06. The [GitHub Student Pack offer](https://education.github.com/pack)
+Last project-policy update 2026-09-14. The [GitHub Student Pack offer](https://education.github.com/pack)
 currently states 5 Camber GPU hours, 40 CPU hours, and 50 GB storage per month.
 [Camber's pricing page](https://www.cambercloud.com/pricing) states one credit is
 USD 1 and lists its smallest on-demand GPU engine at 3 credits/hour. Product
@@ -21,8 +21,9 @@ in the job's workdir) and running total of GPU-hours actually spent so far.
 
 ## Current readiness and actual compute platform
 
-Dataset v4 is frozen and fingerprinted, transcript review is locked, audio
-quality has been audited, and local train/save/evaluate checks pass. E000-E002
+Dataset v5 is the current leakage-controlled design for new training; v4
+remains the frozen historical comparison set. Transcript review is locked,
+audio quality has been audited, and local train/save/evaluate checks pass. E000-E002
 ran on free Colab T4 sessions. Starting with E003, Colab was abandoned as the
 primary platform after four consecutive `503 Service Unavailable` allocation
 failures across three work cycles left no usable runtime; see the E003
@@ -103,6 +104,12 @@ Accordingly, run one factor at a time. The completed sequence through E007 is:
    identified, re-run pending).
 
 Measure English before and after every candidate on the same fixed English set.
+Effective 2026-09-14, acceptance requires absolute canonical English WER at or
+below 10.00%. Continue reporting deltas and paired intervals, but do not use the
+older +0.50-point/+1.00-point rule to reject new candidates. Under this revised
+bar, E014's 5e-5/linear full-parameter arm passes at 5.7794% and permits one
+checkpointed full-v5 epoch; further epochs remain unauthorized pending its
+measured validation curve and compute review.
 Do not delete English words from Sinhala references or metrics: that would make
 the reported Sinhala result easier without improving the recognizer. A separate
 Sinhala-only slice answers the monolingual question honestly.
