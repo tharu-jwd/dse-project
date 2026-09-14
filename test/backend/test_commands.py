@@ -86,16 +86,29 @@ def test_unrelated_text_does_not_match():
 
 
 def _partial_skeleton_score(command_id: str) -> tuple[str, float]:
-    """A text whose skeleton only partially matches `command_id`'s phrase,
-    plus the exact score rapidfuzz gives it - computed directly rather
-    than assumed, since skeleton() collapses vowel-sign-only differences
-    to a 100% match.
+    """A text whose skeleton is `command_id`'s phrase with its last
+    character dropped, plus the score rapidfuzz gives it against that
+    command - computed directly rather than assumed, since skeleton()
+    collapses vowel-sign-only differences to a 100% match.
+
+    Every phrase now shares the same leading wake word, so truncating
+    from the *front* (or taking a short prefix) would produce text that
+    fuzzy-matches several short commands' shared "zimi" prefix almost
+    equally well. Dropping one character from the *end* keeps the whole
+    distinguishing tail, which keeps this command the clear winner
+    against the rest of the vocabulary - asserted below rather than
+    assumed, since match_command always picks the vocabulary-wide best
+    score, not just this one command's score.
     """
 
     full_skeleton = skeleton(_command(command_id).phrase)
-    partial_text = full_skeleton[: max(1, len(full_skeleton) // 2)]
-    score = fuzz.ratio(skeleton(partial_text), full_skeleton)
+    partial_text = full_skeleton[:-1]
+    scores = {c.id: fuzz.ratio(skeleton(partial_text), skeleton(c.phrase)) for c in COMMANDS}
+    score = scores[command_id]
     assert 0 < score < 100
+    assert score == max(scores.values()), (
+        f"{command_id}'s truncated phrase no longer wins the fuzzy match: {scores}"
+    )
     return partial_text, score
 
 
@@ -172,19 +185,20 @@ def test_destructive_flag_matches_across_languages():
 
 
 def test_match_command_defaults_to_sinhala():
-    result = match_command("ඊළඟට")
+    result = match_command(_command("next").phrase)
     assert result is not None
     assert result.command.id == "next"
     # The same text is meaningless in the English set - no accidental match.
-    assert match_command("ඊළඟට", language="en") is None
+    assert match_command(_command("next").phrase, language="en") is None
 
 
 def test_match_command_can_match_english_phrases():
-    result = match_command("next", language="en")
+    english_next = next(c for c in COMMANDS_EN if c.id == "next").phrase
+    result = match_command(english_next, language="en")
     assert result is not None
     assert result.command.id == "next"
-    # And the English word doesn't fuzzy-match anything in Sinhala either.
-    assert match_command("next", language="si") is None
+    # And the English phrase doesn't fuzzy-match anything in Sinhala either.
+    assert match_command(english_next, language="si") is None
 
 
 def test_hotwords_for_returns_the_right_language():
