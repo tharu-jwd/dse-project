@@ -289,7 +289,7 @@ def main() -> None:
             "warmup_steps": WARMUP_STEPS,
             "train_batch_size": 4,
             "eval_batch_size": 4,
-            "gradient_accumulation_steps": 4,
+            "gradient_accumulation_steps": 8,
             "eval_steps": SAVE_STEPS,
             "save_steps": SAVE_STEPS,
             "logging_steps": 20,

@@ -2,8 +2,9 @@
 
 ## Status
 
-Preparing immutable inputs. The local checkpoint/resume regression passed;
-the exact packaged Kaggle runtime smoke and measured training have not started.
+Ready for phase A. Immutable private inputs are uploaded and both the local
+checkpoint/resume regression and exact packaged Kaggle runtime smoke passed.
+Measured training has not started.
 
 ## Question
 
@@ -45,8 +46,15 @@ at or below the owner-approved 10.00% ceiling?
   Sinhala inference default afterward.
 - A local CPU full-parameter Whisper-tiny run stopped at step 1, produced a
   complete trainer checkpoint, resumed from it, and reached step 2. This proves
-  the generic phase-boundary mechanism; the packaged Kaggle smoke remains the
-  final launch gate because it also checks transported assets and GPU runtime.
+  the generic phase-boundary mechanism.
+- Kaggle runtime smoke version 1 completed after verifying the transported E007
+  shards and E015 controls, building the allow-listed source manifest, and
+  training a four-row mixed-language subset. Phase A stopped at global step 1;
+  phase B resumed and reached global step 2. The decoder languages recorded by
+  the result were `en` and `si`. Source-manifest SHA-256:
+  `db620e8454bb26cd059c5782eba1294a10c5667a85208cc99e8f5b70c258ca47`;
+  smoke-manifest SHA-256:
+  `05a840dbf48fcc531f54956632dd535e592efe3d60e70a04af33d94bb7b276c4`.
 
 ## Known limitation corrected from E012/E014
 
