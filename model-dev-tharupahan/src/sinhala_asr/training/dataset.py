@@ -61,6 +61,9 @@ class ManifestAudioDataset(Dataset):
             "audio": samples,
             "text": str(manifest_row["text_canonical"]),
             "sample_id": sample_id,
+            # Sinhala is the backward-compatible default. English teacher
+            # replay rows must opt into the English decoder prefix explicitly.
+            "decoder_language": str(manifest_row.get("decoder_language") or "si"),
         }
 
 

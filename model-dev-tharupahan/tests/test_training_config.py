@@ -59,6 +59,13 @@ def test_extended_tokenizer_path_defaults_to_none_and_round_trips(tmp_path: Path
     assert loaded.extended_tokenizer_path == "reports/e009-tokenizer-extension/whisper-small-si-250"
 
 
+@pytest.mark.parametrize("value", [0, 101])
+def test_stop_after_step_must_be_inside_run(value: int) -> None:
+    config = TrainConfig("model", "manifest", "run", max_steps=100, stop_after_step=value)
+    with pytest.raises(ValueError, match="stop_after_step"):
+        config.validate()
+
+
 def test_unreviewed_validation_is_smoke_only(tmp_path: Path) -> None:
     path = tmp_path / "manifest.parquet"
     pq.write_table(

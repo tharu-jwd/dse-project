@@ -19,12 +19,28 @@ def test_manifest_audio_dataset_applies_non_destructive_crop(tmp_path: Path) -> 
         "source_path": str(source),
         "source_row_index": 0,
         "text_canonical": "පාඨය",
+        "decoder_language": "en",
     }
     original = ManifestAudioDataset([row])[0]
     cropped = ManifestAudioDataset([row], {"sample": (0.25, 0.75)})[0]
     assert len(original["audio"]) == 16000
     assert len(cropped["audio"]) == 8000
     assert cropped["text"] == original["text"]
+    assert cropped["decoder_language"] == "en"
+
+
+def test_manifest_audio_dataset_defaults_decoder_language_to_sinhala(tmp_path: Path) -> None:
+    audio = io.BytesIO()
+    sf.write(audio, np.zeros(1600, dtype=np.float32), 16000, format="WAV")
+    source = tmp_path / "source.parquet"
+    pq.write_table(pa.Table.from_pylist([{"audio": audio.getvalue()}]), source)
+    row = {
+        "sample_id": "sample",
+        "source_path": str(source),
+        "source_row_index": 0,
+        "text_canonical": "පාඨය",
+    }
+    assert ManifestAudioDataset([row])[0]["decoder_language"] == "si"
 
 
 def test_load_crop_bounds_rejects_duplicates(tmp_path: Path) -> None:

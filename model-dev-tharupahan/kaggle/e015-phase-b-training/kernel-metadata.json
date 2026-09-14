@@ -1,0 +1,21 @@
+{
+  "id": "tharupahan/sinhala-asr-e015-full-v5-phase-b",
+  "title": "Sinhala ASR E015 Full v5 Phase B",
+  "code_file": "e015-phase-b-training.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_internet": "false",
+  "machine_shape": "NvidiaTeslaT4",
+  "dataset_sources": [
+    "tharupahan/sinhala-asr-e007-inputs",
+    "tharupahan/sinhala-asr-e003-runtime",
+    "tharupahan/sinhala-asr-e015-inputs",
+    "tharupahan/sinhala-asr-e015-orchestration-runtime",
+    "tharupahan/sinhala-asr-e015-phase-a-checkpoint"
+  ],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": []
+}

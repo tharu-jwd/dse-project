@@ -411,11 +411,12 @@ and must be swept rather than carried over silently.
   the candidate screen is not accurate enough to justify automatic rewriting,
   so do not mutate labels before E015. Measure spacing-related errors from its
   retained predictions and make any later normalization a versioned A/B.
-- **Dependency pins are load-bearing** -- `transformers>=4.46` for
-  `eval_strategy`, `accelerate>=1.0`, `numpy<2`; for any checkpoint
-  resume pin `transformers==4.46.3` and strip `best_global_step` from
-  `trainer_state.json`. Smoke-test the training entry point, not just
-  `pip install -r`.
+- **Dependency pins are load-bearing.** E015 reuses the already validated E003
+  offline runtime (`transformers==5.16.1`, `peft==0.20.0`,
+  `huggingface-hub==1.30.0`, `tokenizers==0.23.2`,
+  `safetensors==0.8.0`, `accelerate==1.14.0`) and explicitly removes Colab's
+  incompatible `torchao`. Smoke-test the training entry point and checkpoint
+  resume, not just dependency installation.
 
 **Immediate execution sequence — E015.**
 

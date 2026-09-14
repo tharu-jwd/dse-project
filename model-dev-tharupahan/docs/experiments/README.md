@@ -21,6 +21,7 @@ and result report.
 | E012 | Full-parameter fine-tune: LR x replay-ratio search (v5 data) | Complete -- lr=5e-5 wins decisively over lr=1e-6/5e-6; replay ratio (10/20/30%) barely differs on Sinhala-only signal, English retention not yet checked | [E012](e012-full-finetune-lr-replay-search-v5.md) |
 | E013 | Score E007 against dataset v5's new test set (TTS+YouTube) and validation | Blocked -- 3 real bugs found and fixed, then Kaggle's weekly 30h GPU quota exhausted before a scored result | [E013](e013-e007-v5-scoring.md) |
 | E014 | Bounded full-finetune LR/scheduler comparison with real English-retention evaluation | Complete -- both arms overfit the repeated pilot; both pass the current 10% English ceiling, enabling one checkpointed full-v5 epoch | [E014](e014-full-finetune-retention-validation-v5.md) |
+| E015 | Full-parameter Whisper-small, one v5 training epoch selected on v6 validation | Preparing -- immutable inputs and exact-runtime smoke before phase A | [E015](e015-full-parameter-one-epoch-v5-v6.md) |
 
 The fixed 2,620-row LibriSpeech test-clean benchmark is evaluated after every
 adapter experiment without changing its references or normalization protocol.

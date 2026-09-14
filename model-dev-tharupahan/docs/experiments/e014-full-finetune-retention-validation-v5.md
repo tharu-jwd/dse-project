@@ -90,6 +90,13 @@ This experiment changes learning rate and schedule together, so it supports a
 recipe-level comparison only. It cannot attribute the difference separately
 to learning rate or scheduler.
 
+The generic trainer also retained its globally initialized Sinhala tokenizer
+prefix while constructing English teacher-replay labels; it did not select the
+English prefix per replay row. This was not train/test leakage and both models
+were still evaluated with the correct English inference prompt, but replay was
+not implemented exactly as intended. E015 corrects the per-row decoder prefix
+and therefore changes both scale and replay prompting relative to E014.
+
 The kernel accidentally removed each arm's Sinhala prediction parquet when it
 deleted the `final/` directory to control output size. Consequently the
 trainer metrics are recoverable, but independent Sinhala rescoring, paired

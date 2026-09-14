@@ -18,6 +18,7 @@ class TrainConfig:
     learning_rate: float = 1e-5
     lr_scheduler_type: str = "linear"
     warmup_steps: int = 0
+    stop_after_step: int | None = None
     train_batch_size: int = 8
     eval_batch_size: int = 8
     gradient_accumulation_steps: int = 1
@@ -66,6 +67,10 @@ class TrainConfig:
             raise ValueError(f"unsupported lr_scheduler_type: {self.lr_scheduler_type}")
         if self.warmup_steps < 0:
             raise ValueError("warmup_steps cannot be negative")
+        if self.stop_after_step is not None and not (
+            0 < self.stop_after_step <= self.max_steps
+        ):
+            raise ValueError("stop_after_step must be between 1 and max_steps")
         for name in (
             "max_steps",
             "train_batch_size",

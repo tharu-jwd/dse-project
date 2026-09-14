@@ -18,6 +18,7 @@ import torch
 from transformers import (
     Seq2SeqTrainer,
     Seq2SeqTrainingArguments,
+    TrainerCallback,
     WhisperForConditionalGeneration,
     WhisperProcessor,
     WhisperTokenizer,
@@ -41,16 +42,40 @@ class WhisperCollator:
         batch = self.processor.feature_extractor(
             audio, sampling_rate=16000, return_attention_mask=True, return_tensors="pt"
         )
-        label_features = self.processor.tokenizer(
-            [feature["text"] for feature in features], padding=True, return_tensors="pt"
+        label_features = []
+        for feature in features:
+            self.processor.tokenizer.set_prefix_tokens(
+                language=feature.get("decoder_language") or "si", task="transcribe"
+            )
+            label_features.append(
+                {"input_ids": self.processor.tokenizer(feature["text"]).input_ids}
+            )
+        label_batch = self.processor.tokenizer.pad(
+            label_features, return_tensors="pt"
         )
-        labels = label_features.input_ids.masked_fill(
-            label_features.attention_mask.ne(1), -100
+        # Restore the inference/default prompt after constructing a mixed-
+        # language batch. Prefix selection above is deliberately per row.
+        self.processor.tokenizer.set_prefix_tokens(language="si", task="transcribe")
+        labels = label_batch.input_ids.masked_fill(
+            label_batch.attention_mask.ne(1), -100
         )
         if (labels[:, 0] == self.processor.tokenizer.bos_token_id).all():
             labels = labels[:, 1:]
         batch["labels"] = labels
         return batch
+
+
+class StopAfterStepCallback(TrainerCallback):
+    """Create a normal resumable checkpoint and stop at a phase boundary."""
+
+    def __init__(self, stop_after_step: int | None) -> None:
+        self.stop_after_step = stop_after_step
+
+    def on_step_end(self, args: Any, state: Any, control: Any, **_: Any) -> Any:
+        if self.stop_after_step is not None and state.global_step >= self.stop_after_step:
+            control.should_save = True
+            control.should_training_stop = True
+        return control
 
 
 def fingerprint(path: Path) -> str:
@@ -248,6 +273,7 @@ def main() -> None:
         data_collator=WhisperCollator(processor),
         compute_metrics=compute_metrics,
         processing_class=processor,
+        callbacks=[StopAfterStepCallback(config.stop_after_step)],
     )
     started = time.monotonic()
     result = trainer.train(resume_from_checkpoint=config.resume_from_checkpoint)
