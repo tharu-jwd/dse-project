@@ -400,3 +400,46 @@ an expensive final run, derive an allow-listed spacing policy from the highest-
 frequency candidates, apply it identically to training and validation targets,
 and validate the resulting dataset as a new version in a controlled text-policy
 A/B; never mutate v5 in place.
+
+## Dataset v6: transcript-disjoint evaluation views (2026-09-14)
+
+The v5 mechanical audit proved that audio and speakers do not cross splits,
+but a stricter pre-training audit found exact `text_metric` overlap: 13,739 of
+20,232 validation rows (67.91%) reused a training prompt spoken by a different
+speaker, and 3 of 10,423 external-test rows reused training text. This is not
+audio or speaker leakage, but it can reward sentence memorization and weaken an
+unseen-utterance claim.
+
+V6 fixes that evaluation issue without changing or enlarging training. It is a
+set of derived evaluation views over immutable v5 sources:
+
+| Role | Rows | Hours | Speaker coverage | Change from v5 |
+|---|---:|---:|---:|---|
+| Train | 165,055 | 199.49 | 426 speakers | Unchanged |
+| Primary validation | 6,493 | 8.32 | All 52 held-out speakers | Excludes 13,739 training-text matches |
+| External test | 10,420 | 22.72 | 2 speaker IDs + 34 uploader groups | Excludes 3 training-text matches |
+
+The retained validation set includes 6,201 Sinhala-only and 292 Latin-only
+rows; 308 rows are audio-reviewed. The retained test includes 8,215
+Sinhala-only, 2,195 code-switched, and 10 Latin-only rows. Pairwise validation
+verified zero overlap in `sample_id`, encoded-audio SHA-256, decoded-PCM
+SHA-256, and `text_metric` across train, primary validation, and test.
+
+Build reproducibly with:
+
+```bash
+PYTHONPATH=src python scripts/data/build_text_disjoint_evaluation.py
+```
+
+Outputs and their source hashes are recorded in
+`reports/dataset-audit/v6-text-disjoint/summary.json`. The excluded validation
+and test rows are retained there as separate Parquet audit artifacts; they are
+not moved into training. V5 remains unchanged for historical comparison. New
+checkpoint selection uses v6 primary validation, while the full v5 validation
+may be reported only as an overlap-inclusive secondary diagnostic.
+
+This correction removes known adaptation-time audio, speaker, and exact-text
+cross-split overlap. It does not make all labels audio-verified, standardize the
+known Sinhala spacing variation, establish true speaker IDs for YouTube, or
+rule out unknown overlap with Whisper's original web-scale pretraining. Those
+limitations must remain disclosed in final reporting.

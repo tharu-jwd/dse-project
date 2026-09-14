@@ -57,10 +57,11 @@ during that completed historical diagnostic.
 
 Wide-target LoRA remains the completed historical baseline. Full-parameter
 Whisper-small training is now in scope under the E012/E014 gates: the first
-full-v5 stage is capped at one checkpointed epoch using 5e-5, linear scheduling,
-and 10% teacher-behavior English replay. Further epochs require a new decision
-after Sinhala validation and the frozen English benchmark (canonical WER must
-remain at or below 10.00%).
+full-data stage is capped at one checkpointed epoch using v5's unchanged
+165,055-row training manifest, v6's transcript-disjoint 6,493-row validation
+view, 5e-5, linear scheduling, and 10% teacher-behavior English replay. Further
+epochs require a new decision after Sinhala validation and the frozen English
+benchmark (canonical WER must remain at or below 10.00%).
 
 Colab execution and storage isolation for E002 onward are defined in
 [the Colab CLI policy](colab-cli.md). Google Drive is not mounted; verified

@@ -123,7 +123,8 @@ English rerun would therefore no longer answer a blocking question.
 Proceed instead to a fresh, checkpointed full-v5 run from Whisper-small using
 5e-5, linear scheduling, and 10% teacher replay. Cap the first stage at one
 full-data epoch, preserve Sinhala predictions outside checkpoint cleanup, and
-measure intermediate checkpoints so training can stop before validation turns.
+measure intermediate checkpoints on dataset v6's 6,493-row transcript-disjoint
+validation view so training can stop before validation turns.
 Run the full frozen English benchmark on the selected checkpoint before any
 second epoch. E014 changed two factors together, so this advances a measured
 recipe—not a claim that learning rate alone caused the result.

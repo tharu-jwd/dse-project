@@ -31,7 +31,14 @@ model pretraining.
 
 - Dataset v4 is still the frozen dataset behind every completed experiment
   (E000-E011); it is unchanged and remains the historical record.
-- **Dataset v5 (2026-09-07) is the current design for new work**, decided
+- **Dataset v6 evaluation views (2026-09-14) are current for new work.** They
+  keep v5 training unchanged but remove every exact normalized-text match
+  across train, primary validation, and external test. Primary validation is
+  6,493 rows / 8.32 hours / all 52 held-out speakers; external test is 10,420
+  rows / 22.72 hours. Excluded rows remain audit artifacts and never move into
+  training. See
+  [the v6 specification](../data/dataset.md#dataset-v6-transcript-disjoint-evaluation-views-2026-09-14).
+- **Dataset v5 (2026-09-07) supplies v6's immutable source manifests**, decided
   directly with the project owner: OpenSLR-52 supplies train and validation
   only, and test is built entirely from two external, non-OpenSLR sources
   (SPEAK-ASR YouTube, Path Nirvana Sinhala TTS). See
@@ -45,12 +52,13 @@ model pretraining.
     Nirvana TTS (2 speakers, GPL-3, eval-only), 4,037 rows / 9.11h from
     YouTube (34 uploaders, license unresolved but owner-approved for private
     eval-only use). Zero OpenSLR rows in test.
-- Train, validation, and test speakers/sources do not overlap in v5.
+- Train, validation, and test audio/speakers do not overlap in v5; v6 also
+  removes exact normalized-text overlap.
 - Raw sources are immutable; corrections are versioned overlays.
 - Automatic GPT/Bedrock transcript rewriting was not adopted as a general data
   policy. v4's audio-verified 392 rows remain the only fully-reviewed
-  evaluation labels; v5's validation set knowingly includes unreviewed rows
-  by explicit owner decision (see the dataset spec).
+  evaluation labels; v6 primary validation retains 308 reviewed rows and 6,185
+  unreviewed rows. Report that label-quality limitation explicitly.
 
 v4's original validation split (206 rows, 3 speakers) was honest but too
 small and speaker-narrow to estimate broad generalization -- v5 exists to fix
@@ -365,7 +373,8 @@ and must be swept rather than carried over silently.
   successful run are both preserved. The redundant 100-step English rerun is
   cancelled: E014 already establishes that this recipe remains below the new
   ceiling after greater exposure. Proceed to a checkpointed, **one-epoch
-  maximum** full-v5 training stage, not an unchecked 3-4-epoch run. See
+  maximum** run using v5's unchanged training manifest and v6's
+  transcript-disjoint validation view, not an unchecked 3-4-epoch run. See
   [the E014 report](../experiments/e014-full-finetune-retention-validation-v5.md).
 - **E014's two-arm design was expanded before submission**, per
   [Yohan's fine-tune lessons](../audits/yohan-finetune-lessons.md): his
@@ -628,8 +637,10 @@ completed items into summaries or remove them when priorities change.
 - [ ] Compare bounded Whisper full-parameter adaptation with rank-32 LoRA.
   E012 completed the 100-step search. E014 found small-manifest overfit but
   measured 5.7794% English WER for the stronger 5e-5/linear arm, which passes
-  the owner-revised 10.00% ceiling. Next: one checkpointed full-v5 epoch with
-  intermediate validation and stop gates; no multi-epoch authorization yet.
+  the owner-revised 10.00% ceiling. V6 then removed exact train/evaluation
+  transcript overlap while retaining 8.32 validation hours and all 52 held-out
+  speakers. Next: one checkpointed epoch over unchanged v5 training, selected
+  on v6 validation; no multi-epoch authorization yet.
 - [ ] Run only evidence-triggered fallback models and ablations.
 - [ ] Freeze the selected candidate and run the final unopened test.
 - [ ] Complete deployment benchmark and model card.

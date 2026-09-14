@@ -36,6 +36,13 @@ Validation predictions may be used for recipe and checkpoint selection. Test
 predictions must not be generated until the candidate, normalization version,
 and decoding configuration have been frozen.
 
+For full-data work after 2026-09-14, “validation” means dataset v6's 6,493-row
+transcript-disjoint view. It retains all 52 held-out OpenSLR speakers and has
+zero exact normalized-text overlap with training. The original 20,232-row v5
+validation remains an overlap-inclusive secondary diagnostic and must not be
+the sole checkpoint-selection signal. Dataset v6's 10,420-row external test is
+also exact-text-disjoint from both train and primary validation.
+
 ## English retention benchmark
 
 Standalone English retention uses the complete 2,620-row LibriSpeech
