@@ -354,7 +354,7 @@ and must be swept rather than carried over silently.
    actually de-risks the English-forgetting question rather than assuming
    the LoRA-era 10% number still holds unchanged.
 
-**Status (2026-09-10).**
+**Status (2026-09-14).**
 
 - **E012 (the LR x replay-ratio grid): complete.** lr=5e-5 wins decisively
   over 1e-6/5e-6 at 100-step pilot scale (eval_cer ~0.29 vs 0.66-0.89);
@@ -393,8 +393,8 @@ and must be swept rather than carried over silently.
 - **Per-epoch generation eval on a large validation set dominates GPU
   time** -- on Yohan's 4-epoch RTX 4090 run, per-epoch eval on 15,763
   rows was ~84 min each, ~40% of total GPU time. Do per-epoch eval on a
-  small fixed subset (the 200-row pilot slice); run full v5 validation
-  once at the end.
+  small fixed transcript-disjoint subset; run full v6 validation only for
+  the selected checkpoint after the epoch.
 - **Treat 3-4 epochs as an external observation, not present authorization.**
   Yohan's full tune improved through epoch 4 (val WER 31 -> 26 -> 24 -> 22),
   but its split is not valid under this project's leakage controls. E014 also
@@ -406,14 +406,46 @@ and must be swept rather than carried over silently.
   effective batch, plus
   `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`.
 - **Transcript cleanup before training** (NFC/ZWJ normalization, strip
-  ZWNJ, enforce one compounding/spacing convention, confirm no audio-byte
-  duplicates across sources) -- Yohan's error analysis shows a large share
-  of the residual WER is label inconsistency the model cannot fix.
+  ZWNJ, and confirm no audio-byte duplicates across sources) is complete.
+  Compounding/spacing inconsistency remains a disclosed label limitation:
+  the candidate screen is not accurate enough to justify automatic rewriting,
+  so do not mutate labels before E015. Measure spacing-related errors from its
+  retained predictions and make any later normalization a versioned A/B.
 - **Dependency pins are load-bearing** -- `transformers>=4.46` for
   `eval_strategy`, `accelerate>=1.0`, `numpy<2`; for any checkpoint
   resume pin `transformers==4.46.3` and strip `best_global_step` from
   `trainer_state.json`. Smoke-test the training entry point, not just
   `pip install -r`.
+
+**Immediate execution sequence — E015.**
+
+1. Build one immutable training bundle from all 165,055 v5 train rows plus
+   deterministic teacher-behavior replay at 10% of the combined mixture.
+   Package v6's 6,493-row validation separately; do not package or access test.
+2. Re-run leakage, row-count, source-path, audio-decode, transcript, and SHA-256
+   checks on the transported bundles. Run a short resume smoke using the exact
+   E015 entry point and dependency snapshot.
+3. Start fresh from `openai/whisper-small`; use full-parameter adaptation,
+   learning rate 5e-5, linear schedule, effective batch 32, and a one-epoch
+   ceiling. The expected mixed manifest is about 183,394 occurrences and
+   approximately 5,732 optimizer steps.
+4. Split the epoch into checkpoint-resumable Kaggle phases before the 12-hour
+   session ceiling. Preserve optimizer/scheduler state, configuration, logs,
+   hashes, and checkpoints outside cleanup paths.
+5. At fixed progress points, generate predictions on a deterministic small
+   transcript-disjoint validation monitor. Preserve every row-level prediction;
+   use it to detect a turning learning curve, not as the final reported score.
+6. After the epoch, select the checkpoint using validation only. Score that
+   checkpoint on the complete 6,493-row v6 validation and the frozen 2,620-row
+   English benchmark. Independently recompute strict/canonical WER/CER,
+   operation counts, subgroup results, and paired uncertainty locally.
+7. Continue to another epoch only if Sinhala improves materially, canonical
+   English WER is at most 10.00%, no collapse/overfit signal appears, artifacts
+   are complete, and the remaining free-compute budget safely covers the next
+   resumable phase. Otherwise stop and analyze errors.
+8. Keep the 10,420-row external test locked until model, checkpoint, decoding,
+   and text policy are frozen. Final reporting must separate Path Nirvana,
+   YouTube, Sinhala-only, and code-switched results.
 
 ### 8. Test alternative multilingual CTC families if needed
 
@@ -626,6 +658,9 @@ completed items into summaries or remove them when priorities change.
   owner-approved private eval-only) plus Path Nirvana TTS (2 speakers,
   13.61h, added this session) the entire test set, replacing OpenSLR
   entirely for testing. See the dataset spec's v5 section.
+- [x] Derive and freeze v6 transcript-disjoint evaluation views: unchanged
+  165,055-row training, 6,493-row validation across all 52 held-out speakers,
+  and 10,420-row external test, with zero pairwise sample/audio/PCM/text overlap.
 - [x] Run the Omnilingual zero-training model-family bake-off (CTC 300M
   only; loses as officially scored, but a real wrong-script anomaly on
   70% of rows means this isn't the final word -- see E011).
