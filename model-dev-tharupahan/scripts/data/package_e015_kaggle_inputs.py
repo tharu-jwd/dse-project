@@ -230,7 +230,7 @@ def main() -> None:
     (args.output_dir / "dataset-metadata.json").write_text(
         json.dumps(
             {
-                "title": "Sinhala ASR E015 Private Training Controls and V6 Validation",
+                "title": "Sinhala ASR E015 Inputs and V6 Validation",
                 "id": "tharupahan/sinhala-asr-e015-inputs",
                 "licenses": [{"name": "other"}],
                 "description": (
