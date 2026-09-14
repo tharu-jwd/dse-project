@@ -82,6 +82,23 @@ def stage_model(runtime: Path) -> None:
         raise RuntimeError("offline Whisper-small model is incomplete")
 
 
+def stage_python_package(source_package: Path) -> Path:
+    """Return an import root whether Kaggle mounts the package expanded or zipped."""
+    expanded = source_package / "sinhala_asr"
+    if expanded.is_dir():
+        return source_package
+    archive = source_package / "sinhala_asr.zip"
+    if not archive.is_file():
+        raise RuntimeError("E015 orchestration Python package is missing")
+    destination = WORK / "e015-python-package"
+    shutil.rmtree(destination, ignore_errors=True)
+    destination.mkdir()
+    shutil.unpack_archive(archive, destination)
+    if not (destination / "sinhala_asr").is_dir():
+        raise RuntimeError("E015 orchestration Python package is malformed")
+    return destination
+
+
 def verify_e015_assets(root: Path) -> dict:
     index_path = root / "asset-index.json"
     index = json.loads(index_path.read_text())
@@ -248,9 +265,9 @@ def main() -> None:
         source_package = one_file("train.py").parent
         train_script = source_package / "train.py"
         predict_script = source_package / "predict.py"
-        sinhala_asr = source_package / "sinhala_asr"
-        if not predict_script.is_file() or not sinhala_asr.is_dir():
+        if not predict_script.is_file():
             raise RuntimeError("E015 orchestration runtime is incomplete")
+        python_package_root = stage_python_package(source_package)
         install_runtime(runtime)
         stage_model(runtime)
         asset_index = verify_e015_assets(e015_root)
@@ -289,7 +306,7 @@ def main() -> None:
         config_path = output / "config.json"
         write_json(config_path, config)
         environment = os.environ.copy()
-        environment["PYTHONPATH"] = str(source_package)
+        environment["PYTHONPATH"] = str(python_package_root)
         completed = subprocess.run(
             [sys.executable, str(train_script), "--config", str(config_path)],
             env=environment,

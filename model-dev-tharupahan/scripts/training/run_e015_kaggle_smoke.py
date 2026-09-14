@@ -26,6 +26,7 @@ def main() -> None:
         source_root = e015.one_file("sinhala-manifest.json").parent
         e015_root = e015.one_file("v5-train-allowlist.parquet").parent
         source_package = e015.one_file("train.py").parent
+        python_package_root = e015.stage_python_package(source_package)
         e015.install_runtime(runtime)
         e015.stage_model(runtime)
         e015.verify_e015_assets(e015_root)
@@ -67,7 +68,7 @@ def main() -> None:
             "maximum_cost_usd": 0.0,
         }
         environment = os.environ.copy()
-        environment["PYTHONPATH"] = str(source_package)
+        environment["PYTHONPATH"] = str(python_package_root)
         train_script = source_package / "train.py"
         phase_a = {**common, "stop_after_step": 1, "resume_from_checkpoint": None}
         phase_a_path = output / "phase-a-config.json"
