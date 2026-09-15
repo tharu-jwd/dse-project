@@ -1,0 +1,20 @@
+{
+  "id": "tharupahan/sinhala-asr-e016-yohan-run7-evaluation",
+  "title": "Sinhala ASR E016 Yohan Run7 Evaluation",
+  "code_file": "e016-yohan-run7-evaluation.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_internet": "true",
+  "machine_shape": "NvidiaTeslaT4",
+  "dataset_sources": [
+    "tharupahan/sinhala-asr-e003-runtime",
+    "tharupahan/sinhala-asr-e003-english-evaluation-inputs",
+    "tharupahan/sinhala-asr-e015-inputs",
+    "tharupahan/sinhala-asr-e016-runtime"
+  ],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": []
+}

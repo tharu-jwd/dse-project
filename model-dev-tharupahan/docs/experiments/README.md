@@ -22,6 +22,7 @@ and result report.
 | E013 | Score E007 against dataset v5's new test set (TTS+YouTube) and validation | Blocked -- 3 real bugs found and fixed, then Kaggle's weekly 30h GPU quota exhausted before a scored result | [E013](e013-e007-v5-scoring.md) |
 | E014 | Bounded full-finetune LR/scheduler comparison with real English-retention evaluation | Complete -- both arms overfit the repeated pilot; both pass the current 10% English ceiling, enabling one checkpointed full-v5 epoch | [E014](e014-full-finetune-retention-validation-v5.md) |
 | E015 | Full-parameter Whisper-small, one v5 training epoch selected on v6 validation | Ready for phase A -- immutable inputs uploaded; local and exact Kaggle resume smokes passed | [E015](e015-full-parameter-one-epoch-v5-v6.md) |
+| E016 | Honest evaluation of Yohan's latest run7 full checkpoint | Preparing -- pinned v6 validation and English-retention inference | [E016](e016-yohan-run7-honest-evaluation.md) |
 
 The fixed 2,620-row LibriSpeech test-clean benchmark is evaluated after every
 adapter experiment without changing its references or normalization protocol.
