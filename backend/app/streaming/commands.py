@@ -32,18 +32,22 @@ class VoiceCommand:
     destructive: bool = False
 
 
-# Every phrase below is prefixed with this wake word rather than treating
-# the wake word as its own separate command with a stateful "armed"
-# window. A student says the whole thing as one utterance, e.g. "zimi
-# මකන්න" - there's no gating step where "zimi" alone unlocks a following
-# command; the wake word only means anything as part of a full phrase.
-# A coined, language-neutral name rather than a translated word, so it's
-# spoken identically regardless of the student's active command language.
+# The wake word is deliberately NOT part of any command phrase. Fuzzy
+# scores are length-normalised, so a shared prefix inflated similarity
+# between short commands (zimi එක vs zimi දෙක scored 83) and deflated a
+# correct command whenever Whisper dropped the prefix (එක vs zimi එක
+# scored 50). It is detected separately - by voice fingerprint first,
+# transcript text as a fallback - and arms a short window in which one
+# command may execute (see app.api.routes.streaming).
+# A coined, language-neutral name, spoken identically in both languages.
+WAKE_WORD_ID = "wake"
 WAKE_WORD = "zimi"
-
-
-def _with_wake(phrase: str) -> str:
-    return f"{WAKE_WORD} {phrase}"
+# Whisper renders the coined word inconsistently in Sinhala mode - all of
+# these were observed in real transcripts.
+WAKE_TEXT_VARIANTS: tuple[str, ...] = ("zimi", "zini", "සිමි")
+# Enrollment-only: students record it so its fingerprint can be matched,
+# but it is never fuzzy-matched as a command itself.
+WAKE_COMMAND = VoiceCommand(id=WAKE_WORD_ID, phrase=WAKE_WORD)
 
 
 # Starter vocabulary - extend as more actions in the app become voice-
@@ -53,46 +57,46 @@ def _with_wake(phrase: str) -> str:
 # and _ACTIONABLE_NOTE_COMMANDS all key off the id, never the phrase) -
 # only the spoken phrase changes per language.
 COMMANDS_SI: tuple[VoiceCommand, ...] = (
-    VoiceCommand(id="next", phrase=_with_wake("ඊළඟට")),
-    VoiceCommand(id="previous", phrase=_with_wake("ආපසු")),
-    VoiceCommand(id="stop", phrase=_with_wake("නවත්වන්න")),
-    VoiceCommand(id="save", phrase=_with_wake("සුරකින්න")),
-    VoiceCommand(id="submit", phrase=_with_wake("ඉදිරිපත් කරන්න"), destructive=True),
-    VoiceCommand(id="delete", phrase=_with_wake("මකන්න"), destructive=True),
+    VoiceCommand(id="next", phrase="ඊළඟට"),
+    VoiceCommand(id="previous", phrase="ආපසු"),
+    VoiceCommand(id="stop", phrase="නවත්වන්න"),
+    VoiceCommand(id="save", phrase="සුරකින්න"),
+    VoiceCommand(id="submit", phrase="ඉදිරිපත් කරන්න", destructive=True),
+    VoiceCommand(id="delete", phrase="මකන්න", destructive=True),
     # MCQ answer selection - spoken while a multiple-choice question is
     # on screen (see QuizAnswerPage). "option_<n>" picks that numbered
     # choice; "cancel" clears whichever option is currently selected.
     # Not destructive: unlike submit/delete, picking or clearing an MCQ
     # answer is trivially reversible before the quiz is actually submitted.
-    VoiceCommand(id="option_1", phrase=_with_wake("එක")),
-    VoiceCommand(id="option_2", phrase=_with_wake("දෙක")),
-    VoiceCommand(id="option_3", phrase=_with_wake("තුන")),
-    VoiceCommand(id="option_4", phrase=_with_wake("හතර")),
-    VoiceCommand(id="cancel", phrase=_with_wake("අවලංගු කරන්න")),
+    VoiceCommand(id="option_1", phrase="එක"),
+    VoiceCommand(id="option_2", phrase="දෙක"),
+    VoiceCommand(id="option_3", phrase="තුන"),
+    VoiceCommand(id="option_4", phrase="හතර"),
+    VoiceCommand(id="cancel", phrase="අවලංගු කරන්න"),
     # Spoken while the always-on command mic is listening on a written-
     # answer quiz question - switches the student over to the live
     # transcription mic to dictate their answer (see QuizAnswerPage).
     # Saying "stop" while that transcription session is running switches
     # back to the command mic automatically.
-    VoiceCommand(id="answer", phrase=_with_wake("පිළිතුර")),
+    VoiceCommand(id="answer", phrase="පිළිතුර"),
 )
 
 # Validated against 36 real recordings (see command_embedding_similarities_en.csv) -
 # "stop" scored weakest on every similarity metric there and is the
 # first candidate to reword if English false-matches show up in practice.
 COMMANDS_EN: tuple[VoiceCommand, ...] = (
-    VoiceCommand(id="next", phrase=_with_wake("next")),
-    VoiceCommand(id="previous", phrase=_with_wake("previous")),
-    VoiceCommand(id="stop", phrase=_with_wake("stop")),
-    VoiceCommand(id="save", phrase=_with_wake("save")),
-    VoiceCommand(id="submit", phrase=_with_wake("submit"), destructive=True),
-    VoiceCommand(id="delete", phrase=_with_wake("delete"), destructive=True),
-    VoiceCommand(id="option_1", phrase=_with_wake("one")),
-    VoiceCommand(id="option_2", phrase=_with_wake("two")),
-    VoiceCommand(id="option_3", phrase=_with_wake("three")),
-    VoiceCommand(id="option_4", phrase=_with_wake("four")),
-    VoiceCommand(id="cancel", phrase=_with_wake("cancel")),
-    VoiceCommand(id="answer", phrase=_with_wake("answer")),
+    VoiceCommand(id="next", phrase="next"),
+    VoiceCommand(id="previous", phrase="previous"),
+    VoiceCommand(id="stop", phrase="stop"),
+    VoiceCommand(id="save", phrase="save"),
+    VoiceCommand(id="submit", phrase="submit", destructive=True),
+    VoiceCommand(id="delete", phrase="delete", destructive=True),
+    VoiceCommand(id="option_1", phrase="one"),
+    VoiceCommand(id="option_2", phrase="two"),
+    VoiceCommand(id="option_3", phrase="three"),
+    VoiceCommand(id="option_4", phrase="four"),
+    VoiceCommand(id="cancel", phrase="cancel"),
+    VoiceCommand(id="answer", phrase="answer"),
 )
 
 COMMANDS_BY_LANGUAGE: dict[str, tuple[VoiceCommand, ...]] = {
@@ -109,11 +113,41 @@ def get_commands(language: str) -> tuple[VoiceCommand, ...]:
     return COMMANDS_BY_LANGUAGE.get(language, COMMANDS_SI)
 
 
+def enrollment_commands(language: str) -> tuple[VoiceCommand, ...]:
+    """Everything a student records samples for: the matchable commands
+    plus the wake word. Strict, unlike get_commands() - an unknown
+    language yields nothing, so enrollment rejects it with a clear error
+    instead of silently storing samples against the Sinhala list."""
+
+    if language not in COMMANDS_BY_LANGUAGE:
+        return ()
+    return (*COMMANDS_BY_LANGUAGE[language], WAKE_COMMAND)
+
+
+def split_wake_prefix(transcript: str) -> tuple[bool, str]:
+    """Text fallback for wake detection: if the first word looks like a
+    known spelling of the wake word, return (True, rest of transcript);
+    otherwise (False, whole transcript)."""
+
+    tokens = transcript.strip().split()
+    if not tokens:
+        return False, ""
+
+    first = tokens[0].strip(".,!?'\"").lower()
+    if any(
+        fuzz.ratio(first, variant) >= settings.voice_wake_text_threshold
+        for variant in WAKE_TEXT_VARIANTS
+    ):
+        return True, " ".join(tokens[1:])
+    return False, " ".join(tokens)
+
+
 def hotwords_for(language: str) -> str:
     """Space-joined phrase list handed to faster-whisper's decoding bias
-    (`hotwords`/`initial_prompt`) in command mode. See inference.py."""
+    (`hotwords`/`initial_prompt`) in command mode. See inference.py. The
+    wake word is included so Whisper is nudged to write it down."""
 
-    return " ".join(command.phrase for command in get_commands(language))
+    return " ".join([WAKE_WORD, *(command.phrase for command in get_commands(language))])
 
 
 # Backward-compatible default, same reasoning as COMMANDS above.

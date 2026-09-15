@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from app.services import voice_enrollment
-from app.streaming.commands import COMMANDS
+from app.streaming.commands import COMMANDS, WAKE_WORD_ID
 from app.streaming.embeddings import l2_normalize, manhattan_similarity
 
 
@@ -19,8 +19,15 @@ def _vector(*values: float) -> np.ndarray:
 
 def test_progress_starts_at_zero_for_every_command(db_user):
     progress = voice_enrollment.get_progress(db_user)
-    assert {item.command_id for item in progress} == {c.id for c in COMMANDS}
+    assert {item.command_id for item in progress} == {c.id for c in COMMANDS} | {WAKE_WORD_ID}
     assert all(item.collected == 0 and not item.complete for item in progress)
+
+
+def test_wake_word_can_be_enrolled_and_loads_into_the_bank(db_user):
+    result = voice_enrollment.submit_sample(db_user, WAKE_WORD_ID, _vector(1.0, 0.0))
+    assert result.accepted
+
+    assert WAKE_WORD_ID in voice_enrollment.load_bank(db_user)
 
 
 def test_first_sample_for_a_command_is_always_accepted(db_user):

@@ -1,4 +1,5 @@
 import asyncio
+import dataclasses
 import json
 import logging
 import time
@@ -18,7 +19,8 @@ from app.services.streaming_persistence import (
 from app.services.transcript_service import DuplicateTranscriptTitleError
 from app.streaming.buffer import StreamingBuffer
 from app.streaming.command_resolution import resolve_command
-from app.streaming.embeddings import ClipTooShortError
+from app.streaming.commands import WAKE_WORD_ID, split_wake_prefix
+from app.streaming.embeddings import ClipTooShortError, best_match
 from app.streaming.inference import get_streaming_transcriber
 from app.streaming.vad import get_vad
 
@@ -202,6 +204,9 @@ async def _run_session(websocket: WebSocket, user: User) -> None:
         if settings.voice_command_embedding_matching_enabled
         else {}
     )
+    # The wake word's samples are only ever used to detect the wake word,
+    # never offered to resolve_command as a command candidate.
+    wake_bank = bank.pop(WAKE_WORD_ID, [])
 
     buffer = StreamingBuffer(
         max_buffer_seconds=settings.streaming_max_buffer_seconds,
@@ -211,6 +216,7 @@ async def _run_session(websocket: WebSocket, user: User) -> None:
     state = {
         "segment_order": 0,
         "bank": bank,
+        "wake_bank": wake_bank,
         "mode": mode,
         "language": language,
         # COMMAND mode only: has a "listening" ack already been sent for
@@ -220,6 +226,9 @@ async def _run_session(websocket: WebSocket, user: User) -> None:
         # _send_command.
         "listening_sent": False,
         "last_command": None,
+        # Monotonic deadline set when the wake word is detected; a command
+        # may only execute before it, and executing one clears it.
+        "armed_until": None,
     }
 
     # NOTE mode keeps the tick loop exactly as before, for partial
@@ -484,21 +493,45 @@ async def _resolve_and_dispatch(
     audio,
 ) -> None:
     bank = state["bank"]
+    wake_bank = state.get("wake_bank") or []
+    language = state["language"]
     embedding = None
 
-    if settings.voice_command_embedding_matching_enabled and bank:
+    if settings.voice_command_embedding_matching_enabled and (bank or wake_bank):
         try:
             embedding = await get_streaming_transcriber().embed(audio)
         except ClipTooShortError:
             embedding = None
 
-    decision = resolve_command(
-        segment.text,
-        avg_logprob=avg_logprob,
-        embedding=embedding,
-        bank=bank,
-        language=state["language"],
-    )
+    text_wake, remainder = split_wake_prefix(segment.text)
+    heard_wake = text_wake or _sounds_like_wake(embedding, bank, wake_bank)
+
+    if heard_wake:
+        state["armed_until"] = time.monotonic() + settings.voice_wake_window_seconds
+        command_text = remainder if text_wake else segment.text
+        # This clip's fingerprint is the wake word's (or a blend of wake
+        # word + command when said without a pause), so a command inside
+        # the same clip is matched on its words alone.
+        decision = (
+            resolve_command(
+                command_text, avg_logprob=avg_logprob, embedding=None, bank={}, language=language
+            )
+            if command_text
+            else None
+        )
+        if decision is None or decision.outcome == "none":
+            await _send_armed(websocket)
+            return
+    else:
+        decision = resolve_command(
+            segment.text,
+            avg_logprob=avg_logprob,
+            embedding=embedding,
+            bank=bank,
+            language=language,
+        )
+
+    decision = _apply_wake_gate(state, decision)
 
     if state["mode"] == "COMMAND":
         # No note to protect and nothing persisted either way - every
@@ -519,7 +552,59 @@ async def _resolve_and_dispatch(
         # Nothing was guessed - fall through and keep the words the
         # student actually said, same as ordinary dictation.
 
+    if heard_wake:
+        # The student was addressing the app, not dictating - never write
+        # "zimi ..." into their note.
+        return
+
     await _persist_and_send_final(websocket, state, transcript_id, segment)
+
+
+def _sounds_like_wake(embedding, bank: dict, wake_bank: list) -> bool:
+    """The clip's closest enrolled sample, across every command AND the
+    wake word, must be a wake sample clearing the wake threshold."""
+
+    if embedding is None or not wake_bank:
+        return False
+
+    match = best_match(
+        embedding,
+        {**bank, WAKE_WORD_ID: wake_bank},
+        threshold=settings.voice_wake_embedding_threshold,
+    )
+    return match is not None and match.label == WAKE_WORD_ID
+
+
+def _apply_wake_gate(state: dict, decision):
+    """Downgrade a command to "none" unless the wake word was heard within
+    the window. An executed command consumes the window, so one wake word
+    unlocks exactly one command; a "confirm" leaves it open so the student
+    can repeat the command clearly."""
+
+    if decision.outcome == "none" or not settings.voice_command_wake_required:
+        return decision
+
+    armed_until = state.get("armed_until")
+    if armed_until is None or time.monotonic() >= armed_until:
+        logger.info(
+            "voice_command_wake_gate blocked outcome=%s command=%s (no recent wake word)",
+            decision.outcome,
+            decision.command_id or decision.fuzzy_command_id or decision.embedding_command_id,
+        )
+        return dataclasses.replace(decision, outcome="none", command_id=None)
+
+    if decision.outcome == "execute":
+        state["armed_until"] = None
+    return decision
+
+
+async def _send_armed(websocket: WebSocket) -> None:
+    try:
+        await websocket.send_json(
+            {"type": "armed", "seconds": settings.voice_wake_window_seconds}
+        )
+    except RuntimeError:
+        pass
 
 
 async def _handle_note_command(

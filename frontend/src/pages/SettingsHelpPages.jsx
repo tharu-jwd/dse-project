@@ -109,8 +109,8 @@ export function SettingsPage() {
           <h2>Interaction mode</h2>
           <p className="muted" style={{ fontSize: '0.85rem', marginBottom: 16 }}>
             Choose how you want to use SinhaSpeech. Command mode is built for students who find
-            typing or using a mouse difficult - it adds voice-controlled buttons (say "save",
-            "submit", "next" or "previous") wherever they're available. Normal mode hides those
+            typing or using a mouse difficult - it adds voice-controlled buttons (say "zimi", then
+            "save", "submit", "next" or "previous") wherever they're available. Normal mode hides those
             extra controls and works entirely through the keyboard and mouse as usual.
           </p>
           <div className="mode-toggle" role="radiogroup" aria-label="Interaction mode">
@@ -176,8 +176,8 @@ export function SettingsPage() {
             </div>
           )}
           <p className="muted" style={{ fontSize: '0.85rem', marginTop: 16 }}>
-            While taking a self-study note, say a command like "delete" or "stop" to control the
-            app hands-free - this always works, in either mode.
+            While taking a self-study note, say "zimi" followed by a command like "delete" or
+            "stop" to control the app hands-free - this always works, in either mode.
             {interactionMode === 'command' &&
               " Haven't recorded your voice yet? Set up samples for a language below."}
           </p>
