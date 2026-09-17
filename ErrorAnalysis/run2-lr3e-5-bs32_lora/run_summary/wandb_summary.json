@@ -1,0 +1,17 @@
+{
+  "_runtime": 31106.370039603,
+  "_step": 392,
+  "_timestamp": 1787666279.9774835,
+  "_wandb.runtime": 31106,
+  "eval/cer": 18.807459642966997,
+  "eval/loss": 0.34415891766548157,
+  "eval/runtime": 4458.9834,
+  "eval/samples_per_second": 3.472,
+  "eval/steps_per_second": 0.434,
+  "eval/wer": 61.62738584836023,
+  "train/epoch": 2.5252212103597493,
+  "train/global_step": 9775,
+  "train/grad_norm": 2.023136615753174,
+  "train/learning_rate": 9.525182498118694e-06,
+  "train/loss": 0.2934
+}
