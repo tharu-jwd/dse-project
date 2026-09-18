@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
-import teacherQuizBackground from '../assets/6.jpg'
+import teacherQuizBackground from '../assets/6.webp'
 import Icon from '../components/Icon'
 import {
   Alert,

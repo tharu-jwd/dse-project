@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.vercel
+.env*
+
+# Original full-size images (kept locally, not shipped)
+src/assets/_originals/

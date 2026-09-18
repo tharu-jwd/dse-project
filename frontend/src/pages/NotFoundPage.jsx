@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import notFoundBackground from '../assets/4.jpg'
+import notFoundBackground from '../assets/4.webp'
 import { EmptyState } from '../components/UI'
 import { useLanguage } from '../contexts/LanguageContext'
 
