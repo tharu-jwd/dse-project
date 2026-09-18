@@ -720,6 +720,9 @@ async def test_non_actionable_command_after_wake_is_not_saved_as_note_text(clock
 
 @pytest.mark.asyncio
 async def test_wake_detected_by_voice_when_whisper_mangles_the_word(monkeypatch, clock, storage):
+    # Embedding matching is off by default in config.py - set it explicitly
+    # rather than relying on a developer's .env, so this behaves the same in CI.
+    monkeypatch.setattr(streaming_route.settings, "voice_command_embedding_matching_enabled", True)
     wake_voice = _vec(1.0, 0.0, 0.0)
     _fake_embedding(monkeypatch, wake_voice)
     websocket = FakeWebSocket()
@@ -756,6 +759,9 @@ async def test_wake_requirement_can_be_switched_off(monkeypatch, clock, storage)
 
 @pytest.mark.asyncio
 async def test_session_keeps_wake_samples_out_of_the_command_bank(monkeypatch):
+    # _run_session only calls load_bank when this is on (streaming.py:204),
+    # so without it the bank is {} and there is nothing to split.
+    monkeypatch.setattr(streaming_route.settings, "voice_command_embedding_matching_enabled", True)
     captured = {}
 
     async def spy_process(websocket, buffer, state, *args):

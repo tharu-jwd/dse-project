@@ -95,9 +95,9 @@ jobs:
         run: npm run lint
 
       - name: Build
-        # Proves the build compiles. The API URL here is a placeholder - the
-        # real value is injected by the deploy workflow, since Vite bakes it
-        # in at build time.
+        # Proves the build compiles. The API URL is a placeholder because the
+        # real one is baked in at build time by whoever deploys - deployment is
+        # manual (`npx vercel --prod` from frontend/), so nothing here ships.
         env:
           VITE_API_BASE_URL: https://example.invalid
           VITE_USE_MOCK_API: 'false'
