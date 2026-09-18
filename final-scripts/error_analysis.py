@@ -10,18 +10,19 @@ upload them). Run one of the eval scripts first if you don't have a
 predictions CSV yet, e.g.:
     python3 evaluate_finetuned.py --model <checkpoint-dir> --output-dir eval_results/
 
-What it produces per model (under --output-dir):
-  <name>_errors_by_severity.csv   -- every wrong sample, worst WER first,
+What it produces (under --output-dir), one subfolder per model plus a
+top-level summary:
+  <name>/errors_by_severity.csv   -- every wrong sample, worst WER first,
                                       with the reference/prediction/ops so you
                                       can read failures directly
-  <name>_confusions.txt           -- most common word-level substitution
+  <name>/confusions.txt           -- most common word-level substitution
                                       pairs (ref -> hyp), and most commonly
                                       deleted / inserted words -- usually the
                                       fastest way to spot a systematic issue
                                       (e.g. a dropped honorific, a
                                       consistently misspelled loanword, a
                                       confused vowel-sign pair)
-  <name>_clusters.txt             -- failed samples grouped by TF-IDF
+  <name>/clusters.txt             -- failed samples grouped by TF-IDF
                                       (character n-gram, so it works on
                                       Sinhala script without a tokenizer) +
                                       KMeans, so you can see *themes* in the
@@ -149,11 +150,12 @@ def analyze_model(name, df, output_dir, n_clusters, top_k):
     detail = pd.DataFrame(rows).sort_values("wer", ascending=False)
     wrong = detail[detail["wer"] > 0].copy()
 
-    os.makedirs(output_dir, exist_ok=True)
-    detail_path = os.path.join(output_dir, f"{name}_errors_by_severity.csv")
+    run_dir = os.path.join(output_dir, name)
+    os.makedirs(run_dir, exist_ok=True)
+    detail_path = os.path.join(run_dir, "errors_by_severity.csv")
     detail.to_csv(detail_path, index=False)
 
-    conf_path = os.path.join(output_dir, f"{name}_confusions.txt")
+    conf_path = os.path.join(run_dir, "confusions.txt")
     with open(conf_path, "w", encoding="utf-8") as f:
         f.write(f"=== {name}: top {top_k} word substitutions (reference -> prediction) ===\n")
         for (ref_w, hyp_w), count in sub_pairs.most_common(top_k):
@@ -170,7 +172,7 @@ def analyze_model(name, df, output_dir, n_clusters, top_k):
             f.write(f"  {label:12} {n:5d} samples ({100 * n / len(detail):.1f}%)\n")
     print(f"[{name}] wrote {detail_path} and {conf_path}")
 
-    cluster_path = os.path.join(output_dir, f"{name}_clusters.txt")
+    cluster_path = os.path.join(run_dir, "clusters.txt")
     write_clusters(name, wrong, n_clusters, cluster_path)
 
     n_words_ref = total_hits + total_sub + total_del

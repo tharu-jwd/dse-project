@@ -1,15 +1,20 @@
 import unicodedata
 
+import pytest
 from rapidfuzz import fuzz
 
 from app.streaming.commands import (
     COMMANDS,
     COMMANDS_EN,
     COMMANDS_SI,
+    WAKE_WORD,
+    WAKE_WORD_ID,
+    enrollment_commands,
     get_commands,
     hotwords_for,
     match_command,
     skeleton,
+    split_wake_prefix,
 )
 
 
@@ -86,16 +91,22 @@ def test_unrelated_text_does_not_match():
 
 
 def _partial_skeleton_score(command_id: str) -> tuple[str, float]:
-    """A text whose skeleton only partially matches `command_id`'s phrase,
-    plus the exact score rapidfuzz gives it - computed directly rather
-    than assumed, since skeleton() collapses vowel-sign-only differences
-    to a 100% match.
+    """A text whose skeleton is `command_id`'s phrase with its last
+    character dropped, plus the score rapidfuzz gives it against that
+    command - computed directly rather than assumed, since skeleton()
+    collapses vowel-sign-only differences to a 100% match. Also asserts
+    this command still wins against the whole vocabulary, since
+    match_command picks the vocabulary-wide best score.
     """
 
     full_skeleton = skeleton(_command(command_id).phrase)
-    partial_text = full_skeleton[: max(1, len(full_skeleton) // 2)]
-    score = fuzz.ratio(skeleton(partial_text), full_skeleton)
+    partial_text = full_skeleton[:-1]
+    scores = {c.id: fuzz.ratio(skeleton(partial_text), skeleton(c.phrase)) for c in COMMANDS}
+    score = scores[command_id]
     assert 0 < score < 100
+    assert score == max(scores.values()), (
+        f"{command_id}'s truncated phrase no longer wins the fuzzy match: {scores}"
+    )
     return partial_text, score
 
 
@@ -172,23 +183,64 @@ def test_destructive_flag_matches_across_languages():
 
 
 def test_match_command_defaults_to_sinhala():
-    result = match_command("ඊළඟට")
+    result = match_command(_command("next").phrase)
     assert result is not None
     assert result.command.id == "next"
     # The same text is meaningless in the English set - no accidental match.
-    assert match_command("ඊළඟට", language="en") is None
+    assert match_command(_command("next").phrase, language="en") is None
 
 
 def test_match_command_can_match_english_phrases():
-    result = match_command("next", language="en")
+    english_next = next(c for c in COMMANDS_EN if c.id == "next").phrase
+    result = match_command(english_next, language="en")
     assert result is not None
     assert result.command.id == "next"
-    # And the English word doesn't fuzzy-match anything in Sinhala either.
-    assert match_command("next", language="si") is None
+    # And the English phrase doesn't fuzzy-match anything in Sinhala either.
+    assert match_command(english_next, language="si") is None
 
 
 def test_hotwords_for_returns_the_right_language():
-    assert hotwords_for("si") == " ".join(c.phrase for c in COMMANDS_SI)
-    assert hotwords_for("en") == " ".join(c.phrase for c in COMMANDS_EN)
+    assert hotwords_for("si") == " ".join([WAKE_WORD, *(c.phrase for c in COMMANDS_SI)])
+    assert hotwords_for("en") == " ".join([WAKE_WORD, *(c.phrase for c in COMMANDS_EN)])
     assert "next" in hotwords_for("en")
     assert "next" not in hotwords_for("si")
+
+
+# --- Wake word ----------------------------------------------------------
+
+
+def test_wake_word_is_never_a_matchable_command():
+    assert WAKE_WORD_ID not in {c.id for c in COMMANDS_SI} | {c.id for c in COMMANDS_EN}
+    assert match_command(WAKE_WORD) is None
+
+
+def test_phrases_do_not_carry_the_wake_word():
+    assert all(WAKE_WORD not in c.phrase for c in COMMANDS_SI + COMMANDS_EN)
+
+
+def test_enrollment_commands_add_the_wake_word():
+    assert {c.id for c in enrollment_commands("si")} == {c.id for c in COMMANDS_SI} | {WAKE_WORD_ID}
+    assert enrollment_commands("fr") == ()
+
+
+@pytest.mark.parametrize(
+    "transcript, expected",
+    [
+        ("zimi මකන්න", (True, "මකන්න")),
+        ("Zimi, මකන්න", (True, "මකන්න")),
+        ("zini ඊළඟට", (True, "ඊළඟට")),
+        ("සිමි එක", (True, "එක")),
+        ("zimi", (True, "")),
+        ("මකන්න", (False, "මකන්න")),
+        ("අද කාලගුණය හොඳයි", (False, "අද කාලගුණය හොඳයි")),
+        ("", (False, "")),
+    ],
+)
+def test_split_wake_prefix(transcript, expected):
+    assert split_wake_prefix(transcript) == expected
+
+
+def test_eka_and_deka_are_clearly_separated_without_a_shared_prefix():
+    eka = match_command("එක")
+    assert eka is not None and eka.command.id == "option_1"
+    assert fuzz.ratio(skeleton("එක"), skeleton("දෙක")) < 80

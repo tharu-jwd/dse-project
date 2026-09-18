@@ -26,7 +26,7 @@ import numpy as np
 from app.core.config import settings
 from app.db.session import SessionLocal
 from app.models.voice_enrollment import CommandEnrollment
-from app.streaming.commands import COMMANDS_BY_LANGUAGE, get_commands
+from app.streaming.commands import enrollment_commands
 from app.streaming.embeddings import manhattan_similarity
 
 
@@ -34,14 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 def _valid_command_ids(language: str) -> set[str]:
-    # Deliberately strict here, unlike get_commands()'s Sinhala fallback -
-    # that fallback exists so a bad language value degrades runtime
-    # matching gracefully; a write path like enrollment should reject an
-    # invalid language outright rather than silently storing samples
-    # against the wrong list, or worse, tripping the DB's own
-    # ck_command_enrollments_language / ck_users_command_language
-    # constraints with a raw IntegrityError instead of this clear error.
-    return {command.id for command in COMMANDS_BY_LANGUAGE.get(language, ())}
+    return {command.id for command in enrollment_commands(language)}
 
 
 class UnknownCommandError(ValueError):
@@ -162,7 +155,7 @@ def get_progress(user_id: UUID, language: str = "si") -> list[CommandProgress]:
             required=required,
             collected=counts.get(command.id, 0),
         )
-        for command in get_commands(language)
+        for command in enrollment_commands(language)
     ]
 
 

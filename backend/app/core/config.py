@@ -131,24 +131,18 @@ class Settings(BaseSettings):
     # (COMMAND mode and NOTE mode's delete/stop alike).
     voice_command_debounce_seconds: float = 2.0
 
-    # Wake-word gating: an "execute" outcome for any command other than
-    # the wake word itself is only actually acted on if that wake word
-    # was recognized within the last voice_command_wake_window_seconds -
-    # otherwise it's treated as if nothing was recognized (dropped in
-    # COMMAND mode, left as ordinary dictated text in NOTE mode). This
-    # stops an unrelated word that happens to fuzzy-match a destructive
-    # command like "delete" from firing on its own; the student must
-    # deliberately say the wake word first. One wake unlocks exactly one
-    # following command - saying the wake word twice in a row doesn't extend
-    # a standing "always armed" window.
-    # Off for now while the wake-word UX (word choice, window length,
-    # frontend feedback) is still being worked out - every command
-    # executes immediately again, exactly like before this feature
-    # existed. Flip to True once it's ready rather than ripping the
-    # gating code back out.
-    voice_command_wake_gate_enabled: bool = False
-    voice_command_wake_word_id: str = "wake"
-    voice_command_wake_window_seconds: float = 1.0
+    # Wake word ("zimi"): a command only executes within
+    # voice_wake_window_seconds of the wake word being detected, and one
+    # wake unlocks exactly one command. Detected by voice fingerprint when
+    # the student has enrolled it (top match must be the wake bank at
+    # >= voice_wake_embedding_threshold - real "zimi" clips scored
+    # 0.834-0.878 in testing, non-wake speech peaked at 0.797), otherwise
+    # by transcript text (first word fuzzy-matching a known spelling at
+    # >= voice_wake_text_threshold).
+    voice_command_wake_required: bool = True
+    voice_wake_embedding_threshold: float = 0.83
+    voice_wake_text_threshold: float = 75.0
+    voice_wake_window_seconds: float = 3.0
 
     @property
     def cors_origins_list(self) -> list[str]:

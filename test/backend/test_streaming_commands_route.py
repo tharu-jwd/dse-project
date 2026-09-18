@@ -26,6 +26,11 @@ def _phrase(command_id: str) -> str:
     return next(c for c in COMMANDS if c.id == command_id).phrase
 
 
+# A session that has already heard the wake word and never times out -
+# lets the tests below exercise command routing without the wake gate.
+ARMED = float("inf")
+
+
 class FakeWebSocket:
     def __init__(self):
         self.sent = []
@@ -54,7 +59,7 @@ async def test_delete_command_removes_last_segment_instead_of_persisting(monkeyp
     buffer = StreamingBuffer(max_buffer_seconds=15.0, overlap_seconds=1.0)
     buffer.append(b"\x00\x00" * 1600)  # silence, only used for timing here
     transcript_id = uuid4()
-    state = {"segment_order": 0, "bank": {}, "mode": "NOTE", "language": "si"}
+    state = {"segment_order": 0, "bank": {}, "mode": "NOTE", "language": "si", "armed_until": ARMED}
 
     await streaming_route._emit_final(
         websocket, buffer, state, transcript_id, _phrase("delete"), None, None
@@ -86,7 +91,7 @@ async def test_stop_command_notifies_client_without_persisting(monkeypatch):
     websocket = FakeWebSocket()
     buffer = StreamingBuffer(max_buffer_seconds=15.0, overlap_seconds=1.0)
     buffer.append(b"\x00\x00" * 1600)
-    state = {"segment_order": 0, "bank": {}, "mode": "NOTE", "language": "si"}
+    state = {"segment_order": 0, "bank": {}, "mode": "NOTE", "language": "si", "armed_until": ARMED}
 
     await streaming_route._emit_final(
         websocket, buffer, state, uuid4(), _phrase("stop"), None, None
@@ -116,7 +121,7 @@ async def test_ordinary_dictation_is_still_persisted_normally(monkeypatch):
     websocket = FakeWebSocket()
     buffer = StreamingBuffer(max_buffer_seconds=15.0, overlap_seconds=1.0)
     buffer.append(b"\x00\x00" * 1600)
-    state = {"segment_order": 0, "bank": {}, "mode": "NOTE", "language": "si"}
+    state = {"segment_order": 0, "bank": {}, "mode": "NOTE", "language": "si", "armed_until": ARMED}
 
     await streaming_route._emit_final(
         websocket, buffer, state, uuid4(), "අද කාලගුණය හොඳයි", None, None
@@ -155,7 +160,7 @@ async def test_partial_dictation_never_invokes_embedding_matching(monkeypatch):
     websocket = FakeWebSocket()
     buffer = StreamingBuffer(max_buffer_seconds=15.0, overlap_seconds=1.0)
     buffer.append(b"\x00\x00" * 1600)
-    state = {"segment_order": 0, "bank": {"stop": []}, "mode": "NOTE", "language": "si"}  # non-empty bank, feature on
+    state = {"segment_order": 0, "bank": {"stop": []}, "mode": "NOTE", "language": "si", "armed_until": ARMED}  # non-empty bank, feature on
 
     await streaming_route._process_window(
         websocket, buffer, state, uuid4(), FakeVad(), FakeTranscriber()
@@ -194,7 +199,7 @@ async def test_unenrolled_student_still_gets_working_fuzzy_commands(monkeypatch)
     buffer = StreamingBuffer(max_buffer_seconds=15.0, overlap_seconds=1.0)
     buffer.append(b"\x00\x00" * 1600)
     transcript_id = uuid4()
-    state = {"segment_order": 0, "bank": {}, "mode": "NOTE", "language": "si"}  # unenrolled
+    state = {"segment_order": 0, "bank": {}, "mode": "NOTE", "language": "si", "armed_until": ARMED}  # unenrolled
 
     await streaming_route._emit_final(
         websocket, buffer, state, transcript_id, _phrase("delete"), -0.1, None
@@ -257,7 +262,7 @@ async def test_command_executes_on_speech_end_not_on_a_tick(monkeypatch):
     transcriber = CountingFakeTranscriber(text=_phrase("delete"))
     websocket = FakeWebSocket()
     buffer = StreamingBuffer(max_buffer_seconds=15.0, overlap_seconds=1.0)
-    state = {"segment_order": 0, "bank": {}, "mode": "COMMAND", "language": "si", "listening_sent": False, "last_command": None}
+    state = {"segment_order": 0, "bank": {}, "mode": "COMMAND", "language": "si", "listening_sent": False, "last_command": None, "armed_until": ARMED}
 
     for _ in range(3):
         buffer.append(b"\x00\x00" * 1600)
@@ -287,7 +292,7 @@ async def test_exactly_one_transcription_per_command_utterance(monkeypatch):
     transcriber = CountingFakeTranscriber(text=_phrase("stop"))
     websocket = FakeWebSocket()
     buffer = StreamingBuffer(max_buffer_seconds=15.0, overlap_seconds=1.0)
-    state = {"segment_order": 0, "bank": {}, "mode": "COMMAND", "language": "si", "listening_sent": False, "last_command": None}
+    state = {"segment_order": 0, "bank": {}, "mode": "COMMAND", "language": "si", "listening_sent": False, "last_command": None, "armed_until": ARMED}
 
     for _ in range(7):
         buffer.append(b"\x00\x00" * 1600)
@@ -316,7 +321,7 @@ async def test_listening_sent_once_per_utterance_before_any_transcription(monkey
     transcriber = CountingFakeTranscriber(text=_phrase("next"))
     websocket = FakeWebSocket()
     buffer = StreamingBuffer(max_buffer_seconds=15.0, overlap_seconds=1.0)
-    state = {"segment_order": 0, "bank": {}, "mode": "COMMAND", "language": "si", "listening_sent": False, "last_command": None}
+    state = {"segment_order": 0, "bank": {}, "mode": "COMMAND", "language": "si", "listening_sent": False, "last_command": None, "armed_until": ARMED}
 
     for _ in range(3):
         buffer.append(b"\x00\x00" * 1600)
@@ -546,3 +551,235 @@ async def test_note_mode_still_starts_the_tick_loop(monkeypatch):
 
     assert ticker_started == [True]
     assert websocket.sent[-1]["type"] == "session_end"
+
+
+# --- Wake word gate ------------------------------------------------------
+
+
+def _session(mode="COMMAND", bank=None, wake_bank=None, armed_until=None):
+    return {
+        "segment_order": 0,
+        "bank": bank or {},
+        "wake_bank": wake_bank or [],
+        "mode": mode,
+        "language": "si",
+        "listening_sent": False,
+        "last_command": None,
+        "armed_until": armed_until,
+    }
+
+
+async def _say(websocket, state, text, transcript_id=None):
+    buffer = StreamingBuffer(max_buffer_seconds=15.0, overlap_seconds=1.0)
+    buffer.append(b"\x00\x00" * 1600)
+    await streaming_route._emit_final(
+        websocket, buffer, state, transcript_id or uuid4(), text, -0.1, None
+    )
+
+
+def _vec(*values):
+    import numpy as np
+
+    from app.streaming.embeddings import l2_normalize
+
+    return l2_normalize(np.array(values, dtype=np.float32))
+
+
+def _fake_embedding(monkeypatch, vector):
+    async def embed(audio):
+        return vector
+
+    monkeypatch.setattr(
+        streaming_route, "get_streaming_transcriber", lambda: SimpleNamespace(embed=embed)
+    )
+
+
+@pytest.fixture
+def clock(monkeypatch):
+    now = {"t": 100.0}
+    monkeypatch.setattr(streaming_route.time, "monotonic", lambda: now["t"])
+    return now
+
+
+@pytest.fixture
+def storage(monkeypatch):
+    calls = SimpleNamespace(persisted=[], deleted=[])
+    monkeypatch.setattr(
+        streaming_route, "add_final_segment", lambda *a, **k: calls.persisted.append(a)
+    )
+    monkeypatch.setattr(
+        streaming_route, "delete_last_segment", lambda tid: calls.deleted.append(tid)
+    )
+    return calls
+
+
+WINDOW = streaming_route.settings.voice_wake_window_seconds
+
+
+@pytest.mark.asyncio
+async def test_zimi_alone_arms_without_running_anything(clock, storage):
+    websocket, state = FakeWebSocket(), _session()
+
+    await _say(websocket, state, "zimi")
+
+    assert websocket.sent == [{"type": "armed", "seconds": WINDOW}]
+    assert state["armed_until"] == pytest.approx(100.0 + WINDOW)
+
+
+@pytest.mark.asyncio
+async def test_command_without_wake_word_is_ignored_in_command_mode(clock, storage):
+    websocket, state = FakeWebSocket(), _session()
+
+    await _say(websocket, state, _phrase("delete"))
+
+    assert websocket.sent == []
+
+
+@pytest.mark.asyncio
+async def test_command_without_wake_word_stays_dictation_in_note_mode(clock, storage):
+    websocket, state = FakeWebSocket(), _session(mode="NOTE")
+
+    await _say(websocket, state, _phrase("delete"))
+
+    assert storage.deleted == []
+    assert len(storage.persisted) == 1
+    assert websocket.sent[0]["type"] == "final"
+
+
+@pytest.mark.asyncio
+async def test_wake_then_command_within_window_executes(clock, storage):
+    """The normal two-clip path, for a student with no recordings at all -
+    the text fallback alone detects "zimi"."""
+
+    websocket, state = FakeWebSocket(), _session()
+
+    await _say(websocket, state, "zimi")
+    clock["t"] += WINDOW - 0.5
+    await _say(websocket, state, _phrase("next"))
+
+    assert websocket.sent[-1] == {"type": "command", "command": "next"}
+    assert state["armed_until"] is None
+
+
+@pytest.mark.asyncio
+async def test_wake_window_expires(clock, storage):
+    websocket, state = FakeWebSocket(), _session()
+
+    await _say(websocket, state, "zimi")
+    clock["t"] += WINDOW + 0.5
+    await _say(websocket, state, _phrase("next"))
+
+    assert [m["type"] for m in websocket.sent] == ["armed"]
+
+
+@pytest.mark.asyncio
+async def test_one_wake_word_unlocks_exactly_one_command(clock, storage):
+    websocket, state = FakeWebSocket(), _session()
+
+    await _say(websocket, state, "zimi")
+    await _say(websocket, state, _phrase("next"))
+    await _say(websocket, state, _phrase("previous"))
+
+    assert [m for m in websocket.sent if m["type"] == "command"] == [
+        {"type": "command", "command": "next"}
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("wake_spelling", ["zimi", "zini", "සිමි"])
+async def test_wake_and_command_in_one_clip_execute_immediately(clock, storage, wake_spelling):
+    websocket, state = FakeWebSocket(), _session(mode="NOTE")
+    transcript_id = uuid4()
+
+    await _say(websocket, state, f"{wake_spelling} {_phrase('delete')}", transcript_id)
+
+    assert storage.deleted == [transcript_id]
+    assert storage.persisted == []
+    assert websocket.sent == [{"type": "command", "command": "delete"}]
+
+
+@pytest.mark.asyncio
+async def test_wake_clip_is_never_saved_as_note_text(clock, storage):
+    websocket, state = FakeWebSocket(), _session(mode="NOTE")
+
+    await _say(websocket, state, "zimi")
+    await _say(websocket, state, "zimi ඉදි")  # wake + unrecognisable remainder
+
+    assert storage.persisted == []
+    assert [m["type"] for m in websocket.sent] == ["armed", "armed"]
+
+
+@pytest.mark.asyncio
+async def test_non_actionable_command_after_wake_is_not_saved_as_note_text(clock, storage):
+    websocket, state = FakeWebSocket(), _session(mode="NOTE")
+
+    await _say(websocket, state, f"zimi {_phrase('next')}")
+
+    assert storage.persisted == []
+
+
+@pytest.mark.asyncio
+async def test_wake_detected_by_voice_when_whisper_mangles_the_word(monkeypatch, clock, storage):
+    wake_voice = _vec(1.0, 0.0, 0.0)
+    _fake_embedding(monkeypatch, wake_voice)
+    websocket = FakeWebSocket()
+    state = _session(bank={"next": [_vec(0.0, 1.0, 0.0)]}, wake_bank=[wake_voice])
+
+    await _say(websocket, state, "ඒක හැමෝදා")
+
+    assert websocket.sent == [{"type": "armed", "seconds": WINDOW}]
+    assert state["armed_until"] is not None
+
+
+@pytest.mark.asyncio
+async def test_voice_closer_to_a_command_than_to_wake_does_not_arm(monkeypatch, clock, storage):
+    next_voice = _vec(0.0, 1.0, 0.0)
+    _fake_embedding(monkeypatch, next_voice)
+    websocket = FakeWebSocket()
+    state = _session(bank={"next": [next_voice]}, wake_bank=[_vec(1.0, 0.0, 0.0)])
+
+    await _say(websocket, state, _phrase("next"))
+
+    assert websocket.sent == []  # recognised as "next", but blocked: no wake word
+    assert state["armed_until"] is None
+
+
+@pytest.mark.asyncio
+async def test_wake_requirement_can_be_switched_off(monkeypatch, clock, storage):
+    monkeypatch.setattr(streaming_route.settings, "voice_command_wake_required", False)
+    websocket, state = FakeWebSocket(), _session()
+
+    await _say(websocket, state, _phrase("delete"))
+
+    assert websocket.sent == [{"type": "command", "command": "delete"}]
+
+
+@pytest.mark.asyncio
+async def test_session_keeps_wake_samples_out_of_the_command_bank(monkeypatch):
+    captured = {}
+
+    async def spy_process(websocket, buffer, state, *args):
+        captured.update(state)
+
+    monkeypatch.setattr(streaming_route, "get_vad", lambda: QueuedFakeVad([]))
+    monkeypatch.setattr(
+        streaming_route, "get_streaming_transcriber", lambda: CountingFakeTranscriber()
+    )
+    monkeypatch.setattr(
+        streaming_route.voice_enrollment,
+        "load_bank",
+        lambda user_id, language: {"next": ["n"], "wake": ["w"]},
+    )
+    monkeypatch.setattr(streaming_route, "_process_command_chunk", spy_process)
+
+    websocket = ReceiveQueueWebSocket(
+        [
+            _text_message({"type": "start", "mode": "COMMAND"}),
+            _bytes_message(b"\x00\x00" * 160),
+            _text_message({"type": "stop"}),
+        ]
+    )
+    await streaming_route._run_session(websocket, SimpleNamespace(user_id=uuid4(), command_language="si"))
+
+    assert captured["bank"] == {"next": ["n"]}
+    assert captured["wake_bank"] == ["w"]
