@@ -5,3 +5,10 @@ __pycache__
 .pytest_cache
 .env
 .git
+
+# A stray 238MB copy of the CTranslate2 checkpoint downloaded into the
+# SQLAlchemy models package. Nothing reads it - the app loads the model
+# from the bind-mounted models/ directory at the repo root (see
+# STREAMING_MODEL_PATH in docker-compose). Without this line it is 99% of
+# the build context.
+app/models/whisper-sinhala1-ct2/

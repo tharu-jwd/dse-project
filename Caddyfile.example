@@ -1,0 +1,24 @@
+# Copy this to `Caddyfile` on the server and replace the domain below.
+#
+#   cp Caddyfile.example Caddyfile
+#   nano Caddyfile
+#
+# Caddy requests and renews a Let's Encrypt certificate automatically, so
+# there is nothing else to configure for HTTPS. It also proxies WebSocket
+# upgrades by default, which the live transcription and voice commands
+# need - no extra directives required.
+#
+# Requirements before this works:
+#   - the domain's A record points at this server's public IP
+#   - ports 80 and 443 are open in the AWS security group (80 is used for
+#     the certificate challenge, not just redirects)
+
+api.yourdomain.com {
+    reverse_proxy backend:8000
+}
+
+# Using a free DuckDNS subdomain instead? It looks like this:
+#
+# sinhaspeech.duckdns.org {
+#     reverse_proxy backend:8000
+# }

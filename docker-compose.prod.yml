@@ -1,0 +1,88 @@
+# Production stack for a single server (see DEPLOYMENT.md).
+#
+# Differences from docker-compose.yml:
+#   - no frontend service: Vercel serves the built React app instead
+#   - adds Caddy, which terminates HTTPS and proxies to the backend
+#   - the backend no longer publishes port 8000 to the internet; only
+#     Caddy is exposed, and it reaches the backend over the internal
+#     Docker network
+#   - postgres does not publish a port at all
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d --build
+
+services:
+  database:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    env_file: .env
+    environment:
+      POSTGRES_HOST: database
+      MEDIA_STORAGE_DIR: /app/storage/uploads
+      VOICE_SAMPLES_DIR: /app/storage/voice_samples
+      STREAMING_SOURCE_MODEL: /app/models/whisper-sinhala1
+      STREAMING_MODEL_PATH: /app/models/whisper-sinhala1-ct2
+    volumes:
+      # Model checkpoints are copied to the server separately (they are
+      # gitignored and too large for the image) and mounted read-only.
+      - ./models:/app/models:ro
+      - ./storage:/app/storage
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build: ./backend
+    command: python -m scripts.run_transcription_worker
+    env_file: .env
+    environment:
+      POSTGRES_HOST: database
+      MEDIA_STORAGE_DIR: /app/storage/uploads
+      VOICE_SAMPLES_DIR: /app/storage/voice_samples
+      STREAMING_SOURCE_MODEL: /app/models/whisper-sinhala1
+      STREAMING_MODEL_PATH: /app/models/whisper-sinhala1-ct2
+    volumes:
+      - ./models:/app/models:ro
+      - ./storage:/app/storage
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # Copy Caddyfile.example to Caddyfile and set your own domain.
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Persists the HTTPS certificates, so a restart doesn't re-request
+      # them and risk hitting Let's Encrypt rate limits.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
