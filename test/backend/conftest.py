@@ -1,7 +1,9 @@
 import uuid
+from dataclasses import dataclass
 
 import pytest
 
+from app.core.security import create_access_token, hash_password
 from app.db.session import SessionLocal
 from app.models.user import User
 
@@ -24,7 +26,7 @@ def db_user():
             User(
                 user_id=user_id,
                 name="Test Fixture User",
-                email=f"test-fixture-{user_id}@example.invalid",
+                email=f"test-fixture-{user_id}@example.com",
                 password_hash="not-a-real-hash",
                 role="STUDENT",
             )
@@ -34,3 +36,134 @@ def db_user():
 
     with SessionLocal.begin() as db:
         db.query(User).filter(User.user_id == user_id).delete()
+
+
+# --- API-level fixtures ---------------------------------------------------
+#
+# The fixtures below back the HTTP tests (test_api_*.py). They create real
+# users in the database and sign real JWTs, so the tests exercise the actual
+# authentication dependency rather than bypassing it with a mock - the point
+# of an access-control test is that the real guard runs.
+
+
+@dataclass(frozen=True)
+class TestUser:
+    user_id: uuid.UUID
+    email: str
+    password: str
+    role: str
+    token: str
+
+    @property
+    def auth(self) -> dict[str, str]:
+        """Headers for an authenticated request as this user."""
+        return {"Authorization": f"Bearer {self.token}"}
+
+
+def _make_user(role: str, password: str = "test-password-123") -> TestUser:
+    user_id = uuid.uuid4()
+    email = f"test-{role.lower()}-{user_id}@example.com"
+
+    with SessionLocal.begin() as db:
+        db.add(
+            User(
+                user_id=user_id,
+                name=f"Test {role.title()}",
+                email=email,
+                password_hash=hash_password(password),
+                role=role,
+            )
+        )
+
+    return TestUser(
+        user_id=user_id,
+        email=email,
+        password=password,
+        role=role,
+        token=create_access_token(user_id),
+    )
+
+
+def _delete_user(user_id: uuid.UUID) -> None:
+    """Deletes a fixture user and anything the API tests created for them.
+
+    Quizzes and submissions use ON DELETE RESTRICT on their owner/student
+    foreign keys (deliberately - a real user's quiz history must not
+    vanish silently if their account is removed), so unlike
+    command_enrollments' ON DELETE CASCADE, those rows have to be cleared
+    explicitly before the user row itself can go.
+    """
+
+    from app.models.quiz import AnswerSubmission, Quiz, QuizSubmission
+
+    with SessionLocal.begin() as db:
+        submission_ids = [
+            row[0]
+            for row in db.query(QuizSubmission.submission_id).filter(
+                QuizSubmission.student_id == user_id
+            )
+        ]
+        if submission_ids:
+            db.query(AnswerSubmission).filter(
+                AnswerSubmission.submission_id.in_(submission_ids)
+            ).delete(synchronize_session=False)
+        db.query(QuizSubmission).filter(QuizSubmission.student_id == user_id).delete()
+        db.query(Quiz).filter(Quiz.created_by == user_id).delete()
+        db.query(User).filter(User.user_id == user_id).delete()
+
+
+@pytest.fixture
+def student():
+    user = _make_user("STUDENT")
+    yield user
+    _delete_user(user.user_id)
+
+
+@pytest.fixture
+def other_student():
+    """A second student, for checking one student cannot reach another's work."""
+    user = _make_user("STUDENT")
+    yield user
+    _delete_user(user.user_id)
+
+
+@pytest.fixture
+def teacher():
+    user = _make_user("TEACHER")
+    yield user
+    _delete_user(user.user_id)
+
+
+@pytest.fixture
+def other_teacher():
+    """A second teacher, for checking one teacher cannot act on another
+    teacher's quizzes or submissions."""
+
+    user = _make_user("TEACHER")
+    yield user
+    _delete_user(user.user_id)
+
+
+@pytest.fixture(scope="session")
+def client():
+    """FastAPI test client.
+
+    `streaming_enabled` is forced off for the lifespan so the app does not
+    spend ~70 seconds loading Whisper models on import - these tests only
+    exercise the HTTP API, and the streaming path has its own tests in
+    test_streaming_commands_route.py.
+    """
+
+    from fastapi.testclient import TestClient
+
+    from app.core.config import settings
+
+    original = settings.streaming_enabled
+    settings.streaming_enabled = False
+    try:
+        from app.main import app
+
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        settings.streaming_enabled = original

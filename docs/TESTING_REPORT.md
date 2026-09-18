@@ -1,303 +1,298 @@
-# Testing Report
+# SinhaSpeech — Master Test Plan
 
-Last updated 2026-09-18. Covers the four layers this project has testing for: **backend**,
-**frontend**, **model (ASR) evaluation**, and — since the AWS deployment — **live deployment
-smoke tests**. Frontend still has no automated test suite; that's called out explicitly
-rather than skipped over.
+Last updated 2026-09-19. Structured against the Master Test Plan template (Rational Unified
+Process format). Every "Status" line below reflects what actually exists and passes as of
+this date — not what is planned — with plans separated out explicitly in §3.1's tables.
 
 **At a glance:**
 
-| Layer | Tests | Runs |
-|---|---|---|
-| Backend unit/integration | **120** | Locally, and on every push via GitHub Actions |
-| Deployment smoke | **11** | Manually, against the live system |
-| Frontend | **0** | Lint + build only |
-| Model (ASR) evaluation | n/a — measured, not asserted | Manually, per training run |
+| Technique (§3.1) | Status |
+|---|---|
+| 3.1.1 Data & Database Integrity | 🟡 Partial |
+| 3.1.2 Function Testing | 🟡 Partial |
+| 3.1.3 User Interface Testing | 🔴 Not started |
+| 3.1.4 Performance Profiling | 🟡 Partial |
+| 3.1.5 Load Testing | 🔴 Not started |
+| 3.1.6 Security & Access Control | 🟢 Implemented |
+| 3.1.7 Failover & Recovery | 🔴 Not started |
+| 3.1.8 Configuration Testing | 🟡 Partial |
+
+```
+165 backend tests   (pytest, test/backend/)
+ 11 deployment smoke tests   (pytest, test/deployment/, run manually against the live system)
+  0 frontend tests   (lint + build only)
+```
 
 ---
 
-## 1. Backend — automated tests
+## 1. Evaluation Mission and Test Motivation
 
-**120 tests, all passing**, run with `pytest` from the repo root (`test/backend/`, config in
-root `pytest.ini`). All but one file (`test_voice_enrollment.py`) are pure unit tests with no
-network, database, or real ML model involved — fast (~7-8 seconds total) and deterministic.
+SinhaSpeech is a Sinhala speech-to-text and voice-command web application built for students
+who find typing or using a mouse difficult. Its two properties that most shape the test
+approach:
 
-```
-test/backend/test_command_resolution.py   10 tests
-test/backend/test_commands.py             31 tests
-test/backend/test_embeddings.py           15 tests
-test/backend/test_inference_kwargs.py      4 tests
-test/backend/test_streaming_buffer.py     12 tests
-test/backend/test_streaming_commands_route.py  30 tests
-test/backend/test_voice_enrollment.py     18 tests
-                                          ─────
-                                          120 tests, 120 passed
-```
+- **It is speech infrastructure, not a CRUD app.** A Whisper model runs on both a live
+  WebSocket path and a background batch path, real audio drives fuzzy-text and voice-fingerprint
+  matching, and the correctness bar is "does the model behave sensibly on messy real speech,"
+  not just "does the function return the right value for a fixed input."
+- **Accessibility is the actual requirement**, not a nice-to-have layered on afterward. A bug
+  that makes the app merely inconvenient for a typical user can make it *unusable* for the
+  student it was built for.
 
-### What each file actually protects against
+The mission for this test effort is to:
 
-| File | What it tests | Why it matters |
-|---|---|---|
-| `test_commands.py` | Fuzzy text matching (`skeleton()`, `match_command()`) against the Sinhala/English command vocabulary; the wake word is correctly excluded from matchable phrases; `eka`/`deka` stay cleanly separated (< 80% similarity) now that phrases aren't prefixed. | Direct regression guard for the exact bug reported during manual testing (§5) — commands scoring too low when transcribed correctly, or too high against the wrong command. |
-| `test_embeddings.py` | The vector math underneath voice-fingerprint matching: pooling, L2 normalization, cosine/Manhattan similarity, `best_match()` — including zero-vector and empty-bank edge cases. | These are the functions a silent numeric bug (e.g. a NaN from dividing by zero on a silent clip) would hide in; each edge case here was a real, plausible failure mode, not a hypothetical. |
-| `test_command_resolution.py` | The decision table that combines the fuzzy-text and embedding channels: execute / confirm / ignore, and the higher bar required for destructive commands (`delete`, `submit`). | This is the safety-critical logic — it's what stops an ambiguous or accidental utterance from deleting a student's work. |
-| `test_inference_kwargs.py` | Whisper is only biased toward command words in COMMAND mode, never in NOTE/dictation mode. | Prevents ordinary dictation from being silently nudged toward command vocabulary. |
-| `test_streaming_buffer.py` | The rolling audio buffer: correct timestamps across VAD-triggered finalizes and forced cuts, overlap handling at the boundaries. | A timestamp bug here would silently corrupt every transcript segment's start/end time — hard to spot by eye, easy to catch here. |
-| `test_streaming_commands_route.py` | The WebSocket route end-to-end (with a fake socket, no real network): debouncing repeated commands, the "listening" UI signal, and — as of this session — the full wake-word gate (arm/expire/one-shot-unlock, both wake-word spellings, voice-only detection, "zimi" never saved as note text). | This is where the actual bug from manual testing was fixed and is now regression-tested: a command without a preceding wake word is provably ignored, not just "seems to work." |
-| `test_voice_enrollment.py` | Enrollment: samples accepted/rejected by similarity, per-language isolation, the wake word can be enrolled and loads into the matching bank correctly. | Runs against a real (dev) Postgres database — the one file in the suite that isn't fully isolated (see §1b). |
-
-### The database-isolation limitation — now solved in CI
-
-`test_voice_enrollment.py` talks to the real development database when run locally
-(documented in `test/backend/conftest.py`). Each test cleans up its own throwaway user, but
-locally the suite still isn't hermetic and can't run without Postgres up.
-
-**In CI this is fixed.** The workflow starts a disposable Postgres 17 service container,
-applies migrations to it, and destroys it when the job ends — so every CI run begins from a
-genuinely empty database. Running locally still uses the shared dev database; CI is now the
-authoritative hermetic check.
+- Find defects in the matching, streaming, and voice-command logic before they reach a
+  student in production — this is where the highest-consequence bugs live, since a false
+  match on a destructive command (delete, submit) directly destroys a student's work.
+- Verify that role-based access control actually holds under a real signed token, not just
+  that the guard code exists.
+- Establish what is *not yet known* about the system (load behaviour, failover behaviour,
+  cross-browser behaviour) so those are visible gaps rather than silent assumptions.
+- Keep every finding traceable to a specific failing input or condition, since "the model is
+  sometimes wrong" is not actionable and "eka scores 83% against deka because of a shared
+  prefix" is.
 
 ---
 
-## 1b. Continuous Integration
+## 2. Target Test Items
 
-`.github/workflows/ci.yml` runs on every push to `main` and every pull request. It needs no
-secrets and touches no infrastructure, so it is safe on pull requests from anyone.
+| Item | What it is | Primarily tested by |
+|---|---|---|
+| **Backend API** (FastAPI, 27 REST endpoints + 1 WebSocket) | Auth, transcripts, quizzes, submissions, voice enrollment, streaming | §3.1.2, §3.1.6 |
+| **Matching logic** (`app/streaming/commands.py`, `command_resolution.py`, `embeddings.py`) | Fuzzy-text and voice-fingerprint command matching, the wake-word gate | §3.1.2 (heaviest coverage — see §5 for why) |
+| **Data models** (Postgres 17, 13 tables, Alembic-migrated) | Users, transcripts, quizzes, submissions, voice enrollments, the job queue | §3.1.1 |
+| **Background worker** | Polls the job queue, runs batch transcription | §3.1.1, §3.1.7 (untested) |
+| **Frontend** (React 19 / Vite) | The UI students and teachers actually use | §3.1.3 (untested) |
+| **Deployment** (AWS EC2 + Docker Compose + Caddy, Vercel) | The live system end-to-end | §2 deployment smoke tests |
+| **CI** (GitHub Actions) | Regression gate on every push/PR | §4 |
+
+---
+
+## 3. Test Approach
+
+### 3.1 Testing Techniques and Types
+
+#### 3.1.1 Data and Database Integrity Testing
+
+**Status: 🟡 Partial.**
+
+| Technique Objective | Exercise the database and its access methods independent of the UI — schema creation, foreign keys, and per-row correctness — to observe data corruption or incorrect persistence. |
+|---|---|
+| **Technique** | `test_voice_enrollment.py` (18 tests) inserts and deletes real rows against a live Postgres instance: samples accepted/rejected by similarity, per-language isolation, cascade delete on user removal, unknown-id rejection. `test_db_integrity.py` (5 tests) exercises constraint and foreign-key behaviour directly against Postgres, independent of the service layer: `uq_command_enrollments_slot` rejects a duplicate `(user, command, language, sample_index)` row while correctly allowing the same `sample_index` under a different language; deleting a user cascades their voice enrollments (`ON DELETE CASCADE`); deleting a teacher who owns quizzes is *rejected* by the database (`ON DELETE RESTRICT` on `quizzes.created_by`); deleting a quiz cascades its questions (`ON DELETE CASCADE` on `questions.quiz_id`). In CI, `alembic upgrade head` runs against a disposable Postgres 17 service container on every push, so schema creation itself is verified on every commit, not just once. |
+| **Oracles** | Direct row inspection via SQLAlchemy queries in the test body; `pytest.raises(IntegrityError)` for constraint violations. |
+| **Required Tools** | pytest, SQLAlchemy, Postgres 17 (Docker for CI, dev instance for local runs) |
+| **Success Criteria** | All 23 tests pass; migrations apply cleanly to an empty database. |
+| **Special Considerations** | Locally, these tests still run against the shared dev database rather than an isolated one (see §5, risk 1) — CI is the hermetic check. Writing the RESTRICT/CASCADE tests required checking each foreign key's actual `ondelete` setting in the model file rather than assuming — the two policies are deliberately different (`RESTRICT` protects a teacher's quiz history from silently vanishing; `CASCADE` on child rows like questions/options is correct because they are meaningless without their parent). |
+
+**Not yet done:**
+- Transaction rollback on a mid-operation failure
+- Concurrent writes to the same transcript
+- The job queue's `SELECT ... FOR UPDATE SKIP LOCKED` claim, tested with only one worker so
+  far — never verified with two workers racing for the same job
+
+#### 3.1.2 Function Testing
+
+**Status: 🟡 Partial — strong on matching logic and the quiz lifecycle; transcripts and uploads still untested.**
+
+| Technique Objective | Exercise target functionality — navigation, data entry, processing, retrieval — via black-box interaction, verifying business rules are correctly applied for both valid and invalid input. |
+|---|---|
+| **Technique** | Three layers. (1) **Matching/streaming logic** — 129 tests (`test_commands.py`, `test_command_resolution.py`, `test_embeddings.py`, `test_streaming_buffer.py`, `test_streaming_commands_route.py`, `test_inference_kwargs.py`) drive the fuzzy-text matcher, the voice-embedding matcher, their combination rule, the rolling audio buffer, and the full wake-word gate end-to-end with a fake WebSocket — no real model or database. (2) **Quiz lifecycle** — 11 tests (`test_api_quiz_lifecycle.py`) drive the real FastAPI app via `TestClient`: a teacher creates a quiz, it is correctly hidden from students until published, a student answer is validated against the actual question/option it belongs to, a student's correct-answer view never leaks `isCorrect`, resubmitting updates rather than duplicates a submission, a teacher marks it, and a second teacher is confirmed unable to review a submission for a quiz they don't own. (3) **API surface / auth** — 29 tests (`test_api_access_control.py`), see §3.1.6. |
+| **Oracles** | Direct assertion against expected return values (`match_command()`'s score, `resolve_command()`'s outcome) and HTTP status codes / response bodies for the API layer. |
+| **Required Tools** | pytest, pytest-asyncio, FastAPI `TestClient`, PyJWT |
+| **Success Criteria** | All identified use-case flows for the covered areas pass with both valid and invalid input. |
+| **Special Considerations** | The matching-logic tests are unusually thorough for a student project because a real bug was found and fixed here mid-project (see §5's finding write-up in the git history) — every edge case in that table is a real failure mode that was hit, not a hypothetical. Writing the quiz lifecycle tests surfaced an undocumented validation rule (`QuizCreate` requires MCQ questions to have exactly 4 options) that was not obvious from the route code alone — found by running the test and reading the resulting 422, not by reading the schema first. |
+
+**Not yet done — the remaining gap:**
+- **Zero tests exercise transcript CRUD**, finalize, or export (txt/docx/pdf)
+- **Zero tests exercise the upload → job-queued → worker → transcript-appears** path
+- The SPOKEN-answer submission path (as opposed to MCQ) is untested — it requires a real
+  transcript row owned by the submitting student, which needs the transcript fixtures above
+  to exist first
+- No test confirms a malformed payload returns 422 across the *whole* API — two examples now
+  exist (`test_malformed_payload_returns_422_not_500`, the MCQ-option-count case above) but
+  coverage is not systematic
+
+#### 3.1.3 User Interface Testing
+
+**Status: 🔴 Not started.**
+
+| Technique Objective | Exercise navigation, form submission, and object states to observe standards conformance and target behavior; for this application specifically, exercise keyboard-only and screen-reader interaction paths since accessibility is the core requirement. |
+|---|---|
+| **Technique** | Not yet implemented. Planned: Vitest + React Testing Library for component-level tests, starting with `useVoiceCommands.js` (the hook where the real production bug in §5 actually lived on the client side) and the quiz/MCQ answer flow. Playwright for end-to-end flows: login → record a note → speak a command → submit. |
+| **Oracles** | Rendered DOM assertions; for accessibility, `axe-core` or equivalent for WCAG contrast/label checks; manual verification of the high-contrast and text-size settings. |
+| **Required Tools** | Vitest, React Testing Library, Playwright, axe-core (none installed yet) |
+| **Success Criteria** | Not yet defined — pending tool installation. |
+| **Special Considerations** | `frontend/package.json` currently has no test script at all — `dev`, `build`, `lint` (oxlint), `preview` only. This is the most conspicuous gap for an application whose entire purpose is usability. |
+
+#### 3.1.4 Performance Profiling
+
+**Status: 🟡 Partial — real numbers exist, but ad hoc rather than a repeatable suite.**
+
+| Technique Objective | Measure response times, transaction rates, and resource usage under normal anticipated workload to verify performance requirements. |
+|---|---|
+| **Technique** | `backend/scripts/benchmark_command_latency.py` measures voice-command round-trip latency. Model quality is measured directly: WER/CER across 6 fine-tuning runs (see §3a in the training-side error analysis, `ErrorAnalysis/`). Container memory was measured live on the deployed server (backend ~1.2 GB, worker ~330 MB idle) during deployment. Frontend payload was measured and reduced from ~46 MB to ~1 MB of images. |
+| **Oracles** | Direct measurement compared against informal thresholds (e.g. WER/CER trend across runs); no automated pass/fail gate yet. |
+| **Required Tools** | The benchmark script, `docker stats`, browser DevTools network panel |
+| **Success Criteria** | Not formally defined — no documented response-time budget per endpoint. |
+| **Special Considerations** | All measurements to date are point-in-time and manual, not a suite that runs and fails a build. |
+
+**Not yet done:**
+- API response times (p50/p95) per endpoint
+- Time-to-first-caption during live streaming
+- Voice-command end-to-end latency (speak → action), as a proper automated benchmark rather
+  than a one-off script run
+- Memory growth over a long streaming session (buffer leak check)
+
+#### 3.1.5 Load Testing
+
+**Status: 🔴 Not started.**
+
+| Technique Objective | Subject the system to varying workloads — normal, worst-case, and concurrent-user — to determine whether it continues to function correctly beyond expected maximum load. |
+|---|---|
+| **Technique** | Not yet implemented. Planned: Locust or k6 driving the REST endpoints; a scripted set of concurrent WebSocket streaming sessions to find the point at which transcription latency becomes unusable on the deployed 2-vCPU instance; concurrent file uploads to observe worker queue depth, since the worker processes one job at a time. |
+| **Oracles** | Response-time and error-rate thresholds under load; the point of failure becomes the finding itself if no formal threshold is set yet. |
+| **Required Tools** | Locust or k6 (neither installed yet) |
+| **Success Criteria** | Not yet defined. |
+| **Special Considerations** | The production deployment runs CPU-only Whisper inference on 2 vCPUs. Every concurrent streaming session competes for the same CPU budget, and there is currently no data on how many simultaneous users the system tolerates before degrading — this is an unknown, not a measured limit, and is the most likely source of a live-demo failure under real classroom load. |
+
+#### 3.1.6 Security and Access Control Testing
+
+**Status: 🟢 Implemented.**
+
+Covers both levels the template distinguishes: application-level (an actor reaches only the
+functions and data their role permits) and system-level (only authenticated callers get in at
+all, through legitimate tokens).
+
+| Technique Objective | Verify that an actor can access only those functions or data for which their user type has permission, and that only actors with a valid, current, correctly-signed session can reach the system at all. |
+|---|---|
+| **Technique** | 29 tests in `test_api_access_control.py`, run against the real FastAPI app via `TestClient` with genuine signed JWTs — the actual authentication dependency executes, nothing is mocked out. **System-level:** 6 protected endpoints checked for rejecting no token, a garbage token, an expired token, a token signed with the wrong secret, and a token for a since-deleted user; a valid token is separately confirmed to work, so the negative cases are meaningful; login is confirmed not to distinguish "unknown account" from "wrong password" in its response (no account enumeration). **Application-level:** a student cannot create a quiz, cannot submit as if reviewing, cannot list or read another student's submissions or transcripts; a teacher cannot submit quiz answers; a teacher's submission list is confirmed scoped to quizzes they created, not all quizzes. **Input validation:** a malformed request body returns 422 rather than an unhandled 500; a path-traversal attempt on the enrollment route is rejected; a nonexistent media id is not served. |
+| **Oracles** | HTTP status code (401/403/404/422 as appropriate) and, for the enumeration check, byte-identical response bodies between the two failure cases. |
+| **Required Tools** | pytest, FastAPI `TestClient`, PyJWT (to forge an intentionally invalid signature for the negative test) |
+| **Success Criteria** | All 29 tests pass; every protected route rejects every invalid-credential case tested. |
+| **Special Considerations** | Writing these tests surfaced and fixed a reserved-domain bug in the shared test fixtures (`@example.invalid` emails failed Pydantic's `EmailStr` validation) that would have caused confusing failures in any future test reusing those fixtures — fixed once, centrally, in `conftest.py`. |
+
+**Not yet done:**
+- SQL-injection–style fuzzing of query parameters (the ORM makes this lower-risk, but
+  unverified)
+- Rate limiting / brute-force protection on `/auth/login` (none currently implemented in the
+  app, so there is nothing yet to test)
+- CSRF is not applicable (token-based auth, no cookies), noted here rather than left silently
+  unconsidered
+
+#### 3.1.7 Failover and Recovery Testing
+
+**Status: 🔴 Not started.**
+
+| Technique Objective | Simulate failure conditions — power/communication interruption, database failure, incomplete transactions — and verify the system recovers to a known, correct state without data loss. |
+|---|---|
+| **Technique** | Not yet implemented. Planned: restore a `pg_dump` backup into a scratch database and verify row-for-row integrity (a backup that has never been restored is a hypothesis, not a backup); kill the database container mid-request and confirm the API recovers via SQLAlchemy's `pool_pre_ping` (present in code, unverified in practice); drop a WebSocket connection mid-session and confirm the partial transcript is not lost; restart the EC2 instance and confirm all four containers return automatically (`restart: unless-stopped` is set, unverified end-to-end). |
+| **Oracles** | Row-count and content comparison pre/post restore; HTTP success after a simulated database restart; container status after an instance reboot. |
+| **Required Tools** | `pg_dump`/`psql`, Docker, SSH access to the deployment host |
+| **Success Criteria** | Not yet defined. |
+| **Special Considerations** | This category is inherently somewhat destructive (killing a live container, restarting the instance) — should be run against a disposable environment or a deliberately scheduled maintenance window, not the live deployment without warning. |
+
+#### 3.1.8 Configuration Testing
+
+**Status: 🟡 Partial — one real defect already found this way.**
+
+| Technique Objective | Verify correct operation across the different hardware, software, browser, and network configurations the deployed system will actually be used under. |
+|---|---|
+| **Technique** | Manual testing in Firefox on Linux during deployment surfaced a real, user-facing defect: `sinhaspeech.duckdns.org` is blocked outright by uBlock Origin (and, by the same mechanism, likely AdGuard, Brave Shields, and Pi-hole), because free dynamic-DNS domains are commonly abused by malware and appear on ad-blocker filter lists. This silently broke live captioning and voice commands for any visitor running a common ad blocker, while every other feature worked normally — making it look like a feature bug rather than a network-level block. |
+| **Oracles** | Direct observation: browser console network panel, comparing behaviour with the extension enabled vs. disabled. |
+| **Required Tools** | Firefox + uBlock Origin (found it); no systematic browser matrix yet. |
+| **Success Criteria** | Not yet defined. |
+| **Special Considerations** | Coverage to date is effectively "one browser, one OS, found by accident." The fix (a real, non-DNS-abuse-associated domain) removes the specific defect found but does not constitute configuration testing — the matrix below is still untested. |
+
+**Not yet done:**
+- Chrome, Edge, Safari — Safari's `MediaRecorder` support in particular differs from Chromium's
+- Mobile browsers (students may use phones)
+- With/without common ad blockers, now that one specific case is known to matter
+- Throttled/slow network conditions, relevant given the deployment's `us-east-1` region vs. an
+  expected Sri Lanka–based user base (~250 ms round trip vs. ~50 ms from a Mumbai region)
+- Responsive layout across screen sizes
+
+---
+
+## 4. Deliverables
+
+### 4.1 Test Evaluation Summaries
+
+**Test logs.** `pytest -v` output, produced on every local run and on every GitHub Actions run
+(`.github/workflows/ci.yml`). CI runs on every push to `main` and every pull request, needs no
+secrets, and starts a disposable Postgres 17 container so the database-dependent tests run
+hermetically rather than against shared state.
+
+**CI structure:**
 
 | Job | Steps |
 |---|---|
-| **Backend tests** | Start Postgres 17 (health-checked) → `alembic upgrade head` → `pytest` (120 tests) |
-| **Frontend lint and build** | `npm ci` → oxlint → production build |
+| Backend tests | Start Postgres 17 (health-checked) → `alembic upgrade head` → `pytest` (165 tests) |
+| Frontend lint and build | `npm ci` → oxlint → production build |
 
-There is deliberately **no CD**. Deployment is manual for both halves — `npx vercel --prod`
-for the frontend, `git pull && docker compose up -d --build` on the server. Automating the
-backend would require either opening SSH to the internet or storing a server key in the
-repository, and each backend restart costs ~70 seconds of downtime while the Whisper models
-reload — not something worth triggering on a README typo.
+There is deliberately no CD wired to this — deployment stays a manual, deliberate action for
+both halves (`npx vercel --prod` for the frontend; `git pull && docker compose up -d --build`
+on the server) because a backend restart costs ~70 seconds of downtime while the Whisper
+models reload, which should never be triggered automatically by an unrelated commit.
 
-Note that `pytest.ini` sets `testpaths = test/backend`, so CI runs **only** the unit suite.
-The deployment tests in §2 are excluded by design: a smoke test failing because the EC2
-instance is stopped should never mark a code commit as broken.
+**Deployment smoke tests.** `test/deployment/test_smoke.py`, 11 tests, run manually against the
+live system after any deploy (`pytest test/deployment/ -v`). Deliberately excluded from CI —
+`pytest.ini` scopes `testpaths` to `test/backend` only — since a smoke test failing because the
+EC2 instance happens to be stopped should never mark a code commit as broken. Covers backend
+reachability and TLS validity, database connectivity, the full auth flow, CORS configuration
+against the deployed frontend's real origin, that the deployed JS bundle was built against the
+correct API URL (Vite bakes this in at build time — a build without it looks fine and fails
+every request), and that the WebSocket path accepts an authenticated session and rejects a bad
+token.
+
+**Model evaluation artifacts.** WER/CER per fine-tuning run and TF-IDF/KMeans error-cluster
+analysis live in `ErrorAnalysis/`, one subfolder per run, each split into `error_analysis/`
+(clusters, confusions, per-sample severity) and `run_summary/` (training curves, predictions,
+wandb exports). `command_embedding_similarities_en.csv` compares four similarity techniques
+(cosine, Euclidean, Manhattan, Pearson) across 435 real recording pairs.
+
+### 4.2 Reporting on Test Coverage
+
+No code-coverage percentage is currently measured — `pytest-cov` is not installed. Coverage is
+reported here qualitatively, by technique (§3.1's status column) and by file (§3.1.1–3.1.2's
+technique tables), rather than as a line/branch percentage. Adding `pytest-cov` to the CI
+backend job is a low-effort next step that would make this section quantitative.
+
+A generic report for each CI run contains, per the template's suggested fields: date (commit
+timestamp), triggering user, number of tests executed, pass/fail count, and — via the GitHub
+Actions log — the specific failing assertion when a run is red. This report itself is
+regenerated whenever a new testing technique is substantially implemented rather than on a
+fixed cadence.
 
 ---
 
-## 2. Deployment smoke tests
+## 5. Risks, Dependencies, Assumptions, and Constraints
 
-**11 tests, all passing**, in `test/deployment/test_smoke.py`. These make real network calls
-to the live frontend and backend, and they fail if the deployment is down however correct the
-code is. That's the point — they answer *"is the thing I just deployed actually working?"*,
-which the unit suite structurally cannot.
-
-```bash
-pytest test/deployment/ -v          # run after any deploy
-```
-
-They're excluded from the default `pytest` run and from CI. The target URLs are overridable
-via `SMOKE_API_URL` / `SMOKE_APP_URL`, so the same suite can verify a future domain or a
-staging environment.
-
-| Area | What's asserted | Why it's there |
+| Risk | Mitigation Strategy | Contingency (Risk is realized) |
 |---|---|---|
-| Backend reachable | HTTPS `/health` returns healthy | Also validates the TLS certificate — `urllib` verifies by default, so a lapsed Let's Encrypt renewal fails here |
-| Database | `/health/database` reports connected | The API process can be up while Postgres is unreachable; that looks fine until the first real request |
-| Auth | Login returns a token; an authenticated request succeeds | End-to-end proof of the JWT path |
-| Auth (negative) | An **unauthenticated** request is rejected (401/403) | A deployment that serves data to anyone is worse than one that's down |
-| CORS | Backend explicitly allows the deployed frontend's origin | The single most common "deployed but nothing works" cause. CORS is browser-enforced, so `curl` passing proves nothing — it must be asserted deliberately |
-| Frontend | Site serves, **and its JS bundle references the correct API URL** | Vite bakes `VITE_API_BASE_URL` in at build time; a frontend built without it looks perfectly healthy while failing every request. This downloads the real bundle and greps it |
-| WebSocket | An authenticated session connects; a bad token is refused | Live captioning and voice commands run over this socket — a separate code path from the HTTP API that can fail independently (e.g. a proxy not forwarding upgrades) |
-
-Every one of these corresponds to something that actually broke, or could silently break,
-during the real deployment — see `DEPLOYMENT.md`.
+| **Local test runs are not hermetic.** `test_voice_enrollment.py`, `test_api_access_control.py`, `test_api_quiz_lifecycle.py`, and `test_db_integrity.py` write to the real shared development database and read the local `.env` (not just CI's clean environment). This already caused one real incident: two wake-gate tests passed locally only because a local `.env` flag was `true`, while the flag defaults to `false` — CI, correctly, had none and failed both tests on their very first run. | CI now runs against a disposable Postgres 17 container with no `.env`, so it is the authoritative hermetic check regardless of what passes locally. | Before trusting a local-only green run, re-run against CI's exact conditions (`VOICE_COMMAND_EMBEDDING_MATCHING_ENABLED=false pytest -q`, or push and check Actions) rather than assuming local == correct. Verified: the full 165-test suite passes identically under this condition and on a clean rerun (no test-order or leftover-state pollution observed). |
+| **Dependency versions are unpinned.** `backend/requirements.txt` has zero version constraints, so the same commit can install different library versions in different environments — measured directly: local venv had `torch 2.13.0`/`transformers 5.15.1`; the deployed server and CI both had `torch 2.9.1`/`transformers 5.17.0` at time of writing. | Verified the full 165-test suite passes on the newer versions (harmless today). | `pip freeze > requirements.txt` or adopt a lockfile so builds become reproducible; a future library release could otherwise break the deployment with no code change and no warning. |
+| **Fixture teardown order matters and is easy to get wrong.** `quizzes.created_by` and `quiz_submissions.student_id` are `ON DELETE RESTRICT` (by design — see §3.1.1), so a test fixture that creates a quiz or submission and then tries to delete the owning user in the usual order raises `IntegrityError` during teardown, not during the test itself, which is a confusing place to debug. | `conftest.py`'s `_delete_user` now explicitly deletes a fixture user's answer submissions, quiz submissions, and quizzes before deleting the user row — verified this eliminates the teardown errors that appeared before the fix. | Any new fixture that creates rows with a `RESTRICT` foreign key to the user must extend this cleanup, or reuse `_delete_user` rather than deleting the user directly. |
+| **Load behaviour under concurrent users is unknown.** The deployed instance has 2 vCPUs running CPU-only Whisper inference; nothing has measured what happens with 5+ simultaneous streaming sessions. | None yet — this is the primary justification for prioritising §3.1.5 next. | If a live demo or classroom session exceeds the (currently unknown) concurrency limit, transcription latency will degrade with no advance warning; the fallback is to reduce simultaneous users manually until load testing establishes a real number. |
+| **A free dynamic-DNS domain silently breaks core features for a subset of users.** `sinhaspeech.duckdns.org` is blocked by uBlock Origin and likely other ad blockers, breaking live captioning and voice commands with no visible error — found during deployment, documented in §3.1.8. | Move to a paid, non-abuse-associated domain (`sinhaspeech.me`, already owned). | Until migrated, warn anyone demoing or evaluating the system to disable ad blockers first. |
+| **The database has automated backups tested for creation but not restoration.** A `pg_dump` command exists in `DEPLOYMENT.md`; no restore has ever been performed. | Planned under §3.1.7. | If the production database is lost before this is verified, recovery is unproven and may fail silently or partially. |
+| **No frontend tests exist for an accessibility-first application.** A regression in `useVoiceCommands.js` or the accessibility settings would currently ship undetected — this is exactly the class of bug that shipped once already (see the wake-word incident referenced above, which had a client-side half). | Planned under §3.1.3; Vitest + React Testing Library is the natural fit given the Vite toolchain already in use. | Until implemented, frontend changes rely entirely on manual testing and oxlint/build success, neither of which catches behavioural regressions. |
+| **Demo accounts use a well-known password** (`demo123`), and the API is now publicly reachable. | Acceptable for a project demo; access control tests (§3.1.6) confirm role boundaries hold even if credentials are known. | Rotate demo account passwords before any evaluation where credential secrecy matters. |
 
 ---
 
-## 3. Frontend — no automated tests
+## 6. References
 
-`frontend/package.json` has `dev`, `build`, `lint` (oxlint), and `preview` — **no test
-script, no Jest/Vitest, no Testing Library installed.** This was a deliberate scope decision
-earlier in this work, not an oversight: you asked for backend tests specifically and said the
-frontend didn't need them.
-
-What frontend verification *has* happened instead:
-- `npm run lint` (oxlint) — clean except two pre-existing warnings unrelated to this work
-  (an unused import in `DashboardPage.jsx`, a `useEffect` dependency in `TranscriptEditor.jsx`).
-- Manual verification: both dev servers started and smoke-tested together (backend +
-  frontend + Postgres), page-layout CSS fix confirmed to compile and hot-reload cleanly.
-
-**This is the biggest gap in the testing story.** If frontend testing is wanted, see Next
-Steps below.
-
----
-
-## 4. Model (ASR) evaluation
-
-Separate from the pytest suite — this measures the actual Whisper fine-tune's transcription
-quality, not application code. Lives in `final-scripts/` (evaluation/training scripts) and
-`ErrorAnalysis/` (results).
-
-### 4a. Headline WER/CER across fine-tuning runs
-
-From `final-scripts/finetune_tracker.csv`:
-
-| Run | Type | Val WER / CER % | Test WER / CER % | English-forgetting delta | Status |
-|---|---|---|---|---|---|
-| run1 (lr3e-5, bs32) | full | 19.96 / 4.17 | 17.08 / 3.49 | +76.59 pts — **severe** | done |
-| run6 (lr3e-5, bs32, AMD) | lora | 23.81 / 6.46 | 21.01 / 5.73 | +69.47 pts — **severe** | done |
-| run2 (lr3e-5, bs32, lora) | lora | 61.63 / 18.81 | 59.07 / 18.03 | not measured | interrupted |
-| run3 (lr1e-4, r32, lora) | lora | 26.01 / 7.26 | 25.99 / 7.06 | +2.76 pts — mild | done |
-| full-lr1e-5-e4-cosine-bs64 | full | 28.38 / 8.03 | 28.47 / 7.93 | +1.79 pts — mild | done |
-| **run5** (v4, lr3e-5, bs64, resumed) | full | 22.41 / 6.65 | **19.06 / 4.90** | not measured | done |
-
-**Run5 is the current best test-set result** (19.06% WER / 4.90% CER on 15,860 held-out
-samples) and is the run behind the currently-deployed model and the voice-command Whisper
-checkpoint.
-
-### 4b. Error-analysis clustering (`ErrorAnalysis/<run>/error_analysis/`)
-
-For each run's predictions, `error_analysis.py` buckets every wrong sample by severity and
-groups failures into 8 TF-IDF/KMeans clusters (character n-grams, so it works on Sinhala
-script without a tokenizer) — turning "the model is 20% wrong" into "the model is wrong in
-these specific, nameable ways":
-
-- **Word-boundary/compounding errors** — the single largest failure cluster in nearly every
-  run (e.g. `තුන්වැදෑරුම්ය` → `තුන් වැදෑරුම් ය`). Traced to inconsistent spacing conventions
-  across the source datasets, not a model-capacity problem.
-- **Conjunct-consonant/ZWJ errors** — Sinhala's zero-width-joiner conjuncts, inconsistently
-  encoded in training data.
-- **Colloquial vs. formal register** — the single largest driver of minor/moderate errors
-  across every run (`කියල` ⇄ `කියලා`).
-- **Degenerate repetition ("hallucination loop")** — present in the LoRA runs' worst
-  individual samples, absent from the full fine-tune.
-
-Full narrative and per-run numbers: `ErrorAnalysis/Analysis.md`.
-
-### 4c. Voice-command embedding validation
-
-Separate from transcription-quality testing — this validates whether the *voice fingerprint*
-matching (used alongside fuzzy text matching for commands like "delete") actually
-discriminates one spoken command from another. From this session's regenerated analysis
-(`command_embedding_similarities_en.csv`, 435 pairwise comparisons across 30 real clips, 6
-commands):
-
-| Technique | Cohen's d (separation) | Overlap between same/different-command pairs |
-|---|---|---|
-| Euclidean distance | 4.996 | 0.8% |
-| Manhattan distance (what the app uses) | 4.891 | 0.8% |
-| Cosine similarity | 3.857 | 0.8% |
-| Pearson correlation | 3.856 | 0.8% |
-
-All four techniques separate cleanly; Manhattan (the one the app actually runs on) is a close
-second to Euclidean and was kept rather than switched, since the gap is small and switching
-would mean re-tuning every threshold in the matching pipeline for a marginal gain.
-
----
-
-## 5. What was found, fixed, and re-tested this session
-
-A real bug was found through this exact testing loop — not from the pytest suite (which was
-all green throughout), but from **manually testing recorded commands and reading the backend
-logs**, then confirmed numerically:
-
-- **Symptom:** commands like "eka", "deka", and "next" weren't being recognized reliably in
-  COMMAND mode.
-- **Root cause 1:** the wake word ("zimi") had been baked directly into every command phrase
-  (e.g. `"zimi එක"`). Fuzzy-match scoring is length-normalized, so a short command lost most
-  of its discriminating power whenever Whisper failed to transcribe "zimi" — which, measured
-  from real logs, happened roughly 62% of the time. Worse, the shared "zimi" prefix inflated
-  similarity *between* different short commands (`eka` vs `deka` scored 83% instead of the
-  correct 50%), risking cross-command confusion even when transcription worked.
-  - **Fix:** wake-word detection was separated from command matching entirely. "Zimi" is now
-    detected independently (by voice fingerprint first, with a text fallback for spellings
-    `zimi`/`zini`/`සිමි`), arming a 3-second window in which exactly one bare command phrase
-    is matched — restoring `eka`/`deka` to their natural, well-separated similarity.
-  - **Re-tested:** `test_commands.py` now asserts the wake word is never part of a matchable
-    phrase and that `eka`/`deka` score below the match threshold against each other;
-    `test_streaming_commands_route.py` gained 15+ new tests covering the arm/expire/one-shot
-    behavior, both wake spellings, voice-only wake detection, and — critically — that the
-    "zimi" utterance itself is never saved into a student's note.
-- **Root cause 2:** the VAD silence cutoff for COMMAND mode (300ms) was tuned for
-  single-word commands and was cutting "zimi [pause] makanna" into two separate clips before
-  the phrase-length change made that pause-tolerance necessary. Diagnosed but the config
-  value itself was not the fix path taken — the wake/command split above absorbs this by
-  design (each half is independently useful now, rather than needing to survive as one clip).
-- **Also found and fixed:** 5 orphaned embedding samples for a `wake` command id that no
-  longer existed in the matching vocabulary were still being loaded and matched (up to 0.878
-  similarity), silently sending an unhandled `wake` command to the frontend. Cleaned up as
-  part of re-enrollment.
-
-This is the kind of bug automated unit tests alone would *not* have caught, because every
-individual function was behaving correctly — the bug was in how real, noisy Whisper output
-interacted with the matching design. It was found by generating real similarity numbers from
-real recordings and logs, which is why §4c's embedding-technique comparison exists as a
-standing tool, not a one-off.
-
-### And one the tests themselves got wrong — caught by CI on its first run
-
-Two of the new wake-gate tests passed locally but **failed the moment CI ran them**:
-
-```
-FAILED test_wake_detected_by_voice_when_whisper_mangles_the_word
-       assert [] == [{'type': 'armed', 'seconds': 3.0}]
-FAILED test_session_keeps_wake_samples_out_of_the_command_bank
-       assert {} == {'next': ['n']}
-```
-
-**Root cause:** `voice_command_embedding_matching_enabled` defaults to `False` in
-`config.py`, but the local `.env` sets it to `true` — and pydantic-settings reads `.env`
-during tests. So both tests were passing for the wrong reason: they depended on ambient
-developer configuration rather than declaring what they needed. With the flag off, the code
-under test never loads the bank (`streaming.py:204`) and never computes an embedding
-(`streaming.py:500`), so neither behaviour could occur.
-
-`.env` is gitignored because it holds the database password, so CI — correctly — had none.
-
-**Fix:** each test now sets the flag explicitly via `monkeypatch`, which the pre-existing
-tests in that file already did. Verified three ways: locally, with the flag forced off, and
-against CI's exact package versions in a fresh virtualenv.
-
-This is worth recording because it's the canonical argument for CI: **a test that passes only
-because of your local environment isn't testing what it claims to.** It would have stayed
-green on one machine indefinitely while failing for every other contributor. The very first
-CI run found it.
-
----
-
-## 6. Next steps
-
-Roughly in priority order:
-
-1. **Pin dependency versions.** `backend/requirements.txt` has **zero version constraints**,
-   so the same commit installs different libraries in each environment — currently
-   `torch 2.13.0` locally versus `2.9.1` on the server and in CI, and `transformers 5.15.1`
-   versus `5.17.0`. It happens to be harmless today (verified: the full suite passes on the
-   newest versions), but it means builds aren't reproducible and a future release can break
-   the deployment with no code change. `pip freeze > requirements.txt` or a lockfile.
-2. **Add a frontend test suite.** No framework is installed at all right now. Vitest + React
-   Testing Library would be the natural fit given this is a Vite project — start with the
-   highest-value, highest-risk surfaces: the voice-command WebSocket hook
-   (`useVoiceCommands.js`, since that's exactly where the bug in §5 lived on the client side),
-   and the quiz/MCQ answer flow.
-3. **Extend the eka/deka/tuna/hathara/cancel/answer/zimi voice-command clips into
-   `storage/voice_samples/`** so `command_embedding_similarities_en.csv` and the cluster plot
-   cover the *entire* command vocabulary, not just the original 6 (next/previous/delete/
-   submit/save/stop). Right now the newer commands are enrolled in the live database but
-   absent from this standing analysis.
-4. **Re-run the English catastrophic-forgetting check on run5**, the current best/deployed
-   model — it's the one run in the tracker missing that measurement. Given run3 and the
-   other full-fine-tune run both showed only "mild" forgetting, run5 is likely fine, but it's
-   an unverified gap, not a confirmed pass.
-5. **Address the word-boundary/compounding and conjunct-consonant error clusters** identified
-   in §4b — both are described in `Analysis.md` as *data*-consistency problems (inconsistent
-   spacing/ZWJ conventions across the four source corpora), not model-capacity problems,
-   meaning a normalization pass over the training transcripts is likely to help more than
-   further training on the same data.
-6. **Make local test runs hermetic too.** CI is now isolated (disposable Postgres, no
-   `.env`), but running `pytest` locally still reads the dev database *and* the developer's
-   `.env` — which is exactly what hid the bug in §5. A `conftest.py` that ignores `.env` and
-   points at a throwaway database would make local runs match CI, so surprises surface
-   before pushing rather than after.
-7. **Consider a pre-push hook.** CI catches these, but only after you've pushed. Running the
-   suite locally on `git push` would shorten the feedback loop.
-
-**Done since the last revision:** CI wiring (§1b) and deployment smoke tests (§2) — both
-previously listed here as outstanding.
+- pytest — https://docs.pytest.org/
+- pytest-asyncio — https://pytest-asyncio.readthedocs.io/
+- FastAPI `TestClient` (Starlette) — https://fastapi.tiangolo.com/tutorial/testing/
+- PyJWT — https://pyjwt.readthedocs.io/
+- GitHub Actions — https://docs.github.com/actions
+- Alembic — https://alembic.sqlalchemy.org/
+- Vitest (planned, §3.1.3) — https://vitest.dev/
+- React Testing Library (planned, §3.1.3) — https://testing-library.com/react
+- Playwright (planned, §3.1.3, §3.1.8) — https://playwright.dev/
+- Locust (planned, §3.1.5) — https://locust.io/
+- axe-core (planned, §3.1.3) — https://github.com/dequelabs/axe-core
+- `docs/DEPLOYMENT.md` — this project's own AWS EC2 + Vercel deployment guide, referenced
+  throughout §3.1.7 and §5
+- `ErrorAnalysis/` — this project's own model-evaluation artifacts, referenced in §3.1.4 and §4.1
