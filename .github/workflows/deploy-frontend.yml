@@ -1,0 +1,74 @@
+# Continuous Deployment for the frontend only.
+#
+# The backend is deliberately NOT deployed automatically. Doing so would
+# require either opening SSH to the world or storing a server key in this
+# repository, and every backend restart costs ~70 seconds of downtime
+# while the Whisper models reload - not something to trigger on a README
+# typo. Deploy it manually instead:
+#
+#   ssh sinhaspeech
+#   cd ~/dse-project && git pull
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   VERCEL_TOKEN      - vercel.com -> Account Settings -> Tokens
+#   VERCEL_ORG_ID     - the "orgId" in frontend/.vercel/project.json
+#   VERCEL_PROJECT_ID - the "projectId" in frontend/.vercel/project.json
+#
+# Note: the token deploys as you. Anyone able to edit workflows in this
+# repository can therefore deploy to your Vercel account.
+
+name: Deploy frontend
+
+on:
+  push:
+    branches: [main]
+    # Only redeploy when the frontend actually changed - backend-only
+    # commits should not trigger a frontend release.
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+  # Lets you redeploy by hand from the Actions tab without pushing.
+  workflow_dispatch:
+
+# If two pushes land quickly, cancel the older run - deploying a commit
+# that is already superseded just wastes time and risks a stale release.
+concurrency:
+  group: deploy-frontend
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build and deploy to Vercel
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel project settings
+        # Fetches the project config and environment variables, so the build
+        # below sees the same VITE_* values configured in the dashboard.
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy
+        # --prebuilt uploads the output built in the previous step rather
+        # than rebuilding on Vercel's side.
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
