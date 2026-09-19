@@ -94,6 +94,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Unit and accessibility tests
+        run: npm test
+
       - name: Build
         # Proves the build compiles. The API URL is a placeholder because the
         # real one is baked in at build time by whoever deploys - deployment is

@@ -1,0 +1,71 @@
+# Disposable stack for load and failover testing (test/load, docs/TESTING_REPORT.md A.3).
+#
+# Fully separate from the dev stack: its own compose project name, its own
+# database and volumes, and different host ports (db 5433, api 8001), so
+# breaking it never touches dev data or the running dse-project containers.
+# It reuses the already-built dse-project-backend image (no rebuild, no extra
+# disk) and is capped at 2 CPUs to resemble the 2-vCPU production instance -
+# a load number measured on all 12 host cores would be meaningless.
+#
+#   docker compose -f docker-compose.scratch.yml up -d
+#   docker compose -f docker-compose.scratch.yml exec backend alembic upgrade head
+#   docker compose -f docker-compose.scratch.yml exec backend python -m scripts.seed_users
+#   locust -f test/load/locustfile.py --host http://localhost:8001
+#   docker compose -f docker-compose.scratch.yml down -v      # throw it all away
+name: dse-scratch
+
+services:
+  database:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: scratch
+      POSTGRES_USER: scratch
+      POSTGRES_PASSWORD: scratch
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - scratch_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U scratch -d scratch"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    image: dse-project-backend:latest
+    env_file: .env
+    environment:
+      POSTGRES_HOST: database
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: scratch
+      POSTGRES_USER: scratch
+      POSTGRES_PASSWORD: scratch
+      MEDIA_STORAGE_DIR: /app/storage/uploads
+      VOICE_SAMPLES_DIR: /app/storage/voice_samples
+      STREAMING_SOURCE_MODEL: /app/models/whisper-sinhala1
+      STREAMING_MODEL_PATH: /app/models/whisper-sinhala1-ct2
+      # All simulated users share one account; lift the per-user cap so the
+      # test measures CPU, not the cap (production default is 3).
+      STREAMING_MAX_SESSIONS_PER_USER: "50"
+      # Production ignores a bare command without the "zimi" wake word, so
+      # the load clips would get no reply and latency could not be measured.
+      # Scratch only - never change this in docker-compose.prod.yml.
+      VOICE_COMMAND_WAKE_REQUIRED: "false"
+    cpus: 2
+    mem_limit: 3g # a runaway model load kills this container, not the host
+    volumes:
+      - ./models:/app/models:ro
+      # Run the working-tree code, not whatever was baked into the shared image.
+      - ./backend/app:/app/app:ro
+      - scratch_storage:/app/storage
+    ports:
+      - "127.0.0.1:8001:8000"
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  scratch_pg:
+  scratch_storage:

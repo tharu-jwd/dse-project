@@ -23,25 +23,6 @@ from app.services.transcription_processor import process_next_job
 from app.transcribers.fake import FakeTranscriber
 
 
-def _require_empty_queue():
-    """process_next_job() claims the OLDEST queued job across the whole
-    table, and this suite runs against the shared dev database (see
-    conftest.py) - if a real, unrelated job were already queued, calling
-    process_next_job() here would claim and "complete" it with
-    FakeTranscriber's canned text instead of our own test job, silently
-    corrupting real data. Skip rather than risk that."""
-
-    with SessionLocal() as db:
-        pending = db.query(TranscriptionJob).filter(
-            TranscriptionJob.status.in_(("QUEUED", "PROCESSING"))
-        ).count()
-    if pending:
-        pytest.skip(
-            f"{pending} real job(s) already queued/processing in the shared dev "
-            "database - skipping to avoid claiming someone else's job"
-        )
-
-
 def _wav_bytes(seconds: float = 0.2) -> bytes:
     """A tiny but structurally valid WAV file - enough to pass through
     save_media_upload() and be openable, without a real recording."""
@@ -157,13 +138,11 @@ def test_job_status_is_not_visible_to_another_student(client, student, other_stu
 # --- The full pipeline, end to end ----------------------------------------
 
 
-def test_full_pipeline_upload_to_completed_transcript(client, student):
+def test_full_pipeline_upload_to_completed_transcript(client, student, empty_job_queue):
     """The real end-to-end path: queue a job through the HTTP API exactly
     as the browser does, hand it to the same process_next_job() the
     worker process loops on, and confirm a real, readable transcript with
     real segments exists afterward - through the API, not just the DB."""
-
-    _require_empty_queue()
 
     upload = client.post(
         "/transcriptions",
@@ -202,7 +181,9 @@ def test_full_pipeline_upload_to_completed_transcript(client, student):
         _cleanup(transcript_id=transcript_id_to_clean, job_id=UUID(job_id))
 
 
-def test_worker_reports_no_work_for_a_job_it_does_not_own(client, student, other_student):
+def test_worker_reports_no_work_for_a_job_it_does_not_own(
+    client, student, other_student, empty_job_queue
+):
     """process_next_job's contract (transcription_processor.py) is to
     return False rather than raise or block when there is nothing *it*
     should claim. This runs against the shared dev database (see
@@ -210,8 +191,6 @@ def test_worker_reports_no_work_for_a_job_it_does_not_own(client, student, other
     the real queue - other queued jobs may belong to real dev data and
     must be left untouched. Instead: queue one job of our own, claim it,
     then confirm a second call finds nothing further belonging to us."""
-
-    _require_empty_queue()
 
     upload = client.post(
         "/transcriptions",

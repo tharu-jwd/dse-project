@@ -6,10 +6,9 @@ submit -> review. test_api_access_control.py already covers who is
 allowed to call each of these; this file covers whether the calls that
 ARE allowed actually do the right thing.
 
-Only the MCQ answer path is exercised here, since a SPOKEN answer needs a
-real transcript row (owned by the submitting student) to reference - that
-path is better covered once transcript fixtures exist (see the "Not yet
-done" list in docs/TESTING_REPORT.md's §3.1.2).
+Both answer types are covered: MCQ answers in the main sections, and
+SPOKEN answers (which reference a transcript the student already owns) in
+the "Spoken answers" section at the bottom.
 """
 
 import pytest
@@ -67,7 +66,7 @@ def test_created_quiz_starts_unpublished_and_hidden_from_students(
     client, teacher, student, mcq_quiz_payload
 ):
     """GET /quizzes for a student only returns PUBLISHED quizzes
-    (quiz.py:151) - a draft must not leak to students before the teacher
+    (get_quizzes in routes/quiz.py) - a draft must not leak to students before the teacher
     chooses to publish it."""
 
     quiz = _create_quiz(client, teacher, mcq_quiz_payload)
@@ -255,7 +254,7 @@ def test_teacher_can_review_a_submission(client, teacher, student, mcq_quiz_payl
 def test_teacher_cannot_review_a_submission_for_another_teachers_quiz(
     client, teacher, other_teacher, student, mcq_quiz_payload
 ):
-    """quiz.py:512 checks `quiz.created_by != current_user.user_id` -
+    """review_submission (routes/quiz.py) checks `quiz.created_by != current_user.user_id` -
     without it, any teacher could mark (and see) any other teacher's
     students' work."""
 
@@ -280,3 +279,112 @@ def test_teacher_cannot_review_a_submission_for_another_teachers_quiz(
         f"a teacher was allowed to review a submission for a quiz they don't "
         f"own (got {response.status_code})"
     )
+
+
+# --- Spoken answers (previously the untested half of submit) ----------------
+#
+# A SPOKEN answer does not carry text - it references a Transcript the
+# student already produced (via the upload or live-streaming path). The route
+# checks that transcript exists AND belongs to the submitting student.
+
+
+def _make_answer_transcript(owner_id):
+    from uuid import uuid4
+
+    from app.db.session import SessionLocal
+    from app.models.transcription import Transcript
+
+    transcript_id = uuid4()
+    with SessionLocal.begin() as db:
+        db.add(
+            Transcript(
+                transcript_id=transcript_id,
+                owner_id=owner_id,
+                title=f"Quiz answer {transcript_id}",
+                transcript_type="QUIZ_ANSWER",
+                status="DRAFT",
+            )
+        )
+    return transcript_id
+
+
+@pytest.fixture
+def spoken_quiz(client, teacher):
+    payload = {
+        "title": "Spoken quiz",
+        "questions": [{"text": "Describe your day.", "type": "SPOKEN", "required": True}],
+    }
+    quiz = _create_quiz(client, teacher, payload)
+    return _publish(client, teacher, quiz["id"])
+
+
+def test_student_can_submit_a_spoken_answer(client, student, spoken_quiz):
+    transcript_id = _make_answer_transcript(student.user_id)
+    question = spoken_quiz["questions"][0]
+
+    response = client.post(
+        f"/quizzes/{spoken_quiz['id']}/submit",
+        headers=student.auth,
+        json={"answers": [{"questionId": question["id"], "transcriptId": str(transcript_id)}]},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["answers"][0]["type"] == "SPOKEN"
+
+
+def test_spoken_answer_cannot_reference_another_students_transcript(
+    client, student, other_student, spoken_quiz
+):
+    """Without the ownership check a student could submit someone else's
+    recording as their own answer."""
+
+    someone_elses = _make_answer_transcript(other_student.user_id)
+    question = spoken_quiz["questions"][0]
+
+    response = client.post(
+        f"/quizzes/{spoken_quiz['id']}/submit",
+        headers=student.auth,
+        json={"answers": [{"questionId": question["id"], "transcriptId": str(someone_elses)}]},
+    )
+
+    assert response.status_code == 400
+
+
+def test_spoken_answer_requires_a_transcript_id(client, student, spoken_quiz):
+    question = spoken_quiz["questions"][0]
+
+    response = client.post(
+        f"/quizzes/{spoken_quiz['id']}/submit",
+        headers=student.auth,
+        json={"answers": [{"questionId": question["id"]}]},
+    )
+
+    assert response.status_code == 400
+
+
+def test_spoken_answer_rejects_a_transcript_that_does_not_exist(client, student, spoken_quiz):
+    from uuid import uuid4
+
+    question = spoken_quiz["questions"][0]
+
+    response = client.post(
+        f"/quizzes/{spoken_quiz['id']}/submit",
+        headers=student.auth,
+        json={"answers": [{"questionId": question["id"], "transcriptId": str(uuid4())}]},
+    )
+
+    assert response.status_code == 400
+
+
+def test_mcq_answer_requires_a_selected_option(client, teacher, student, mcq_quiz_payload):
+    quiz = _create_quiz(client, teacher, mcq_quiz_payload)
+    quiz = _publish(client, teacher, quiz["id"])
+    question = quiz["questions"][0]
+
+    response = client.post(
+        f"/quizzes/{quiz['id']}/submit",
+        headers=student.auth,
+        json={"answers": [{"questionId": question["id"]}]},
+    )
+
+    assert response.status_code == 400

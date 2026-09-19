@@ -8,17 +8,17 @@ this date — not what is planned — with plans separated out explicitly in §3
 
 | Technique (§3.1) | Status |
 |---|---|
-| 3.1.1 Data & Database Integrity | 🟡 Partial |
-| 3.1.2 Function Testing | 🟡 Partial |
+| 3.1.1 Data & Database Integrity | 🟢 Strong (one narrow gap) |
+| 3.1.2 Function Testing | 🟢 Complete for the current API |
 | 3.1.3 User Interface Testing | 🔴 Not started |
-| 3.1.4 Performance Profiling | 🟡 Partial |
+| 3.1.4 Performance Profiling | 🟡 Partial (model-dependent latency still manual) |
 | 3.1.5 Load Testing | 🔴 Not started |
 | 3.1.6 Security & Access Control | 🟢 Implemented |
 | 3.1.7 Failover & Recovery | 🔴 Not started |
-| 3.1.8 Configuration Testing | 🟡 Partial |
+| 3.1.8 Configuration Testing | 🟡 Partial (server side done; browser matrix not) |
 
 ```
-189 backend tests   (pytest, test/backend/)
+287 backend tests + 1 expected failure   (pytest, test/backend/)
  11 deployment smoke tests   (pytest, test/deployment/, run manually against the live system)
   0 frontend tests   (lint + build only)
 ```
@@ -74,42 +74,41 @@ The mission for this test effort is to:
 
 #### 3.1.1 Data and Database Integrity Testing
 
-**Status: 🟡 Partial.**
+**Status: 🟢 Strong — constraints, cascades, queue concurrency and transaction atomicity are all covered; one narrow gap remains.**
 
 | Technique Objective | Exercise the database and its access methods independent of the UI — schema creation, foreign keys, and per-row correctness — to observe data corruption or incorrect persistence. |
 |---|---|
 | **Technique** | `test_voice_enrollment.py` (18 tests) inserts and deletes real rows against a live Postgres instance: samples accepted/rejected by similarity, per-language isolation, cascade delete on user removal, unknown-id rejection. `test_db_integrity.py` (5 tests) exercises constraint and foreign-key behaviour directly against Postgres, independent of the service layer: `uq_command_enrollments_slot` rejects a duplicate `(user, command, language, sample_index)` row while correctly allowing the same `sample_index` under a different language; deleting a user cascades their voice enrollments (`ON DELETE CASCADE`); deleting a teacher who owns quizzes is *rejected* by the database (`ON DELETE RESTRICT` on `quizzes.created_by`); deleting a quiz cascades its questions (`ON DELETE CASCADE` on `questions.quiz_id`). In CI, `alembic upgrade head` runs against a disposable Postgres 17 service container on every push, so schema creation itself is verified on every commit, not just once. |
 | **Oracles** | Direct row inspection via SQLAlchemy queries in the test body; `pytest.raises(IntegrityError)` for constraint violations. |
 | **Required Tools** | pytest, SQLAlchemy, Postgres 17 (Docker for CI, dev instance for local runs) |
-| **Success Criteria** | All 23 tests pass; migrations apply cleanly to an empty database. |
+| **Job-queue concurrency and atomicity** | `test_db_concurrency.py` (6 tests). **Concurrency:** `claim_next_job()` relies on `SELECT … FOR UPDATE SKIP LOCKED` and had only ever run with one worker. Verified deterministically with two live database sessions — while worker A holds a lock on the oldest job, worker B is handed the *other* job (never the locked one, never a wait); with a single locked job B gets nothing back within a timeout instead of blocking; and the real `claim_next_job()` called from two threads over four jobs never returns the same job twice and never leaves one unclaimed. A mutation check confirmed the blocking test genuinely detects the failure: with `skip_locked` removed, the second worker blocks. **Atomicity and failure handling:** a transcriber that raises marks the job `FAILED` with a generic message (an internal exception string was confirmed not to leak into the user-visible error); a result the database rejects *inside* `complete_job()`'s transaction (built with `model_construct` to bypass Pydantic and reach the `ck_transcript_segments_time_range` CHECK constraint) leaves the job `FAILED` with no partial `Transcript` row behind; a media file that vanished from disk fails the job with its own message. |
+| **Success Criteria** | All 29 tests pass; migrations apply cleanly to an empty database. |
 | **Note on running these locally** | Because they write to the shared dev Postgres instance, cleanup is intentional and verified rather than assumed: fixture teardown (`conftest.py`'s `_delete_user`) explicitly removes quiz submissions, quizzes, transcripts, transcript segments, transcription jobs, and media files owned by a fixture user, in an order that respects each table's real `ondelete` policy, before deleting the user row itself. Confirmed by running the full suite three times in a row (including once under CI's exact environment) and checking the database directly each time for leftover fixture rows or stuck job-queue entries — none found. |
 | **Special Considerations** | Locally, these tests still run against the shared dev database rather than an isolated one (see §5, risk 1) — CI is the hermetic check. Writing the RESTRICT/CASCADE tests required checking each foreign key's actual `ondelete` setting in the model file rather than assuming — the two policies are deliberately different (`RESTRICT` protects a teacher's quiz history from silently vanishing; `CASCADE` on child rows like questions/options is correct because they are meaningless without their parent). |
 
 **Not yet done:**
-- Transaction rollback on a mid-operation failure
-- Concurrent writes to the same transcript
-- The job queue's `SELECT ... FOR UPDATE SKIP LOCKED` claim, tested with only one worker so
-  far — never verified with two workers racing for the same job
+- Concurrent writes to the *same transcript* (two simultaneous edits) — the queue's
+  concurrency is covered, but there is no optimistic-locking or last-write-wins behaviour
+  defined for transcript edits, so there is not yet an intended behaviour to assert
 
 #### 3.1.2 Function Testing
 
-**Status: 🟢 Strong across matching logic, the quiz lifecycle, transcripts, and the upload pipeline. Two narrow gaps remain (noted below).**
+**Status: 🟢 Complete for the current API — matching logic, quiz lifecycle (MCQ and spoken), transcripts, upload pipeline, and systematic input validation.**
 
 | Technique Objective | Exercise target functionality — navigation, data entry, processing, retrieval — via black-box interaction, verifying business rules are correctly applied for both valid and invalid input. |
 |---|---|
-| **Technique** | Five layers. (1) **Matching/streaming logic** — 129 tests (`test_commands.py`, `test_command_resolution.py`, `test_embeddings.py`, `test_streaming_buffer.py`, `test_streaming_commands_route.py`, `test_inference_kwargs.py`) drive the fuzzy-text matcher, the voice-embedding matcher, their combination rule, the rolling audio buffer, and the full wake-word gate end-to-end with a fake WebSocket — no real model or database. (2) **Quiz lifecycle** — 11 tests (`test_api_quiz_lifecycle.py`) drive the real FastAPI app via `TestClient`: a teacher creates a quiz, it is correctly hidden from students until published, a student answer is validated against the actual question/option it belongs to, a student's correct-answer view never leaks `isCorrect`, resubmitting updates rather than duplicates a submission, a teacher marks it, and a second teacher is confirmed unable to review a submission for a quiz they don't own. (3) **Transcripts** — 17 tests (`test_api_transcripts.py`) cover read/update/export/delete/finalize: an owner can edit and export; a second student cannot read, edit, export, or delete another student's transcript; a teacher can read *any* LECTURE transcript by design but not a student's private NOTE, and critically cannot edit a lecture they can only read (the read carve-out does not imply write access); a finalized transcript rejects further edits; renaming to an already-used title is rejected. (4) **Upload → worker pipeline** — 7 tests (`test_api_upload_pipeline.py`) drive `POST /transcriptions` through `TestClient` exactly as a browser would, then hand the queued job to the same `process_next_job()` function the real worker process loops on (using `FakeTranscriber`, the project's own fake backend for exactly this purpose) — covering upload validation (unsupported type, empty file, a note requiring audio not video), job-status privacy, and the full queue → claim → transcript-appears path end to end. (5) **API surface / auth** — 29 tests (`test_api_access_control.py`), see §3.1.6. |
+| **Technique** | Five layers. (1) **Matching/streaming logic** — 102 tests (`test_commands.py`, `test_command_resolution.py`, `test_embeddings.py`, `test_streaming_buffer.py`, `test_streaming_commands_route.py`, `test_inference_kwargs.py`) drive the fuzzy-text matcher, the voice-embedding matcher, their combination rule, the rolling audio buffer, and the full wake-word gate end-to-end with a fake WebSocket — no real model or database. (2) **Quiz lifecycle** — 16 tests (`test_api_quiz_lifecycle.py`) drive the real FastAPI app via `TestClient`: a teacher creates a quiz, it is correctly hidden from students until published, a student answer is validated against the actual question/option it belongs to, a student's correct-answer view never leaks `isCorrect`, resubmitting updates rather than duplicates a submission, a teacher marks it, and a second teacher is confirmed unable to review a submission for a quiz they don't own. **Spoken answers** (which carry no text — they reference a transcript the student already owns) are covered too: accepted for the student's own transcript, rejected (400) for another student's, for a missing `transcriptId`, and for one that does not exist; an MCQ answer without a selected option is rejected. (3) **Transcripts** — 17 tests (`test_api_transcripts.py`) cover read/update/export/delete/finalize: an owner can edit and export; a second student cannot read, edit, export, or delete another student's transcript; a teacher can read *any* LECTURE transcript by design but not a student's private NOTE, and critically cannot edit a lecture they can only read (the read carve-out does not imply write access); a finalized transcript rejects further edits; renaming to an already-used title is rejected. (4) **Upload → worker pipeline** — 7 tests (`test_api_upload_pipeline.py`) drive `POST /transcriptions` through `TestClient` exactly as a browser would, then hand the queued job to the same `process_next_job()` function the real worker process loops on (using `FakeTranscriber`, the project's own fake backend for exactly this purpose) — covering upload validation (unsupported type, empty file, a note requiring audio not video), job-status privacy, and the full queue → claim → transcript-appears path end to end. (5) **API surface / auth** — 29 tests (`test_api_access_control.py`), see §3.1.6. (6) **Systematic input validation** — 50 tests (`test_api_validation.py`): every JSON write endpoint (login, quiz create/update/submit, submission review, transcript update, voice-enrollment language) is sent twelve deliberately malformed bodies — wrong types, missing fields, 5,000-character strings, an SQL-injection-shaped title, nesting where a scalar belongs — and the property asserted is that **none produces a 5xx** (a 500 is an unhandled exception). Seven read/write routes are also sent malformed path ids (`not-a-uuid`, `%00`, `../../etc/passwd`, a 300-character string) and must answer with a 4xx. Specific rules are pinned individually: login requires both fields and a well-formed email; a quiz title is required and capped at 255 characters; MCQ needs exactly one correct option; a review mark outside 0–100 is rejected; an upload needs a file and a title and a known type. No malformed input in the sweep produced a server error. |
 | **Oracles** | Direct assertion against expected return values (`match_command()`'s score, `resolve_command()`'s outcome) and HTTP status codes / response bodies for the API layer. |
 | **Required Tools** | pytest, pytest-asyncio, FastAPI `TestClient`, PyJWT |
 | **Success Criteria** | All identified use-case flows for the covered areas pass with both valid and invalid input. |
 | **Special Considerations** | The matching-logic tests are unusually thorough for a student project because a real bug was found and fixed here mid-project (see §5's finding write-up in the git history) — every edge case in that table is a real failure mode that was hit, not a hypothetical. Writing the quiz lifecycle tests surfaced an undocumented validation rule (`QuizCreate` requires MCQ questions to have exactly 4 options) that was not obvious from the route code alone — found by running the test and reading the resulting 422, not by reading the schema first. The upload pipeline tests run against the shared dev database and `process_next_job()` always claims the *oldest* queued job across the whole table — a naive test could accidentally claim and "complete" a real, unrelated in-flight job with `FakeTranscriber`'s canned text. Guarded against by checking the real queue is empty before those tests run and skipping (not forcing) otherwise — see `_require_empty_queue()`. |
 
-**Not yet done — the two remaining gaps:**
-- The SPOKEN-answer submission path (as opposed to MCQ) is untested — it requires a real
-  transcript row owned by the submitting student; now that `test_api_transcripts.py`'s
-  `_make_transcript()` helper exists, this is a small follow-up rather than a blocked one
-- No test confirms a malformed payload returns 422 across the *whole* API — a few examples now
-  exist (`test_malformed_payload_returns_422_not_500`, the MCQ-option-count case) but coverage
-  is not systematic
+**Not yet done:**
+- Export formats other than `txt` (the route only supports `txt` and rejects the rest, which
+  is tested; docx/pdf export was in the frontend's contract but is not implemented server-side)
+- The WebSocket streaming route is covered with a fake socket (§3.1.2 layer 1) but has no
+  test through a real WebSocket handshake against the running app — the deployment smoke
+  tests (§4.1) cover that path only for connect/auth, not for a full audio session
 
 #### 3.1.3 User Interface Testing
 
@@ -125,22 +124,23 @@ The mission for this test effort is to:
 
 #### 3.1.4 Performance Profiling
 
-**Status: 🟡 Partial — real numbers exist, but ad hoc rather than a repeatable suite.**
+**Status: 🟡 Partial — API latency, query counts, matching speed and buffer memory are now automated checks; anything that needs a loaded Whisper model is still manual.**
 
 | Technique Objective | Measure response times, transaction rates, and resource usage under normal anticipated workload to verify performance requirements. |
 |---|---|
-| **Technique** | `backend/scripts/benchmark_command_latency.py` measures voice-command round-trip latency. Model quality is measured directly: WER/CER across 6 fine-tuning runs (see §3a in the training-side error analysis, `ErrorAnalysis/`). Container memory was measured live on the deployed server (backend ~1.2 GB, worker ~330 MB idle) during deployment. Frontend payload was measured and reduced from ~46 MB to ~1 MB of images. |
-| **Oracles** | Direct measurement compared against informal thresholds (e.g. WER/CER trend across runs); no automated pass/fail gate yet. |
+| **Technique** | `backend/scripts/benchmark_command_latency.py` measures voice-command round-trip latency. Model quality is measured directly: WER/CER across 6 fine-tuning runs (see §3a in the training-side error analysis, `ErrorAnalysis/`). Container memory was measured live on the deployed server (backend ~1.2 GB, worker ~330 MB idle) during deployment. Frontend payload was measured and reduced from ~46 MB to ~1 MB of images. **Automated (`test_performance.py`, 10 tests):** in-process response-time budgets for four endpoints (`/health`, `/auth/me`, `/transcripts`, `/quizzes`; measured p95 of 2, 8, 10 and 26 ms locally against budgets of 250 ms p95 / 100 ms median — an order of magnitude of headroom, so a failure means something got dramatically slower rather than that a CI runner was busy); SQL-statement counting via a SQLAlchemy event listener to detect N+1 queries; latency of fuzzy matching, embedding matching over a realistic 65-vector bank (13 commands × 5 samples × 768 dims), and full command resolution; and a ten-minute simulated continuous-speech session confirming the streaming buffer stays capped at 15 s with under 20 MB of traced memory and no audio lost or double-counted across repeated force-cuts. |
+| **Oracles** | Timed samples compared against fixed budgets (p50/p95); SQL statement counts compared across data sizes; `tracemalloc` peak. Model quality (WER/CER) is still compared across runs by inspection. |
 | **Required Tools** | The benchmark script, `docker stats`, browser DevTools network panel |
-| **Success Criteria** | Not formally defined — no documented response-time budget per endpoint. |
-| **Special Considerations** | All measurements to date are point-in-time and manual, not a suite that runs and fails a build. |
+| **Success Criteria** | The four budgets above hold; the teacher quiz list issues a constant number of SQL statements regardless of quiz count; the streaming buffer never exceeds its cap. |
+| **Special Considerations** | **A real defect was found by the query-count test:** `GET /quizzes` as a *student* issues one extra SQL statement per published quiz — measured 9, 13, 18 and 28 statements for 1, 5, 10 and 20 quizzes (exactly 8 + N) — because `serialize_quiz_student()` looks up the student's own submission inside the list comprehension. The teacher's listing, which eager-loads, stays constant at 4. It is harmless at classroom scale against a local database but every extra statement is a network round trip to a managed database. It is recorded as a `strict` expected failure (`xfail(strict=True)`), so the suite stays green, the defect is documented in the test itself, and the marker will start failing the moment the query is fixed, forcing its removal. These measurements are **in-process**: they exclude network latency to the deployed server, which is a deployment property (us-east-1) rather than a code property. |
 
-**Not yet done:**
-- API response times (p50/p95) per endpoint
+**Not yet done — all of it depends on a loaded Whisper model, which is why it is not in the automated suite:**
 - Time-to-first-caption during live streaming
-- Voice-command end-to-end latency (speak → action), as a proper automated benchmark rather
-  than a one-off script run
-- Memory growth over a long streaming session (buffer leak check)
+- Voice-command end-to-end latency (speak → action) as an automated benchmark rather than a
+  one-off script run (`benchmark_command_latency.py` exists and is run by hand)
+- Process memory growth of the *whole backend* over a long real session (the buffer's own
+  growth is covered above; the model's is not)
+- Fixing the student quiz-list N+1 described above
 
 #### 3.1.5 Load Testing
 
@@ -192,13 +192,14 @@ all, through legitimate tokens).
 
 #### 3.1.8 Configuration Testing
 
-**Status: 🟡 Partial — one real defect already found this way.**
+**Status: 🟡 Partial — the server-side configuration surface is now tested; the browser/OS/network matrix is not.**
 
 | Technique Objective | Verify correct operation across the different hardware, software, browser, and network configurations the deployed system will actually be used under. |
 |---|---|
 | **Technique** | Manual testing in Firefox on Linux during deployment surfaced a real, user-facing defect: `sinhaspeech.duckdns.org` is blocked outright by uBlock Origin (and, by the same mechanism, likely AdGuard, Brave Shields, and Pi-hole), because free dynamic-DNS domains are commonly abused by malware and appear on ad-blocker filter lists. This silently broke live captioning and voice commands for any visitor running a common ad blocker, while every other feature worked normally — making it look like a feature bug rather than a network-level block. |
-| **Oracles** | Direct observation: browser console network panel, comparing behaviour with the extension enabled vs. disabled. |
-| **Required Tools** | Firefox + uBlock Origin (found it); no systematic browser matrix yet. |
+| **Server-side configuration** | `test_configuration.py` (28 tests), built on `Settings(_env_file=None)` so the tests see only defaults and an explicitly controlled environment, never a developer's `.env` — the exact ambient dependency that already caused one real CI failure. Covers: startup **fails loudly** when any of the four required settings is missing (parametrised, and the error names the missing setting); risky features (`streaming_enabled`, `voice_command_embedding_matching_enabled`) **default to off**, pinned as a documented trap since leaving them unset yields a server whose microphone features silently do nothing; the transcriber defaults to the fake backend so a fresh checkout never tries to load a 1 GB model; environment overrides work case-insensitively; an unrelated environment variable is ignored while a garbage port number is rejected; `CORS_ORIGINS` parsing tolerates whitespace and stray commas; relative paths resolve from the repository root **not the current directory** (verified by changing the working directory); absolute paths are respected; a missing local model path falls back to the raw value so a hub id like `small` still works. **CORS on the live app:** a configured origin is allowed; four unlisted origins are refused, including the lookalike `https://sinhaspeech.vercel.app.evil.example` (which a naive `startswith` check would let through) and `null`; the wildcard origin is asserted never to be configured alongside credentials. **Worker configuration:** the transcriber factory honours the configured backend (whitespace and case tolerant) and rejects a typo such as `wisper` with an error naming it instead of silently falling back. |
+| **Oracles** | Direct observation: browser console network panel, comparing behaviour with the extension enabled vs. disabled. For the server side: exceptions raised, parsed values, and the presence or absence of the `access-control-allow-origin` response header. |
+| **Required Tools** | pytest and pydantic-settings for the server side; Firefox + uBlock Origin (found the domain-blocking defect); no systematic browser matrix yet — that needs Playwright (Appendix A). |
 | **Success Criteria** | Not yet defined. |
 | **Special Considerations** | Coverage to date is effectively "one browser, one OS, found by accident." The fix (a real, non-DNS-abuse-associated domain) removes the specific defect found but does not constitute configuration testing — the matrix below is still untested. |
 
@@ -225,7 +226,7 @@ hermetically rather than against shared state.
 
 | Job | Steps |
 |---|---|
-| Backend tests | Start Postgres 17 (health-checked) → `alembic upgrade head` → `pytest` (189 tests) |
+| Backend tests | Start Postgres 17 (health-checked) → `alembic upgrade head` → `pytest` (287 tests, 1 expected failure) |
 | Frontend lint and build | `npm ci` → oxlint → production build |
 
 There is deliberately no CD wired to this — deployment stays a manual, deliberate action for
@@ -268,9 +269,9 @@ fixed cadence.
 
 | Risk | Mitigation Strategy | Contingency (Risk is realized) |
 |---|---|---|
-| **Local test runs are not hermetic.** `test_voice_enrollment.py`, `test_api_access_control.py`, `test_api_quiz_lifecycle.py`, `test_db_integrity.py`, `test_api_transcripts.py`, and `test_api_upload_pipeline.py` write to the real shared development database and read the local `.env` (not just CI's clean environment). This already caused one real incident: two wake-gate tests passed locally only because a local `.env` flag was `true`, while the flag defaults to `false` — CI, correctly, had none and failed both tests on their very first run. | CI now runs against a disposable Postgres 17 container with no `.env`, so it is the authoritative hermetic check regardless of what passes locally. | Before trusting a local-only green run, re-run against CI's exact conditions (`VOICE_COMMAND_EMBEDDING_MATCHING_ENABLED=false pytest -q`, or push and check Actions) rather than assuming local == correct. Verified: the full 189-test suite passes identically under this condition and on a clean rerun (no test-order or leftover-state pollution observed). |
+| **Local test runs are not hermetic.** `test_voice_enrollment.py`, `test_api_access_control.py`, `test_api_quiz_lifecycle.py`, `test_db_integrity.py`, `test_api_transcripts.py`, and `test_api_upload_pipeline.py` write to the real shared development database and read the local `.env` (not just CI's clean environment). This already caused one real incident: two wake-gate tests passed locally only because a local `.env` flag was `true`, while the flag defaults to `false` — CI, correctly, had none and failed both tests on their very first run. | CI now runs against a disposable Postgres 17 container with no `.env`, so it is the authoritative hermetic check regardless of what passes locally. | Before trusting a local-only green run, re-run against CI's exact conditions (`VOICE_COMMAND_EMBEDDING_MATCHING_ENABLED=false pytest -q`, or push and check Actions) rather than assuming local == correct. Verified: the full 287-test suite passes identically under this condition and on a clean rerun (no test-order or leftover-state pollution observed). |
 | **`process_next_job()` operates on the whole shared job queue, not a test-scoped one.** It always claims the oldest `QUEUED` row across the entire `transcription_jobs` table — a test that called it without checking for pre-existing real jobs could silently claim and "complete" someone else's in-flight upload with fake canned text. | `test_api_upload_pipeline.py`'s tests that call `process_next_job()` first check the real queue is empty and **skip** (never force) if it is not — see `_require_empty_queue()`. | If this guard is ever removed or bypassed, a real user's queued transcription could be silently corrupted; treat any change to `_require_empty_queue()` as a change worth reviewing carefully, not routine cleanup. |
-| **Dependency versions are unpinned.** `backend/requirements.txt` has zero version constraints, so the same commit can install different library versions in different environments — measured directly: local venv had `torch 2.13.0`/`transformers 5.15.1`; the deployed server and CI both had `torch 2.9.1`/`transformers 5.17.0` at time of writing. | Verified the full 189-test suite passes on the newer versions (harmless today). | `pip freeze > requirements.txt` or adopt a lockfile so builds become reproducible; a future library release could otherwise break the deployment with no code change and no warning. |
+| **Dependency versions are unpinned.** `backend/requirements.txt` has zero version constraints, so the same commit can install different library versions in different environments — measured directly: local venv had `torch 2.13.0`/`transformers 5.15.1`; the deployed server and CI both had `torch 2.9.1`/`transformers 5.17.0` at time of writing. | Verified the full suite passes on the newer versions (harmless today). | `pip freeze > requirements.txt` or adopt a lockfile so builds become reproducible; a future library release could otherwise break the deployment with no code change and no warning. |
 | **Fixture teardown order matters and is easy to get wrong.** `quizzes.created_by` and `quiz_submissions.student_id` are `ON DELETE RESTRICT` (by design — see §3.1.1), so a test fixture that creates a quiz or submission and then tries to delete the owning user in the usual order raises `IntegrityError` during teardown, not during the test itself, which is a confusing place to debug. | `conftest.py`'s `_delete_user` now explicitly deletes a fixture user's answer submissions, quiz submissions, and quizzes before deleting the user row — verified this eliminates the teardown errors that appeared before the fix. | Any new fixture that creates rows with a `RESTRICT` foreign key to the user must extend this cleanup, or reuse `_delete_user` rather than deleting the user directly. |
 | **Load behaviour under concurrent users is unknown.** The deployed instance has 2 vCPUs running CPU-only Whisper inference; nothing has measured what happens with 5+ simultaneous streaming sessions. | None yet — this is the primary justification for prioritising §3.1.5 next. | If a live demo or classroom session exceeds the (currently unknown) concurrency limit, transcription latency will degrade with no advance warning; the fallback is to reduce simultaneous users manually until load testing establishes a real number. |
 | **A free dynamic-DNS domain silently breaks core features for a subset of users.** `sinhaspeech.duckdns.org` is blocked by uBlock Origin and likely other ad blockers, breaking live captioning and voice commands with no visible error — found during deployment, documented in §3.1.8. | Move to a paid, non-abuse-associated domain (`sinhaspeech.me`, already owned). | Until migrated, warn anyone demoing or evaluating the system to disable ad blockers first. |
@@ -296,3 +297,20 @@ fixed cadence.
 - `docs/DEPLOYMENT.md` — this project's own AWS EC2 + Vercel deployment guide, referenced
   throughout §3.1.7 and §5
 - `ErrorAnalysis/` — this project's own model-evaluation artifacts, referenced in §3.1.4 and §4.1
+
+### A.6 Implementation status
+
+| Item | Where | State |
+|---|---|---|
+| Vitest + Testing Library + jest-axe | `frontend/vite.config.js`, `src/test/setup.js`; `npm test` | Done. 23 tests pass: `useVoiceCommands` (connect, COMMAND start message, command/command_maybe forwarding, mic-error mapping, stop/session_end, unexpected close, unmount cleanup incl. the StrictMode false-error case), `AccessibilityControls` (axe, keyboard-only operation, persistence, corrupt storage), `VoiceMeter`. Runs in CI's frontend job. |
+| Playwright + axe | `frontend/playwright.config.js`, `e2e/app.spec.js`; `npm run test:e2e` | Done, against the mock API (no backend). 8 tests: login validation, keyboard sign-in, protected-route redirect, student blocked from teacher pages, axe WCAG A/AA on login/dashboard/settings, high-contrast persistence. Not in CI by design. |
+| Locust | `test/load/locustfile.py` | Written; **only verified to start** (run against a closed port). It has never been run against a real server, so no concurrency number exists yet. |
+
+**Finding:** axe reports the login page's primary `.button` as white on `#a78bfa`, contrast 2.72:1
+(needs 4.5:1). The e2e test is marked `test.fail()` so the suite stays green while this is open.
+
+**Caveats:** Playwright's own Chromium download did not complete on this machine, so e2e was run
+with `PW_CHROMIUM_PATH` pointing at an older cached Chromium; on a normal install, `npx playwright
+install chromium` is enough. Locust was installed into the conda base Python, not a project venv,
+and is not in `backend/requirements.txt`. The per-user streaming session cap (3) means the
+streaming scenario measures that cap, not CPU, past 3 users, unless raised on the scratch server.

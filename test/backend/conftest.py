@@ -128,7 +128,12 @@ def _delete_user(user_id: uuid.UUID) -> None:
 
         media_files = list(db.query(MediaFile).filter(MediaFile.owner_id == user_id))
         for media in media_files:
-            resolve_stored_media(media.storage_path).unlink(missing_ok=True)
+            # resolve_stored_media() raises if the file is already gone, and a
+            # test may have deleted it deliberately - cleanup must still finish.
+            try:
+                resolve_stored_media(media.storage_path).unlink(missing_ok=True)
+            except FileNotFoundError:
+                pass
         db.query(MediaFile).filter(MediaFile.owner_id == user_id).delete()
 
         db.query(User).filter(User.user_id == user_id).delete()
@@ -189,3 +194,30 @@ def client():
             yield test_client
     finally:
         settings.streaming_enabled = original
+
+
+@pytest.fixture
+def empty_job_queue():
+    """Skips the test unless the shared dev database has no queued or
+    processing transcription jobs.
+
+    `claim_next_job()` / `process_next_job()` operate on the oldest QUEUED
+    row across the WHOLE table, and these tests run against the shared dev
+    database. If a real, unrelated job were pending, a test calling them
+    would claim it - and "complete" someone else's upload with the fake
+    transcriber's canned text. Skipping is always safer than forcing.
+    """
+
+    from app.models.transcription import TranscriptionJob
+
+    with SessionLocal() as db:
+        pending = (
+            db.query(TranscriptionJob)
+            .filter(TranscriptionJob.status.in_(("QUEUED", "PROCESSING")))
+            .count()
+        )
+    if pending:
+        pytest.skip(
+            f"{pending} real job(s) already queued/processing in the shared dev "
+            "database - skipping to avoid claiming someone else's job"
+        )

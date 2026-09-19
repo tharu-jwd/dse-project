@@ -158,15 +158,19 @@ def test_student_cannot_review_a_submission(client, student):
     response = client.patch(
         f"/submissions/{uuid4()}/review",
         headers=student.auth,
-        json={"marks": 10, "feedback": "unauthorised"},
+        json={"mark": 10, "feedback": "unauthorised"},
     )
-    assert response.status_code in (403, 404, 422)
-    assert response.status_code not in (200, 201)
+    # A well-formed body (the field is `mark`), so validation passes and the
+    # role guard is what decides. require_teacher() runs before the submission
+    # lookup, so this is 403 even for an id that does not exist.
+    assert response.status_code == 403, (
+        f"a STUDENT reached the review route (got {response.status_code})"
+    )
 
 
 def test_student_cannot_list_submissions(client, student):
     """`GET /submissions` is the teacher's marking queue - it calls
-    require_teacher() (quiz.py:442). A student reaching it would be seeing
+    require_teacher() (get_submissions in routes/quiz.py). A student reaching it would be seeing
     other students' work."""
 
     response = client.get("/submissions", headers=student.auth)
@@ -190,7 +194,7 @@ def test_teacher_only_sees_submissions_for_their_own_quizzes(client, teacher):
 def test_student_cannot_read_another_students_submission_directly(
     client, student, other_student
 ):
-    """Guessing a UUID should not be enough - quiz.py:484 checks ownership
+    """Guessing a UUID should not be enough - get_submission (routes/quiz.py) checks ownership
     explicitly. Uses a random id, so the only acceptable outcomes are
     "not found" or "forbidden", never a payload."""
 
