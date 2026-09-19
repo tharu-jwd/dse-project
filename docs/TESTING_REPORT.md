@@ -18,7 +18,7 @@ this date — not what is planned — with plans separated out explicitly in §3
 | 3.1.8 Configuration Testing | 🟡 Partial |
 
 ```
-165 backend tests   (pytest, test/backend/)
+189 backend tests   (pytest, test/backend/)
  11 deployment smoke tests   (pytest, test/deployment/, run manually against the live system)
   0 frontend tests   (lint + build only)
 ```
@@ -61,7 +61,7 @@ The mission for this test effort is to:
 | **Backend API** (FastAPI, 27 REST endpoints + 1 WebSocket) | Auth, transcripts, quizzes, submissions, voice enrollment, streaming | §3.1.2, §3.1.6 |
 | **Matching logic** (`app/streaming/commands.py`, `command_resolution.py`, `embeddings.py`) | Fuzzy-text and voice-fingerprint command matching, the wake-word gate | §3.1.2 (heaviest coverage — see §5 for why) |
 | **Data models** (Postgres 17, 13 tables, Alembic-migrated) | Users, transcripts, quizzes, submissions, voice enrollments, the job queue | §3.1.1 |
-| **Background worker** | Polls the job queue, runs batch transcription | §3.1.1, §3.1.7 (untested) |
+| **Background worker** | Polls the job queue, runs batch transcription | §3.1.2 (the queue → claim → transcript pipeline), §3.1.7 (failover, untested) |
 | **Frontend** (React 19 / Vite) | The UI students and teachers actually use | §3.1.3 (untested) |
 | **Deployment** (AWS EC2 + Docker Compose + Caddy, Vercel) | The live system end-to-end | §2 deployment smoke tests |
 | **CI** (GitHub Actions) | Regression gate on every push/PR | §4 |
@@ -82,6 +82,7 @@ The mission for this test effort is to:
 | **Oracles** | Direct row inspection via SQLAlchemy queries in the test body; `pytest.raises(IntegrityError)` for constraint violations. |
 | **Required Tools** | pytest, SQLAlchemy, Postgres 17 (Docker for CI, dev instance for local runs) |
 | **Success Criteria** | All 23 tests pass; migrations apply cleanly to an empty database. |
+| **Note on running these locally** | Because they write to the shared dev Postgres instance, cleanup is intentional and verified rather than assumed: fixture teardown (`conftest.py`'s `_delete_user`) explicitly removes quiz submissions, quizzes, transcripts, transcript segments, transcription jobs, and media files owned by a fixture user, in an order that respects each table's real `ondelete` policy, before deleting the user row itself. Confirmed by running the full suite three times in a row (including once under CI's exact environment) and checking the database directly each time for leftover fixture rows or stuck job-queue entries — none found. |
 | **Special Considerations** | Locally, these tests still run against the shared dev database rather than an isolated one (see §5, risk 1) — CI is the hermetic check. Writing the RESTRICT/CASCADE tests required checking each foreign key's actual `ondelete` setting in the model file rather than assuming — the two policies are deliberately different (`RESTRICT` protects a teacher's quiz history from silently vanishing; `CASCADE` on child rows like questions/options is correct because they are meaningless without their parent). |
 
 **Not yet done:**
@@ -92,25 +93,23 @@ The mission for this test effort is to:
 
 #### 3.1.2 Function Testing
 
-**Status: 🟡 Partial — strong on matching logic and the quiz lifecycle; transcripts and uploads still untested.**
+**Status: 🟢 Strong across matching logic, the quiz lifecycle, transcripts, and the upload pipeline. Two narrow gaps remain (noted below).**
 
 | Technique Objective | Exercise target functionality — navigation, data entry, processing, retrieval — via black-box interaction, verifying business rules are correctly applied for both valid and invalid input. |
 |---|---|
-| **Technique** | Three layers. (1) **Matching/streaming logic** — 129 tests (`test_commands.py`, `test_command_resolution.py`, `test_embeddings.py`, `test_streaming_buffer.py`, `test_streaming_commands_route.py`, `test_inference_kwargs.py`) drive the fuzzy-text matcher, the voice-embedding matcher, their combination rule, the rolling audio buffer, and the full wake-word gate end-to-end with a fake WebSocket — no real model or database. (2) **Quiz lifecycle** — 11 tests (`test_api_quiz_lifecycle.py`) drive the real FastAPI app via `TestClient`: a teacher creates a quiz, it is correctly hidden from students until published, a student answer is validated against the actual question/option it belongs to, a student's correct-answer view never leaks `isCorrect`, resubmitting updates rather than duplicates a submission, a teacher marks it, and a second teacher is confirmed unable to review a submission for a quiz they don't own. (3) **API surface / auth** — 29 tests (`test_api_access_control.py`), see §3.1.6. |
+| **Technique** | Five layers. (1) **Matching/streaming logic** — 129 tests (`test_commands.py`, `test_command_resolution.py`, `test_embeddings.py`, `test_streaming_buffer.py`, `test_streaming_commands_route.py`, `test_inference_kwargs.py`) drive the fuzzy-text matcher, the voice-embedding matcher, their combination rule, the rolling audio buffer, and the full wake-word gate end-to-end with a fake WebSocket — no real model or database. (2) **Quiz lifecycle** — 11 tests (`test_api_quiz_lifecycle.py`) drive the real FastAPI app via `TestClient`: a teacher creates a quiz, it is correctly hidden from students until published, a student answer is validated against the actual question/option it belongs to, a student's correct-answer view never leaks `isCorrect`, resubmitting updates rather than duplicates a submission, a teacher marks it, and a second teacher is confirmed unable to review a submission for a quiz they don't own. (3) **Transcripts** — 17 tests (`test_api_transcripts.py`) cover read/update/export/delete/finalize: an owner can edit and export; a second student cannot read, edit, export, or delete another student's transcript; a teacher can read *any* LECTURE transcript by design but not a student's private NOTE, and critically cannot edit a lecture they can only read (the read carve-out does not imply write access); a finalized transcript rejects further edits; renaming to an already-used title is rejected. (4) **Upload → worker pipeline** — 7 tests (`test_api_upload_pipeline.py`) drive `POST /transcriptions` through `TestClient` exactly as a browser would, then hand the queued job to the same `process_next_job()` function the real worker process loops on (using `FakeTranscriber`, the project's own fake backend for exactly this purpose) — covering upload validation (unsupported type, empty file, a note requiring audio not video), job-status privacy, and the full queue → claim → transcript-appears path end to end. (5) **API surface / auth** — 29 tests (`test_api_access_control.py`), see §3.1.6. |
 | **Oracles** | Direct assertion against expected return values (`match_command()`'s score, `resolve_command()`'s outcome) and HTTP status codes / response bodies for the API layer. |
 | **Required Tools** | pytest, pytest-asyncio, FastAPI `TestClient`, PyJWT |
 | **Success Criteria** | All identified use-case flows for the covered areas pass with both valid and invalid input. |
-| **Special Considerations** | The matching-logic tests are unusually thorough for a student project because a real bug was found and fixed here mid-project (see §5's finding write-up in the git history) — every edge case in that table is a real failure mode that was hit, not a hypothetical. Writing the quiz lifecycle tests surfaced an undocumented validation rule (`QuizCreate` requires MCQ questions to have exactly 4 options) that was not obvious from the route code alone — found by running the test and reading the resulting 422, not by reading the schema first. |
+| **Special Considerations** | The matching-logic tests are unusually thorough for a student project because a real bug was found and fixed here mid-project (see §5's finding write-up in the git history) — every edge case in that table is a real failure mode that was hit, not a hypothetical. Writing the quiz lifecycle tests surfaced an undocumented validation rule (`QuizCreate` requires MCQ questions to have exactly 4 options) that was not obvious from the route code alone — found by running the test and reading the resulting 422, not by reading the schema first. The upload pipeline tests run against the shared dev database and `process_next_job()` always claims the *oldest* queued job across the whole table — a naive test could accidentally claim and "complete" a real, unrelated in-flight job with `FakeTranscriber`'s canned text. Guarded against by checking the real queue is empty before those tests run and skipping (not forcing) otherwise — see `_require_empty_queue()`. |
 
-**Not yet done — the remaining gap:**
-- **Zero tests exercise transcript CRUD**, finalize, or export (txt/docx/pdf)
-- **Zero tests exercise the upload → job-queued → worker → transcript-appears** path
+**Not yet done — the two remaining gaps:**
 - The SPOKEN-answer submission path (as opposed to MCQ) is untested — it requires a real
-  transcript row owned by the submitting student, which needs the transcript fixtures above
-  to exist first
-- No test confirms a malformed payload returns 422 across the *whole* API — two examples now
-  exist (`test_malformed_payload_returns_422_not_500`, the MCQ-option-count case above) but
-  coverage is not systematic
+  transcript row owned by the submitting student; now that `test_api_transcripts.py`'s
+  `_make_transcript()` helper exists, this is a small follow-up rather than a blocked one
+- No test confirms a malformed payload returns 422 across the *whole* API — a few examples now
+  exist (`test_malformed_payload_returns_422_not_500`, the MCQ-option-count case) but coverage
+  is not systematic
 
 #### 3.1.3 User Interface Testing
 
@@ -226,7 +225,7 @@ hermetically rather than against shared state.
 
 | Job | Steps |
 |---|---|
-| Backend tests | Start Postgres 17 (health-checked) → `alembic upgrade head` → `pytest` (165 tests) |
+| Backend tests | Start Postgres 17 (health-checked) → `alembic upgrade head` → `pytest` (189 tests) |
 | Frontend lint and build | `npm ci` → oxlint → production build |
 
 There is deliberately no CD wired to this — deployment stays a manual, deliberate action for
@@ -269,8 +268,9 @@ fixed cadence.
 
 | Risk | Mitigation Strategy | Contingency (Risk is realized) |
 |---|---|---|
-| **Local test runs are not hermetic.** `test_voice_enrollment.py`, `test_api_access_control.py`, `test_api_quiz_lifecycle.py`, and `test_db_integrity.py` write to the real shared development database and read the local `.env` (not just CI's clean environment). This already caused one real incident: two wake-gate tests passed locally only because a local `.env` flag was `true`, while the flag defaults to `false` — CI, correctly, had none and failed both tests on their very first run. | CI now runs against a disposable Postgres 17 container with no `.env`, so it is the authoritative hermetic check regardless of what passes locally. | Before trusting a local-only green run, re-run against CI's exact conditions (`VOICE_COMMAND_EMBEDDING_MATCHING_ENABLED=false pytest -q`, or push and check Actions) rather than assuming local == correct. Verified: the full 165-test suite passes identically under this condition and on a clean rerun (no test-order or leftover-state pollution observed). |
-| **Dependency versions are unpinned.** `backend/requirements.txt` has zero version constraints, so the same commit can install different library versions in different environments — measured directly: local venv had `torch 2.13.0`/`transformers 5.15.1`; the deployed server and CI both had `torch 2.9.1`/`transformers 5.17.0` at time of writing. | Verified the full 165-test suite passes on the newer versions (harmless today). | `pip freeze > requirements.txt` or adopt a lockfile so builds become reproducible; a future library release could otherwise break the deployment with no code change and no warning. |
+| **Local test runs are not hermetic.** `test_voice_enrollment.py`, `test_api_access_control.py`, `test_api_quiz_lifecycle.py`, `test_db_integrity.py`, `test_api_transcripts.py`, and `test_api_upload_pipeline.py` write to the real shared development database and read the local `.env` (not just CI's clean environment). This already caused one real incident: two wake-gate tests passed locally only because a local `.env` flag was `true`, while the flag defaults to `false` — CI, correctly, had none and failed both tests on their very first run. | CI now runs against a disposable Postgres 17 container with no `.env`, so it is the authoritative hermetic check regardless of what passes locally. | Before trusting a local-only green run, re-run against CI's exact conditions (`VOICE_COMMAND_EMBEDDING_MATCHING_ENABLED=false pytest -q`, or push and check Actions) rather than assuming local == correct. Verified: the full 189-test suite passes identically under this condition and on a clean rerun (no test-order or leftover-state pollution observed). |
+| **`process_next_job()` operates on the whole shared job queue, not a test-scoped one.** It always claims the oldest `QUEUED` row across the entire `transcription_jobs` table — a test that called it without checking for pre-existing real jobs could silently claim and "complete" someone else's in-flight upload with fake canned text. | `test_api_upload_pipeline.py`'s tests that call `process_next_job()` first check the real queue is empty and **skip** (never force) if it is not — see `_require_empty_queue()`. | If this guard is ever removed or bypassed, a real user's queued transcription could be silently corrupted; treat any change to `_require_empty_queue()` as a change worth reviewing carefully, not routine cleanup. |
+| **Dependency versions are unpinned.** `backend/requirements.txt` has zero version constraints, so the same commit can install different library versions in different environments — measured directly: local venv had `torch 2.13.0`/`transformers 5.15.1`; the deployed server and CI both had `torch 2.9.1`/`transformers 5.17.0` at time of writing. | Verified the full 189-test suite passes on the newer versions (harmless today). | `pip freeze > requirements.txt` or adopt a lockfile so builds become reproducible; a future library release could otherwise break the deployment with no code change and no warning. |
 | **Fixture teardown order matters and is easy to get wrong.** `quizzes.created_by` and `quiz_submissions.student_id` are `ON DELETE RESTRICT` (by design — see §3.1.1), so a test fixture that creates a quiz or submission and then tries to delete the owning user in the usual order raises `IntegrityError` during teardown, not during the test itself, which is a confusing place to debug. | `conftest.py`'s `_delete_user` now explicitly deletes a fixture user's answer submissions, quiz submissions, and quizzes before deleting the user row — verified this eliminates the teardown errors that appeared before the fix. | Any new fixture that creates rows with a `RESTRICT` foreign key to the user must extend this cleanup, or reuse `_delete_user` rather than deleting the user directly. |
 | **Load behaviour under concurrent users is unknown.** The deployed instance has 2 vCPUs running CPU-only Whisper inference; nothing has measured what happens with 5+ simultaneous streaming sessions. | None yet — this is the primary justification for prioritising §3.1.5 next. | If a live demo or classroom session exceeds the (currently unknown) concurrency limit, transcription latency will degrade with no advance warning; the fallback is to reduce simultaneous users manually until load testing establishes a real number. |
 | **A free dynamic-DNS domain silently breaks core features for a subset of users.** `sinhaspeech.duckdns.org` is blocked by uBlock Origin and likely other ad blockers, breaking live captioning and voice commands with no visible error — found during deployment, documented in §3.1.8. | Move to a paid, non-abuse-associated domain (`sinhaspeech.me`, already owned). | Until migrated, warn anyone demoing or evaluating the system to disable ad blockers first. |

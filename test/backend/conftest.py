@@ -94,7 +94,10 @@ def _delete_user(user_id: uuid.UUID) -> None:
     explicitly before the user row itself can go.
     """
 
+    from app.models.media import MediaFile
     from app.models.quiz import AnswerSubmission, Quiz, QuizSubmission
+    from app.models.transcription import Transcript, TranscriptionJob, TranscriptSegment
+    from app.services.media_storage_service import resolve_stored_media
 
     with SessionLocal.begin() as db:
         submission_ids = [
@@ -109,6 +112,25 @@ def _delete_user(user_id: uuid.UUID) -> None:
             ).delete(synchronize_session=False)
         db.query(QuizSubmission).filter(QuizSubmission.student_id == user_id).delete()
         db.query(Quiz).filter(Quiz.created_by == user_id).delete()
+
+        transcript_ids = [
+            row[0]
+            for row in db.query(Transcript.transcript_id).filter(
+                Transcript.owner_id == user_id
+            )
+        ]
+        if transcript_ids:
+            db.query(TranscriptSegment).filter(
+                TranscriptSegment.transcript_id.in_(transcript_ids)
+            ).delete(synchronize_session=False)
+        db.query(Transcript).filter(Transcript.owner_id == user_id).delete()
+        db.query(TranscriptionJob).filter(TranscriptionJob.requested_by == user_id).delete()
+
+        media_files = list(db.query(MediaFile).filter(MediaFile.owner_id == user_id))
+        for media in media_files:
+            resolve_stored_media(media.storage_path).unlink(missing_ok=True)
+        db.query(MediaFile).filter(MediaFile.owner_id == user_id).delete()
+
         db.query(User).filter(User.user_id == user_id).delete()
 
 
