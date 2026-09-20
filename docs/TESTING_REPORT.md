@@ -18,10 +18,12 @@ this date — not what is planned — with plans separated out explicitly in §3
 | 3.1.8 Configuration Testing | 🟢 Server side plus a 4-engine browser matrix (found a Safari defect) |
 
 ```
-364 backend tests   (pytest, test/backend/ — 305 confirmed 2026-09-20 against production's
-                      disposable database, +61 added later the same day: voice-enrolment/
+378 backend tests   (pytest, test/backend/ — 305 confirmed 2026-09-20 against production's
+                      disposable database, +73 added later the same day: voice-enrolment/
                       voice-sample/media API tests, stuck-job recovery, destructive-command
-                      safety. Run via `scripts/test-isolated.sh` for a fully isolated,
+                      safety, clean-install/compose validation, streaming persistence,
+                      WebSocket auth dependency. Statement coverage 79% → 84.16%, gated in
+                      CI at 75%. Run via `scripts/test-isolated.sh` for a fully isolated,
                       no-.env, empty-database run, or `scripts/test-plan.sh` for the full
                       one-command backend+frontend+e2e+smoke sweep with evidence in reports/.)
  11 deployment smoke tests   (pytest, test/deployment/ — run against the live system,
@@ -558,11 +560,14 @@ The failover tests refuse to run against anything that is not this stack.
 
 A full pass over the source tree, measured with `pytest --cov` rather than inferred:
 
-**Backend: 82.78% of statements (2474 total, 426 uncovered) as of 2026-09-20, up from 79% —
+**Backend: 84.16% of statements (2474 total, 392 uncovered) as of 2026-09-20, up from 79% —
 measured via `pytest --cov=app --cov-report=term`, and now gated in CI at a 75% floor
 (`.github/workflows/ci.yml`, `--cov-fail-under=75`).** Fully covered: every model and
-schema, the streaming buffer, command matching, command resolution, and the voice-enrolment
-*service*. The uncovered remainder falls into two groups.
+schema, the streaming buffer, command matching, command resolution, the voice-enrolment
+*service*, and — closed in this pass — `services/streaming_persistence.py` (33% → 100%,
+`test_streaming_persistence.py`) and the WebSocket-auth branches of `api/dependencies.py`
+(58% → 87%, `test_ws_auth_dependency.py`; `get_current_user_ws` needed no real socket, just
+a stub object exposing `.query_params.get()`). The uncovered remainder falls into two groups.
 
 *Needs a loaded model or a real server — the manual work in `EC2_TEST_RUNBOOK.md`:*
 
@@ -583,8 +588,8 @@ except `streaming_persistence.py`, which still needs a live socket:*
 | `api/routes/voice_enrollment.py` | 36% → **91%** | Same file — all 5 endpoints driven through `TestClient`, embedding call monkeypatched so no model loads. |
 | `api/routes/media.py` | (untested route) → **88%** | `test_api_media.py`: owner, non-owner, teacher-via-LECTURE, teacher-blocked-on-NOTE. |
 | `services/media_access_service.py` | 56% → **94%** | Same tests, service-layer ownership/permission branches. |
-| `services/streaming_persistence.py` | 33% | Still only reached through a live socket — `test/failover/` covers it in practice, the unit suite does not. Not part of Task 3's scope. |
-| `api/dependencies.py` | 58% | WebSocket auth branches — unchanged, not part of Task 3's scope. |
+| `services/streaming_persistence.py` | 33% → **100%** | Turned out to need no socket at all - plain functions called directly in `test_streaming_persistence.py`. `test/failover/` still covers the real-socket path separately. |
+| `api/dependencies.py` | 58% → **87%** | `get_current_user_ws` fully covered via `test_ws_auth_dependency.py`. The remaining 13% is `require_roles` (lines 86-96) — **dead code**, confirmed via `grep`: nothing calls it, every route uses its own `require_teacher`/`require_student` in `routes/quiz.py` instead. Worth a cleanup PR to remove it rather than a test. Line 33 (`get_current_user`'s own non-bearer-scheme check) is separately unreachable: `HTTPBearer(auto_error=False)` already returns `None` for any non-Bearer scheme before that line can run, confirmed directly against `HTTPBearer.__call__`. |
 
 **Frontend.** Four units have component tests — `useVoiceCommands`, `AccessibilityControls`,
 `VoiceMeter` and the quiz answer flow. Untested: `LiveTranscription`, `TranscriptEditor`,
