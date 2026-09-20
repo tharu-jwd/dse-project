@@ -54,11 +54,16 @@ class StreamingTranscriber:
         model_path: str,
         compute_type: str = "int8",
         language: str = "si",
+        cpu_threads: int = 0,
     ) -> None:
+        # cpu_threads=0 is CTranslate2's own default (one thread per visible
+        # core) - see settings.streaming_cpu_threads for why that is worth
+        # overriding wherever the CPU budget is smaller than the machine.
         self._model = WhisperModel(
             model_path,
             device="cuda" if _cuda_available() else "cpu",
             compute_type=compute_type,
+            cpu_threads=cpu_threads,
         )
 
         try:
@@ -71,6 +76,7 @@ class StreamingTranscriber:
                 model_path,
                 device="cpu",
                 compute_type=compute_type,
+                cpu_threads=cpu_threads,
             )
         self._language = language
         self._gpu_gate = asyncio.Semaphore(1)
@@ -148,6 +154,7 @@ def get_streaming_transcriber() -> StreamingTranscriber:
             model_path=settings.streaming_model_ct2_path,
             compute_type=settings.streaming_compute_type,
             language=settings.whisper_language,
+            cpu_threads=settings.streaming_cpu_threads,
         )
 
     return _transcriber

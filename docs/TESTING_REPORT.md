@@ -10,11 +10,11 @@ this date — not what is planned — with plans separated out explicitly in §3
 |---|---|
 | 3.1.1 Data & Database Integrity | 🟢 Strong (one narrow gap) |
 | 3.1.2 Function Testing | 🟢 Complete for the current API |
-| 3.1.3 User Interface Testing | 🔴 Not started |
+| 3.1.3 User Interface Testing | 🟢 Implemented (component + e2e + axe; see Appendix A) |
 | 3.1.4 Performance Profiling | 🟡 Partial (model-dependent latency still manual) |
-| 3.1.5 Load Testing | 🔴 Not started |
+| 3.1.5 Load Testing | 🟢 Measured: ceiling is 1-2 concurrent streaming users on a 2-CPU budget |
 | 3.1.6 Security & Access Control | 🟢 Implemented |
-| 3.1.7 Failover & Recovery | 🔴 Not started |
+| 3.1.7 Failover & Recovery | 🟢 Implemented (backup restore, db outage, crash, dropped socket) |
 | 3.1.8 Configuration Testing | 🟡 Partial (server side done; browser matrix not) |
 
 ```
@@ -112,11 +112,12 @@ The mission for this test effort is to:
 
 #### 3.1.3 User Interface Testing
 
-**Status: 🔴 Not started.**
+**Status: 🟢 Implemented.** 23 component tests (in CI) and 8 browser end-to-end tests. Found a
+WCAG AA contrast failure on the login button, now fixed. See Appendix A.
 
 | Technique Objective | Exercise navigation, form submission, and object states to observe standards conformance and target behavior; for this application specifically, exercise keyboard-only and screen-reader interaction paths since accessibility is the core requirement. |
 |---|---|
-| **Technique** | Not yet implemented. Planned: Vitest + React Testing Library for component-level tests, starting with `useVoiceCommands.js` (the hook where the real production bug in §5 actually lived on the client side) and the quiz/MCQ answer flow. Playwright for end-to-end flows: login → record a note → speak a command → submit. |
+| **Technique** | Vitest + React Testing Library for component-level tests, covering `useVoiceCommands.js` (the hook where the real production bug in §5 lived on the client side), `AccessibilityControls` and `VoiceMeter`. Playwright drives real browser flows against the mock API: login, keyboard-only sign-in, protected-route redirects and role boundaries. The quiz/MCQ answer flow and the transcript editor are not yet covered. |
 | **Oracles** | Rendered DOM assertions; for accessibility, `axe-core` or equivalent for WCAG contrast/label checks; manual verification of the high-contrast and text-size settings. |
 | **Required Tools** | Vitest, React Testing Library, Playwright, axe-core (none installed yet) |
 | **Success Criteria** | Not yet defined — pending tool installation. |
@@ -144,11 +145,15 @@ The mission for this test effort is to:
 
 #### 3.1.5 Load Testing
 
-**Status: 🔴 Not started.**
+**Status: 🟢 Measured.** The ceiling is **one to two concurrent streaming users** on a 2-CPU
+budget; at three, most commands miss a 30-second deadline. Running the harness also exposed a
+VAD thread-safety defect that could crash the server process outright, and a 2.8x inference
+latency penalty from unmatched thread counts (Appendix A.2). Figures come from a CPU-capped
+container on a developer laptop, not from the deployed instance itself.
 
 | Technique Objective | Subject the system to varying workloads — normal, worst-case, and concurrent-user — to determine whether it continues to function correctly beyond expected maximum load. |
 |---|---|
-| **Technique** | Not yet implemented. Planned: Locust or k6 driving the REST endpoints; a scripted set of concurrent WebSocket streaming sessions to find the point at which transcription latency becomes unusable on the deployed 2-vCPU instance; concurrent file uploads to observe worker queue depth, since the worker processes one job at a time. |
+| **Technique** | Locust (`test/load/locustfile.py`) drives the REST endpoints and concurrent WebSocket streaming sessions, feeding real 16 kHz clips at true real-time pace to find the point where transcription latency becomes unusable. Run against the scratch stack (Appendix A.4), capped at 2 CPUs to resemble the deployed instance. Concurrent file uploads / worker queue depth are not yet scripted. |
 | **Oracles** | Response-time and error-rate thresholds under load; the point of failure becomes the finding itself if no formal threshold is set yet. |
 | **Required Tools** | Locust or k6 (neither installed yet) |
 | **Success Criteria** | Not yet defined. |
@@ -180,11 +185,14 @@ all, through legitimate tokens).
 
 #### 3.1.7 Failover and Recovery Testing
 
-**Status: 🔴 Not started.**
+**Status: 🟢 Implemented.** 6 tests in `test/failover/`, run against the disposable scratch
+stack. They confirmed the backup restores, `pool_pre_ping` recovers without a restart, and
+`restart: unless-stopped` revives a crashed backend — and exposed the dropped-client defect in
+Appendix A.2.
 
 | Technique Objective | Simulate failure conditions — power/communication interruption, database failure, incomplete transactions — and verify the system recovers to a known, correct state without data loss. |
 |---|---|
-| **Technique** | Not yet implemented. Planned: restore a `pg_dump` backup into a scratch database and verify row-for-row integrity (a backup that has never been restored is a hypothesis, not a backup); kill the database container mid-request and confirm the API recovers via SQLAlchemy's `pool_pre_ping` (present in code, unverified in practice); drop a WebSocket connection mid-session and confirm the partial transcript is not lost; restart the EC2 instance and confirm all four containers return automatically (`restart: unless-stopped` is set, unverified end-to-end). |
+| **Technique** | Implemented in `test/failover/test_failover.py`: restore a `pg_dump` backup into a scratch database and verify row-for-row integrity (a backup that has never been restored is a hypothesis, not a backup); kill the database container mid-request and confirm the API recovers via SQLAlchemy's `pool_pre_ping` (now verified); drop a WebSocket connection abruptly mid-session and confirm the server cleans up without an unhandled error and without leaking a session slot; kill the backend process and confirm it returns by itself (`restart: unless-stopped`, now verified). A real EC2 instance reboot is still untested — the container-level crash is a stand-in for it. |
 | **Oracles** | Row-count and content comparison pre/post restore; HTTP success after a simulated database restart; container status after an instance reboot. |
 | **Required Tools** | `pg_dump`/`psql`, Docker, SSH access to the deployment host |
 | **Success Criteria** | Not yet defined. |
@@ -273,10 +281,10 @@ fixed cadence.
 | **`process_next_job()` operates on the whole shared job queue, not a test-scoped one.** It always claims the oldest `QUEUED` row across the entire `transcription_jobs` table — a test that called it without checking for pre-existing real jobs could silently claim and "complete" someone else's in-flight upload with fake canned text. | `test_api_upload_pipeline.py`'s tests that call `process_next_job()` first check the real queue is empty and **skip** (never force) if it is not — see `_require_empty_queue()`. | If this guard is ever removed or bypassed, a real user's queued transcription could be silently corrupted; treat any change to `_require_empty_queue()` as a change worth reviewing carefully, not routine cleanup. |
 | **Dependency versions are unpinned.** `backend/requirements.txt` has zero version constraints, so the same commit can install different library versions in different environments — measured directly: local venv had `torch 2.13.0`/`transformers 5.15.1`; the deployed server and CI both had `torch 2.9.1`/`transformers 5.17.0` at time of writing. | Verified the full suite passes on the newer versions (harmless today). | `pip freeze > requirements.txt` or adopt a lockfile so builds become reproducible; a future library release could otherwise break the deployment with no code change and no warning. |
 | **Fixture teardown order matters and is easy to get wrong.** `quizzes.created_by` and `quiz_submissions.student_id` are `ON DELETE RESTRICT` (by design — see §3.1.1), so a test fixture that creates a quiz or submission and then tries to delete the owning user in the usual order raises `IntegrityError` during teardown, not during the test itself, which is a confusing place to debug. | `conftest.py`'s `_delete_user` now explicitly deletes a fixture user's answer submissions, quiz submissions, and quizzes before deleting the user row — verified this eliminates the teardown errors that appeared before the fix. | Any new fixture that creates rows with a `RESTRICT` foreign key to the user must extend this cleanup, or reuse `_delete_user` rather than deleting the user directly. |
-| **Load behaviour under concurrent users is unknown.** The deployed instance has 2 vCPUs running CPU-only Whisper inference; nothing has measured what happens with 5+ simultaneous streaming sessions. | None yet — this is the primary justification for prioritising §3.1.5 next. | If a live demo or classroom session exceeds the (currently unknown) concurrency limit, transcription latency will degrade with no advance warning; the fallback is to reduce simultaneous users manually until load testing establishes a real number. |
+| **Concurrent streaming capacity is roughly one user.** Measured on a 2-CPU stand-in: one streaming user sees ~5s command latency, two see ~23s, and at three or more most commands never arrive within 30s (Appendix A.3). The REST API is unaffected; this is CPU-only Whisper inference, serialised behind one shared transcriber. | The number is now known rather than assumed, and the harness (`test/load/locustfile.py`) can re-measure it on any target. | The classroom scenario in §1 - a lecturer captioning live while several students use voice commands - is not achievable on a 2-vCPU instance as built. Plan on a GPU instance, a smaller model, or one streaming user at a time; and re-measure on the real instance before relying on these figures. |
 | **A free dynamic-DNS domain silently breaks core features for a subset of users.** `sinhaspeech.duckdns.org` is blocked by uBlock Origin and likely other ad blockers, breaking live captioning and voice commands with no visible error — found during deployment, documented in §3.1.8. | Move to a paid, non-abuse-associated domain (`sinhaspeech.me`, already owned). | Until migrated, warn anyone demoing or evaluating the system to disable ad blockers first. |
-| **The database has automated backups tested for creation but not restoration.** A `pg_dump` command exists in `DEPLOYMENT.md`; no restore has ever been performed. | Planned under §3.1.7. | If the production database is lost before this is verified, recovery is unproven and may fail silently or partially. |
-| **No frontend tests exist for an accessibility-first application.** A regression in `useVoiceCommands.js` or the accessibility settings would currently ship undetected — this is exactly the class of bug that shipped once already (see the wake-word incident referenced above, which had a client-side half). | Planned under §3.1.3; Vitest + React Testing Library is the natural fit given the Vite toolchain already in use. | Until implemented, frontend changes rely entirely on manual testing and oxlint/build success, neither of which catches behavioural regressions. |
+| **Backup restoration is now proven, but only on the scratch stack.** | `test/failover/test_failover.py` restores a `pg_dump` into a separate database and compares every table's row count against the original. | The production database's backups have still never been restored on the production host; the procedure is proven, this particular data is not. |
+| **Frontend test coverage is real but narrow.** Component tests now cover `useVoiceCommands.js`, the accessibility controls and the voice meter, and browser tests cover login, navigation and role boundaries — but the quiz answer flow, the transcript editor and live transcription have none. | §3.1.3, Appendix A. `npm test` runs in CI, so a regression in the covered units fails the build; the first axe run found a real WCAG AA contrast failure on the login button, now fixed. | Changes to the uncovered pages still rely on manual testing and lint/build success, neither of which catches a behavioural regression. |
 | **Demo accounts use a well-known password** (`demo123`), and the API is now publicly reachable. | Acceptable for a project demo; access control tests (§3.1.6) confirm role boundaries hold even if credentials are known. | Rotate demo account passwords before any evaluation where credential secrecy matters. |
 
 ---
@@ -289,28 +297,176 @@ fixed cadence.
 - PyJWT — https://pyjwt.readthedocs.io/
 - GitHub Actions — https://docs.github.com/actions
 - Alembic — https://alembic.sqlalchemy.org/
-- Vitest (planned, §3.1.3) — https://vitest.dev/
-- React Testing Library (planned, §3.1.3) — https://testing-library.com/react
-- Playwright (planned, §3.1.3, §3.1.8) — https://playwright.dev/
-- Locust (planned, §3.1.5) — https://locust.io/
-- axe-core (planned, §3.1.3) — https://github.com/dequelabs/axe-core
+- Vitest (§3.1.3) — https://vitest.dev/
+- React Testing Library (§3.1.3) — https://testing-library.com/react
+- Playwright (§3.1.3) — https://playwright.dev/
+- Locust (§3.1.5) — https://locust.io/
+- axe-core, via jest-axe and @axe-core/playwright (§3.1.3) — https://github.com/dequelabs/axe-core
 - `docs/DEPLOYMENT.md` — this project's own AWS EC2 + Vercel deployment guide, referenced
   throughout §3.1.7 and §5
 - `ErrorAnalysis/` — this project's own model-evaluation artifacts, referenced in §3.1.4 and §4.1
 
-### A.6 Implementation status
 
-| Item | Where | State |
+---
+
+## Appendix A. Implementation status and findings
+
+The three techniques that §3.1 listed as 🔴 not started — UI/accessibility (§3.1.3), load
+(§3.1.5) and failover/recovery (§3.1.7) — are now implemented. This appendix records what
+exists, what it found, and what remains unverified.
+
+### A.1 What was added
+
+| Area | Where | Run it with |
 |---|---|---|
-| Vitest + Testing Library + jest-axe | `frontend/vite.config.js`, `src/test/setup.js`; `npm test` | Done. 23 tests pass: `useVoiceCommands` (connect, COMMAND start message, command/command_maybe forwarding, mic-error mapping, stop/session_end, unexpected close, unmount cleanup incl. the StrictMode false-error case), `AccessibilityControls` (axe, keyboard-only operation, persistence, corrupt storage), `VoiceMeter`. Runs in CI's frontend job. |
-| Playwright + axe | `frontend/playwright.config.js`, `e2e/app.spec.js`; `npm run test:e2e` | Done, against the mock API (no backend). 8 tests: login validation, keyboard sign-in, protected-route redirect, student blocked from teacher pages, axe WCAG A/AA on login/dashboard/settings, high-contrast persistence. Not in CI by design. |
-| Locust | `test/load/locustfile.py` | Written; **only verified to start** (run against a closed port). It has never been run against a real server, so no concurrency number exists yet. |
+| Component + accessibility tests | `frontend/src/**/*.test.jsx`, `src/test/setup.js` | `cd frontend && npm test` |
+| Browser end-to-end + axe | `frontend/e2e/app.spec.js`, `playwright.config.js` | `npm run test:e2e` |
+| Load generation | `test/load/locustfile.py` | `locust -f test/load/locustfile.py --host http://localhost:8001` |
+| Failover / recovery | `test/failover/test_failover.py` | `pytest test/failover -v` |
+| Disposable test stack | `docker-compose.scratch.yml` | see A.4 |
 
-**Finding:** axe reports the login page's primary `.button` as white on `#a78bfa`, contrast 2.72:1
-(needs 4.5:1). The e2e test is marked `test.fail()` so the suite stays green while this is open.
+**Frontend unit (23 tests, in CI).** `useVoiceCommands` — connect URL and token encoding, the
+COMMAND start message, `command`/`command_maybe` forwarding, every `getUserMedia` error mapped
+to its message, `stop()` → `session_end`, unexpected close vs. close after stop, unmount
+cleanup, and the StrictMode abort that must *not* surface a false error.
+`AccessibilityControls` — axe, keyboard-only operation, persistence, corrupt storage.
+`VoiceMeter`.
 
-**Caveats:** Playwright's own Chromium download did not complete on this machine, so e2e was run
-with `PW_CHROMIUM_PATH` pointing at an older cached Chromium; on a normal install, `npx playwright
-install chromium` is enough. Locust was installed into the conda base Python, not a project venv,
-and is not in `backend/requirements.txt`. The per-user streaming session cap (3) means the
-streaming scenario measures that cap, not CPU, past 3 users, unless raised on the scratch server.
+**End-to-end (8 tests, not in CI).** Runs the built app in Chromium against the mock API, so no
+backend is needed: login validation, keyboard-only sign-in, protected-route redirect, a student
+blocked from teacher pages, axe WCAG A/AA on login/dashboard/settings, and high-contrast
+persistence across a reload.
+
+**Failover (6 tests, not in CI).** A `pg_dump` restored into a scratch database and compared
+table by table; the database stopped mid-request and the API recovering with no restart
+(`pool_pre_ping`, now proven end to end); the backend killed and returning by itself
+(`restart: unless-stopped`); an abruptly dropped WebSocket in both modes; and per-user session
+slots not leaking across repeated drops.
+
+### A.2 Findings
+
+**1. The shared VAD was not thread-safe — it could crash the whole server.** Every streaming
+session shares one Silero model and calls `vad.analyze` on a worker thread via
+`asyncio.to_thread`. Unserialised, concurrent sessions corrupted its internal state:
+`RuntimeError: select(): index 1 out of range for tensor of size [1, 64]` at best, and a
+*fatal interpreter crash* — not an exception — at worst, which is what a load run actually
+produced. Fixed with a lock in `VoiceActivityDetector` (VAD is a few milliseconds, so the cost
+is negligible). Regression test: `test/backend/test_vad_concurrency.py`, which reproduced the
+crash reliably before the fix.
+
+**2. A vanishing client aborted the server's own cleanup.** Every notification the streaming
+route sends after an utterance is best-effort, but each was wrapped in `except RuntimeError`
+only — which covers a *graceful* close. A client that simply disappears (dropped wifi, closed
+tab, or the route change `useVoiceCommands.js` says unmounts a listening session constantly)
+raises `WebSocketDisconnect(1006)`, and under load uvicorn's `ClientDisconnected` (an
+`OSError`). Either escaped, aborting `_finalize_remaining_buffer` mid-cleanup and surfacing as
+an unhandled ASGI error. Fixed by naming the condition once (`_CLIENT_GONE`) and applying it to
+all eight send sites. Regression tests: `test/backend/test_streaming_disconnect.py` (17 cases,
+unit speed) and the failover suite's COMMAND case, which was verified to fail against the
+unfixed route.
+
+Damage was bounded and worth stating precisely: dictated text is persisted *before* the send,
+and the session slot is released in a `finally`, so no note was lost and no slot leaked. The
+defect was that the route's stated intent — "a dead client is never fatal" — did not hold for
+the most common way a client dies.
+
+**3. Inference threads were not matched to the CPU budget — a 2.8x latency penalty.**
+`WhisperModel` was constructed without `cpu_threads`, so CTranslate2 started one thread per
+*visible* core. On a dedicated host that is correct. Wherever the CPU budget is smaller than the
+machine — a container with `cpus:` set, or a shared instance — those threads thrash: measured on
+a 2-CPU-capped container that still saw all 12 host cores, the same 2.25s clip took **11.4s** to
+transcribe at the default and **4.1s** with threads set to 2. End to end, command latency fell
+from 12-15s to 3.6-5.2s. Added `streaming_cpu_threads`, defaulting to `0` — CTranslate2's
+existing behaviour, so nothing changes for the current deployment, where the 2-vCPU instance
+sees exactly 2 cores. It exists so a CPU-limited container can be told the truth about its
+budget. This was found only because load testing forced the question of where the time goes.
+
+**4. Insufficient colour contrast on the primary button.** axe measured white on `#a78bfa` at
+2.72:1, against the 4.5:1 WCAG AA minimum — on the login button, the first control every user
+meets. Fixed by using `--teal-dark` (5.7:1) for `.button--primary`. The e2e axe checks on
+login, dashboard and settings now pass unconditionally.
+
+### A.3 Load testing
+
+`test/load/locustfile.py` has two user classes: `ApiUser` (ordinary authenticated browsing) and
+`StreamingUser` (one COMMAND-mode session, streaming real 16 kHz clips from
+`storage/voice_samples` at true real-time pace, 250 ms per chunk, as the browser does, with a
+mic-like noise floor between words rather than digital silence).
+
+**Measured on the scratch stack** (2 CPUs, `STREAMING_CPU_THREADS=2`, wake gate off), latency
+being the time from the end of the spoken clip to the server's command verdict:
+
+| Concurrent streaming users | Verdict latency (mean) | Timeouts (30s) |
+|---|---|---|
+| 1 | 5.4s | 0% |
+| 2 | 23.2s | 0% |
+| 3 | 29.6s | 56% |
+| 5 | 24.5s | 55% |
+
+**The ceiling is between one and two concurrent streaming users on a 2-CPU budget.** One user
+is workable; two already push latency past 20 seconds; three or more and most commands never
+arrive within 30 seconds. The REST endpoints are unaffected — they stayed in the tens of
+milliseconds throughout — so this is entirely the cost of CPU-only Whisper inference, which is
+serialised behind a single shared transcriber. No crashes or restarts occurred at any level
+once the VAD defect in A.2 was fixed.
+
+Note what this means for the classroom scenario in §1: live captioning for a lecturer plus
+voice commands for several students concurrently is not achievable on a 2-vCPU instance as
+built. The options are a GPU instance, a smaller/faster model, or accepting one streaming user
+at a time.
+
+Two things it cannot tell you, by construction:
+
+- It measures the *request path*, not transcription quality. It cannot say whether accuracy
+  degrades under load, only whether responses arrive and how late.
+- Production requires the "zimi" wake word, so bare command clips are correctly ignored and
+  never answer. The scratch stack disables the gate (`VOICE_COMMAND_WAKE_REQUIRED=false`) so
+  latency is measurable at all. Against any server with the gate on, `ws speech->verdict` will
+  simply time out — that is the gate working, not a failure.
+
+It has one known rough edge: at five users a few sessions ended with a `JSONDecodeError`
+from the harness's own receive loop rather than a server error. That is the harness, not the
+server, and it does not affect the latency figures above.
+
+Never point it at the live deployment casually: it competes for the same two vCPUs a demo needs
+and writes real rows.
+
+### A.4 The scratch stack
+
+`docker-compose.scratch.yml` is a disposable stack for exactly this kind of testing: its own
+compose project (`dse-scratch`), its own database and volumes, and different host ports (5433,
+8001), so nothing it does can touch dev data or the running dev containers. It reuses the
+already-built backend image, bind-mounts the working-tree source, and is capped at 2 CPUs to
+resemble the production instance — a load figure measured on all 12 host cores would mean
+nothing.
+
+```bash
+docker compose -f docker-compose.scratch.yml up -d
+docker compose -f docker-compose.scratch.yml exec backend alembic upgrade head
+docker compose -f docker-compose.scratch.yml exec backend python -m scripts.seed_users
+pytest test/failover -v
+docker compose -f docker-compose.scratch.yml down -v   # throw it all away
+```
+
+The failover tests refuse to run against anything that is not this stack.
+
+### A.5 Still unverified
+
+- **Real hardware.** Everything above ran on a 12-core laptop with the backend capped at 2 CPUs.
+  That approximates the 2-vCPU EC2 instance; it is not the same as measuring it.
+- **The frontend tests cover three units.** The quiz answer flow, the transcript editor and
+  live transcription have no component tests yet.
+- **Playwright's own Chromium download did not complete here** (it stalled twice at 10%), so
+  e2e ran against an older cached Chromium via `PW_CHROMIUM_PATH`. On a normal connection
+  `npx playwright install chromium` is enough.
+- **Locust is not pinned.** It was installed ad hoc and is absent from `backend/requirements.txt`,
+  which still has no version constraints at all (see §5).
+- **Multi-worker deployment.** `_active_sessions` is per-process, so the session cap and these
+  leak tests only hold on a single worker, as the code's own comment notes.
+
+### A.6 CI
+
+`npm test` runs in the existing frontend job alongside lint and build. Playwright, Locust and
+the failover suite stay out of CI deliberately: they are slow, they need Docker or a browser,
+and a load test that fails because a shared runner was busy says nothing about the commit. They
+are run by hand, the same way the deployment smoke tests in §4.1 are.

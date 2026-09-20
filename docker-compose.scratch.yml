@@ -52,6 +52,12 @@ services:
       # the load clips would get no reply and latency could not be measured.
       # Scratch only - never change this in docker-compose.prod.yml.
       VOICE_COMMAND_WAKE_REQUIRED: "false"
+      # Match inference threads to the 2-CPU cap below. Without this,
+      # CTranslate2 starts one thread per *visible* core (12 here) and they
+      # thrash against a 2-core quota - measured 11.4s vs 4.1s for the same
+      # 2.25s clip. The real 2-vCPU instance sees 2 cores and so needs no
+      # override; a CPU-limited container on a bigger host does.
+      STREAMING_CPU_THREADS: "2"
     cpus: 2
     mem_limit: 3g # a runaway model load kills this container, not the host
     volumes:

@@ -36,6 +36,7 @@ Two things to know before reading the numbers:
 import json
 import os
 import random
+import struct
 import time
 import wave
 from pathlib import Path
@@ -52,6 +53,12 @@ WAV_DIR = Path(
 )
 
 CHUNK_SAMPLES = 4000  # 250 ms at 16 kHz, matching the browser client
+
+# How long to wait for a verdict after the clip's audio ends. Generous on
+# purpose: a single command took ~4s on a 2-CPU container with inference
+# threads matched to the budget, and far longer without. A timeout near the
+# expected latency turns ordinary slowness into a wall of false failures.
+VERDICT_TIMEOUT_SECONDS = 30
 
 
 def _load_clips() -> list[bytes]:
@@ -75,6 +82,15 @@ CLIPS = _load_clips()
 def _warn_if_no_clips(environment, **_):
     if not CLIPS:
         print(f"[load] no usable 16kHz mono wav clips in {WAV_DIR}; StreamingUser will idle")
+
+
+def _room_tone() -> bytes:
+    """A mic's noise floor, not digital zeros - what the server really sees
+    between words."""
+
+    return b"".join(
+        struct.pack("<h", random.randint(-60, 60)) for _ in range(CHUNK_SAMPLES)
+    )
 
 
 def _fire(environment, name, started, exception=None, length=0):
@@ -168,8 +184,8 @@ class StreamingUser(HttpUser):
                         answered = time.time()
 
             # Trailing silence so VAD closes the utterance, then wait for the verdict.
-            silence = b"\x00\x00" * CHUNK_SAMPLES
-            wait_until = time.time() + 15
+            silence = _room_tone()
+            wait_until = time.time() + VERDICT_TIMEOUT_SECONDS
             while answered is None and time.time() < wait_until:
                 ws.send_binary(silence)
                 time.sleep(0.25)
@@ -181,7 +197,7 @@ class StreamingUser(HttpUser):
                     answered = time.time()
 
             if answered is None:
-                _fire(self.environment, "ws speech->verdict", sent_at, Exception("no verdict in 15s"))
+                _fire(self.environment, "ws speech->verdict", sent_at, Exception(f"no verdict in {VERDICT_TIMEOUT_SECONDS}s"))
             else:
                 # Latency from when the clip's audio finished to the verdict.
                 clip_seconds = len(clip) / 2 / 16000
