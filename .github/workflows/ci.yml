@@ -63,14 +63,23 @@ jobs:
         run: |
           pip install --extra-index-url https://download.pytorch.org/whl/cpu \
             -r backend/requirements.txt
+          pip install pytest-cov
 
       - name: Create database schema
         # The enrollment tests insert real rows, so the tables must exist.
         working-directory: backend
         run: alembic upgrade head
 
-      - name: Run tests
-        run: pytest -q
+      - name: Run tests with coverage
+        # Fails the job if statement coverage drops below 75% (Master Test
+        # Plan Appendix A.6's own measured floor was 79% at the time this
+        # gate was added) - a silent coverage regression is worse than a
+        # loud one. --cov-report=term prints the exact percentage in the
+        # job log for anyone checking without downloading an artifact.
+        # Runs from the repo root, same as the plain `pytest -q` this
+        # replaces - pytest.ini's `pythonpath = backend` is what makes
+        # `--cov=app` (not `--cov=backend/app`) resolve correctly.
+        run: pytest -q --cov=app --cov-report=term --cov-fail-under=75
 
   frontend:
     name: Frontend lint and build
@@ -105,3 +114,20 @@ jobs:
           VITE_API_BASE_URL: https://example.invalid
           VITE_USE_MOCK_API: 'false'
         run: npm run build
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gitleaks scans commit history, not just the checked-out tree -
+          # a secret that was pushed and later removed is still a leak.
+          # fetch-depth: 0 is required for it to see that history.
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

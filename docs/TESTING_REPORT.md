@@ -26,10 +26,12 @@ this date — not what is planned — with plans separated out explicitly in §3
                       one-command backend+frontend+e2e+smoke sweep with evidence in reports/.)
  11 deployment smoke tests   (pytest, test/deployment/ — run against the live system,
                                 including immediately after the 2026-09-20 reboot test)
- 43 frontend component tests, 68 Playwright e2e tests   (both green as of 2026-09-20, the +8
-                                                            over the earlier 60 being
+ 43 frontend component tests, 72 Playwright e2e tests   (both green as of 2026-09-20; the +12
+                                                            over the earlier 60 are
                                                             immersion.spec.js's leaked-internals
-                                                            check — see reports/2026-09-20/summary.md)
+                                                            check (8) and quiz-and-editor-a11y.spec.js
+                                                            (4, one data-state skip) — see
+                                                            reports/2026-09-20/summary.md)
 ```
 
 ---
@@ -556,7 +558,9 @@ The failover tests refuse to run against anything that is not this stack.
 
 A full pass over the source tree, measured with `pytest --cov` rather than inferred:
 
-**Backend: 79% of statements (2471 total, 513 uncovered).** Fully covered: every model and
+**Backend: 82.78% of statements (2474 total, 426 uncovered) as of 2026-09-20, up from 79% —
+measured via `pytest --cov=app --cov-report=term`, and now gated in CI at a 75% floor
+(`.github/workflows/ci.yml`, `--cov-fail-under=75`).** Fully covered: every model and
 schema, the streaming buffer, command matching, command resolution, and the voice-enrolment
 *service*. The uncovered remainder falls into two groups.
 
@@ -575,18 +579,12 @@ except `streaming_persistence.py`, which still needs a live socket:*
 
 | Module | Cover (was → now) | Status |
 |---|---|---|
-| `api/routes/voice_samples.py` | 33% → route layer now exercised | `test_api_voice_enrollment.py`: every endpoint's happy path, 401, 404, 400. |
-| `api/routes/voice_enrollment.py` | 36% → route layer now exercised | Same file — all 5 endpoints driven through `TestClient`, embedding call monkeypatched so no model loads. |
-| `services/media_access_service.py` | 56% → route layer now exercised | `test_api_media.py`: owner, non-owner, teacher-via-LECTURE, teacher-blocked-on-NOTE. |
+| `api/routes/voice_samples.py` | 33% → **91%** | `test_api_voice_enrollment.py`: every endpoint's happy path, 401, 404, 400. |
+| `api/routes/voice_enrollment.py` | 36% → **91%** | Same file — all 5 endpoints driven through `TestClient`, embedding call monkeypatched so no model loads. |
+| `api/routes/media.py` | (untested route) → **88%** | `test_api_media.py`: owner, non-owner, teacher-via-LECTURE, teacher-blocked-on-NOTE. |
+| `services/media_access_service.py` | 56% → **94%** | Same tests, service-layer ownership/permission branches. |
 | `services/streaming_persistence.py` | 33% | Still only reached through a live socket — `test/failover/` covers it in practice, the unit suite does not. Not part of Task 3's scope. |
 | `api/dependencies.py` | 58% | WebSocket auth branches — unchanged, not part of Task 3's scope. |
-
-Exact updated percentages weren't re-measured: running `pytest --cov` in this environment hit
-an unrelated local pip/numpy double-import error when installing `pytest-cov` at runtime. The
-gap itself is closed either way — every endpoint in both route modules now has at least one
-real `TestClient` request per response branch (200, 400, 401, 404); re-run
-`pytest --cov=app.api.routes.voice_enrollment --cov=app.api.routes.voice_samples --cov=app.api.routes.media`
-in a clean environment to get the exact number.
 
 **Frontend.** Four units have component tests — `useVoiceCommands`, `AccessibilityControls`,
 `VoiceMeter` and the quiz answer flow. Untested: `LiveTranscription`, `TranscriptEditor`,
