@@ -34,6 +34,26 @@ from app.streaming.vad import get_vad
 # quiz page maps next/previous/submit to its own navigation).
 _ACTIONABLE_NOTE_COMMANDS = {"delete", "stop"}
 
+# What a send raises when the client is already gone. Every notification this
+# route sends is best-effort - a client that stopped listening must never abort
+# the session's own cleanup or persistence - and the peer can vanish in three
+# distinguishable ways:
+#   RuntimeError          after a graceful close handshake ("cannot call send
+#                         once a close message has been sent")
+#   WebSocketDisconnect   the peer vanished with no handshake (code 1006):
+#                         dropped wifi, a closed tab, or the route change that
+#                         unmounts a listening session - which
+#                         useVoiceCommands.js notes is the common case here,
+#                         not the rare one
+#   OSError               the transport itself failed underneath us. Covers
+#                         uvicorn's ClientDisconnected (an OSError subclass,
+#                         raised straight out of WebSocket.send) plus
+#                         ConnectionResetError / BrokenPipeError, without this
+#                         module having to import a server internal.
+# Only sends are wrapped in this; it is deliberately never used around
+# persistence, where a failure must still surface.
+_CLIENT_GONE = (RuntimeError, WebSocketDisconnect, OSError)
+
 
 logger = logging.getLogger(__name__)
 
@@ -270,7 +290,7 @@ async def _run_session(websocket: WebSocket, user: User) -> None:
                                     "message": "Transcription failed for this window.",
                                 }
                             )
-                        except RuntimeError:
+                        except _CLIENT_GONE:
                             break
 
                 continue
@@ -307,7 +327,7 @@ async def _run_session(websocket: WebSocket, user: User) -> None:
                     "transcript_id": str(transcript_id) if transcript_id else None,
                 }
             )
-        except RuntimeError:
+        except _CLIENT_GONE:
             # Socket already closed (client disconnected first) - nothing to notify.
             pass
 
@@ -357,7 +377,7 @@ async def _window_ticker(
                 await websocket.send_json(
                     {"type": "error", "message": "Transcription failed for this window."}
                 )
-            except RuntimeError:
+            except _CLIENT_GONE:
                 return
 
 
@@ -445,7 +465,7 @@ async def _process_command_chunk(
         state["listening_sent"] = True
         try:
             await websocket.send_json({"type": "listening"})
-        except RuntimeError:
+        except _CLIENT_GONE:
             return
 
     is_pause = (
@@ -603,7 +623,7 @@ async def _send_armed(websocket: WebSocket) -> None:
         await websocket.send_json(
             {"type": "armed", "seconds": settings.voice_wake_window_seconds}
         )
-    except RuntimeError:
+    except _CLIENT_GONE:
         pass
 
 
@@ -643,7 +663,7 @@ async def _send_command(websocket: WebSocket, state: dict, command_id: str) -> N
 
     try:
         await websocket.send_json({"type": "command", "command": command_id})
-    except RuntimeError:
+    except _CLIENT_GONE:
         pass
 
 
@@ -656,7 +676,7 @@ async def _send_command_maybe(websocket: WebSocket, decision) -> None:
                 "embedding_command": decision.embedding_command_id,
             }
         )
-    except RuntimeError:
+    except _CLIENT_GONE:
         pass
 
 
@@ -690,7 +710,7 @@ async def _persist_and_send_final(
                 "transcript_id": str(transcript_id),
             }
         )
-    except RuntimeError:
+    except _CLIENT_GONE:
         pass
 
 

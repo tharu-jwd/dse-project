@@ -759,7 +759,7 @@ async def test_wake_requirement_can_be_switched_off(monkeypatch, clock, storage)
 
 @pytest.mark.asyncio
 async def test_session_keeps_wake_samples_out_of_the_command_bank(monkeypatch):
-    # _run_session only calls load_bank when this is on (streaming.py:204),
+    # _run_session only calls load_bank when this is on (the load_bank call in _run_session),
     # so without it the bank is {} and there is nothing to split.
     monkeypatch.setattr(streaming_route.settings, "voice_command_embedding_matching_enabled", True)
     captured = {}

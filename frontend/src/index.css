@@ -188,11 +188,12 @@ textarea:focus-visible {
 }
 .button--primary {
   color: #fff;
-  background: var(--teal);
+  /* --teal (#a78bfa) is only 2.7:1 against white; --teal-dark is 5.7:1 (WCAG AA needs 4.5). */
+  background: var(--teal-dark);
   box-shadow: 0 4px 10px rgba(139, 92, 246, 0.35);
 }
 .button--primary:hover:not(:disabled) {
-  background: var(--teal-dark);
+  background: #6d28d9;
 }
 .button--secondary {
   border-color: var(--border);

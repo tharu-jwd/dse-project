@@ -1,5 +1,6 @@
 """Silero VAD wrapper: loaded once, reused for every streaming session."""
 
+import threading
 from dataclasses import dataclass
 
 import numpy as np
@@ -18,18 +19,25 @@ class VadResult:
 class VoiceActivityDetector:
     def __init__(self) -> None:
         self._model = load_silero_vad()
+        # The model carries mutable internal state and is not thread-safe, yet
+        # every streaming session shares this one instance and calls analyze()
+        # on a worker thread (asyncio.to_thread). Unserialised, concurrent
+        # sessions corrupt that state - RuntimeError at best, a hard crash of
+        # the whole server process at worst. VAD is cheap, so a lock costs little.
+        self._lock = threading.Lock()
 
     def analyze(self, audio: np.ndarray, sample_rate: int = SAMPLE_RATE) -> VadResult:
         if audio.size == 0:
             return VadResult(has_speech=False, trailing_silence_seconds=0.0)
 
         tensor = torch.from_numpy(audio)
-        timestamps = get_speech_timestamps(
-            tensor,
-            self._model,
-            sampling_rate=sample_rate,
-            return_seconds=True,
-        )
+        with self._lock:
+            timestamps = get_speech_timestamps(
+                tensor,
+                self._model,
+                sampling_rate=sample_rate,
+                return_seconds=True,
+            )
 
         buffer_duration = audio.size / sample_rate
 

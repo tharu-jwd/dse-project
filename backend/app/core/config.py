@@ -45,6 +45,17 @@ class Settings(BaseSettings):
     streaming_model_path: str = "models/whisper-sinhala1-ct2"
     streaming_compute_type: str = "int8"
 
+    # Inference threads for CTranslate2. 0 keeps its own default: one thread
+    # per *visible* core. That is right on a dedicated host, where visible
+    # cores are the cores you have, but wrong wherever the CPU budget is
+    # smaller than the machine - a container with `cpus:` set, or a shared
+    # instance. The threads then fight over a fraction of a core each.
+    # Measured on a 2-CPU-capped container that still saw all 12 host cores:
+    # a 2.25s clip took 11.4s to transcribe at the default and 4.1s with this
+    # set to 2 - the same work, 2.8x faster, purely from not oversubscribing.
+    # Set it to the number of cores actually available when they differ.
+    streaming_cpu_threads: int = 0
+
     streaming_window_interval_seconds: float = 2.0
     streaming_max_buffer_seconds: float = 15.0
     streaming_overlap_seconds: float = 1.0

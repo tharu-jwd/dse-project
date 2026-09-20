@@ -149,7 +149,14 @@ export default function useVoiceCommands({ onCommand, onCommandMaybe } = {}) {
 
   const start = async () => {
     setError('')
-    if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
+    // Check what this actually uses: getUserMedia and an AudioContext. It
+    // deliberately does NOT check MediaRecorder - no MediaRecorder is ever
+    // constructed here (the pipeline is getUserMedia -> AudioContext ->
+    // ScriptProcessor), and requiring it refused voice commands on browsers
+    // that run them perfectly well. WebKit reports no MediaRecorder, and
+    // Safari had none at all before 14.1. Wrongly reporting "not supported"
+    // silently removes the feature this whole application exists for.
+    if (!navigator.mediaDevices?.getUserMedia || !(window.AudioContext || window.webkitAudioContext)) {
       setError('Voice commands are not supported by this browser.')
       return
     }

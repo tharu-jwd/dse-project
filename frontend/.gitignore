@@ -27,3 +27,6 @@ dist-ssr
 
 # Original full-size images (kept locally, not shipped)
 src/assets/_originals/
+
+test-results
+playwright-report
