@@ -34,6 +34,13 @@ export default defineConfig({
   // zero deliberately - a retry would hide a real intermittent bug, which on an
   // accessibility-critical path is the last thing worth hiding.
   timeout: 90_000,
+  // One worker, deliberately. Four browser engines in parallel need more memory
+  // than a modest laptop has spare, and starving them produced timeouts in a
+  // different test on almost every run - never an assertion failure, always a
+  // different victim. Measured on a 7GB machine: 2 workers failed 3 of 5 runs,
+  // 1 worker passed 2 of 2, and wall-clock was the same either way because
+  // browser startup dominates. Raise it on a machine with memory to spare.
+  workers: 1,
   use: { baseURL: 'http://localhost:4173', trace: 'retain-on-failure' },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'], ...chromium } },

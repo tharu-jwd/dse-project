@@ -48,3 +48,4 @@ model-development/checkpoints/*
 # Server-specific Caddy config (copy from Caddyfile.example)
 /Caddyfile
 /DEVOPS.md
+.coverage
