@@ -109,20 +109,21 @@ def test_teacher_quiz_list_query_count_does_not_grow_with_quiz_count(client, tea
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "KNOWN DEFECT (N+1): GET /quizzes as a student runs one extra query per "
-        "published quiz - serialize_quiz_student() calls _own_submission() inside "
-        "the loop (routes/quiz.py, called from the list comprehension in get_quizzes). Measured: 9, 13, 18, 28 statements for 1, 5, "
-        "10, 20 quizzes (8 + N). Harmless at classroom scale on a local database, "
-        "but every query is a network round trip to a managed database. Fix: load "
-        "the student's submissions for all listed quizzes in a single query. "
-        "strict=True means this test will start FAILING the moment the defect is "
-        "fixed, forcing this marker to be removed."
-    ),
-)
 def test_student_quiz_list_query_count_does_not_grow_with_quiz_count(client, teacher, student):
+    """Regression cover for a fixed N+1.
+
+    `GET /quizzes` as a student used to run one extra query per published quiz,
+    because `serialize_quiz_student()` looked up the student's own submission
+    inside the list comprehension: 9, 13, 18 and 28 statements for 1, 5, 10 and
+    20 quizzes, or 8 + N. Harmless at classroom scale against a local database,
+    but every one of those is a network round trip to a managed one. The
+    submissions are now loaded for all listed quizzes in a single `IN` query
+    (`_own_submissions_by_quiz`), so the count is flat.
+
+    This test carried an `xfail(strict=True)` marker while the defect stood,
+    which failed the moment the fix landed - that is what prompted removing it.
+    """
+
     _publish_quizzes(client, teacher, 1)
     with_one = _statements_for_listing(client, student)
 

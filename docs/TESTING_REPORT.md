@@ -11,11 +11,11 @@ this date — not what is planned — with plans separated out explicitly in §3
 | 3.1.1 Data & Database Integrity | 🟢 Strong (one narrow gap) |
 | 3.1.2 Function Testing | 🟢 Complete for the current API |
 | 3.1.3 User Interface Testing | 🟢 Implemented (component + e2e + axe; see Appendix A) |
-| 3.1.4 Performance Profiling | 🟡 Partial (model-dependent latency still manual) |
+| 3.1.4 Performance Profiling | 🟡 Partial (N+1 fixed; model-dependent latency still manual) |
 | 3.1.5 Load Testing | 🟢 Measured: ceiling is 1-2 concurrent streaming users on a 2-CPU budget |
 | 3.1.6 Security & Access Control | 🟢 Implemented |
 | 3.1.7 Failover & Recovery | 🟢 Implemented (backup restore, db outage, crash, dropped socket) |
-| 3.1.8 Configuration Testing | 🟡 Partial (server side done; browser matrix not) |
+| 3.1.8 Configuration Testing | 🟢 Server side plus a 4-engine browser matrix (found a Safari defect) |
 
 ```
 287 backend tests + 1 expected failure   (pytest, test/backend/)
@@ -141,7 +141,10 @@ WCAG AA contrast failure on the login button, now fixed. See Appendix A.
   one-off script run (`benchmark_command_latency.py` exists and is run by hand)
 - Process memory growth of the *whole backend* over a long real session (the buffer's own
   growth is covered above; the model's is not)
-- Fixing the student quiz-list N+1 described above
+- ~~Fixing the student quiz-list N+1 described above~~ — **done.** `_own_submissions_by_quiz()`
+  now loads every listed quiz's submission in one `IN` query. Statement count went from 8 + N
+  (9, 13, 18, 28 for 1, 5, 10, 20 quizzes) to a flat 5 regardless of quiz count. The
+  `xfail(strict=True)` marker failed the moment the fix landed, as designed, and was removed.
 
 #### 3.1.5 Load Testing
 
@@ -200,7 +203,10 @@ Appendix A.2.
 
 #### 3.1.8 Configuration Testing
 
-**Status: 🟡 Partial — the server-side configuration surface is now tested; the browser/OS/network matrix is not.**
+**Status: 🟢 Implemented.** The server-side surface is covered by `test_configuration.py`, and
+the browser matrix now runs across Chromium, Firefox, WebKit and a phone viewport — which
+immediately found a second configuration defect, this time in Safari's engine (Appendix A.2).
+Real devices and network throttling remain untested.
 
 | Technique Objective | Verify correct operation across the different hardware, software, browser, and network configurations the deployed system will actually be used under. |
 |---|---|
@@ -211,13 +217,18 @@ Appendix A.2.
 | **Success Criteria** | Not yet defined. |
 | **Special Considerations** | Coverage to date is effectively "one browser, one OS, found by accident." The fix (a real, non-DNS-abuse-associated domain) removes the specific defect found but does not constitute configuration testing — the matrix below is still untested. |
 
+**Now covered** by `frontend/e2e/browser-matrix.spec.js` across four projects (Chromium,
+Firefox, WebKit, Pixel 7 viewport): sign-in and deep-link reload in each engine, a console-error
+check, a recorded media-API support matrix, and responsive layout (no horizontal scroll, minimum
+touch-target size). Suspicion about `MediaRecorder` was correct — see Appendix A.2, finding 5.
+
 **Not yet done:**
-- Chrome, Edge, Safari — Safari's `MediaRecorder` support in particular differs from Chromium's
-- Mobile browsers (students may use phones)
-- With/without common ad blockers, now that one specific case is known to matter
+- Real devices and real Safari. Playwright's WebKit is Safari's engine, not Safari, and cannot
+  certify iOS.
+- Edge specifically (Chromium-based, so largely covered by proxy).
+- With/without common ad blockers, now that one specific case is known to matter.
 - Throttled/slow network conditions, relevant given the deployment's `us-east-1` region vs. an
-  expected Sri Lanka–based user base (~250 ms round trip vs. ~50 ms from a Mumbai region)
-- Responsive layout across screen sizes
+  expected Sri Lanka–based user base (~250 ms round trip vs. ~50 ms from a Mumbai region).
 
 ---
 
@@ -321,21 +332,28 @@ exists, what it found, and what remains unverified.
 |---|---|---|
 | Component + accessibility tests | `frontend/src/**/*.test.jsx`, `src/test/setup.js` | `cd frontend && npm test` |
 | Browser end-to-end + axe | `frontend/e2e/app.spec.js`, `playwright.config.js` | `npm run test:e2e` |
+| Cross-browser matrix (4 engines) | `frontend/e2e/browser-matrix.spec.js` | `npm run test:e2e -- --project=webkit` |
 | Load generation | `test/load/locustfile.py` | `locust -f test/load/locustfile.py --host http://localhost:8001` |
 | Failover / recovery | `test/failover/test_failover.py` | `pytest test/failover -v` |
 | Disposable test stack | `docker-compose.scratch.yml` | see A.4 |
 
-**Frontend unit (23 tests, in CI).** `useVoiceCommands` — connect URL and token encoding, the
+**Frontend unit (43 tests, in CI).** `useVoiceCommands` — connect URL and token encoding, the
 COMMAND start message, `command`/`command_maybe` forwarding, every `getUserMedia` error mapped
 to its message, `stop()` → `session_end`, unexpected close vs. close after stop, unmount
 cleanup, and the StrictMode abort that must *not* surface a false error.
 `AccessibilityControls` — axe, keyboard-only operation, persistence, corrupt storage.
-`VoiceMeter`.
+`VoiceMeter`. **The quiz answer flow** (18 tests) — the journey the product exists for: MCQ
+selection by voice, out-of-range and clear commands, navigation guards (no skipping an
+unanswered question, no wrapping past the first), the submit confirmation and its command
+priority, and the same journey completed by keyboard alone. Two deliberate mutations of the
+command handler were each caught, so these detect regressions rather than merely exercising
+code.
 
-**End-to-end (8 tests, not in CI).** Runs the built app in Chromium against the mock API, so no
-backend is needed: login validation, keyboard-only sign-in, protected-route redirect, a student
-blocked from teacher pages, axe WCAG A/AA on login/dashboard/settings, and high-contrast
-persistence across a reload.
+**End-to-end (60 tests = 15 x 4 browser projects, not in CI).** Runs the built app against the
+mock API, so no backend is needed: login validation, keyboard-only sign-in, protected-route
+redirect, a student blocked from teacher pages, axe WCAG A/AA on login/dashboard/settings,
+high-contrast persistence across a reload, plus the cross-browser checks in §3.1.8. All 60 pass
+on Chromium, Firefox, WebKit and a Pixel 7 viewport.
 
 **Failover (6 tests, not in CI).** A `pg_dump` restored into a scratch database and compared
 table by table; the database stopped mid-request and the API recovering with no restart
@@ -381,7 +399,20 @@ existing behaviour, so nothing changes for the current deployment, where the 2-v
 sees exactly 2 cores. It exists so a CPU-limited container can be told the truth about its
 budget. This was found only because load testing forced the question of where the time goes.
 
-**4. Insufficient colour contrast on the primary button.** axe measured white on `#a78bfa` at
+**4. Live captioning and voice commands were refused on Safari's engine, for an API they
+never use.** Both `useVoiceCommands` and `LiveTranscription` gated on `window.MediaRecorder`
+before opening a session — but neither constructs one. Their capture pipeline is
+`getUserMedia → AudioContext → ScriptProcessor`. Playwright's WebKit reports no MediaRecorder
+(and Safari had none at all before 14.1), so on those browsers a student was told the two
+features this application exists for were "not supported", on a browser that runs them
+perfectly well. A false-negative capability check is the worst shape this bug could take: it
+fails silently, looks deliberate, and disables an accessibility feature for the people who
+most depend on it. Both guards now check `getUserMedia` and `AudioContext`, the APIs actually
+used. `AudioRecorder` and voice enrolment, which genuinely do construct a `MediaRecorder`,
+keep theirs. Found by the browser matrix on its first run — precisely the defect class §3.1.8
+predicted but had never been able to look for.
+
+**5. Insufficient colour contrast on the primary button.** axe measured white on `#a78bfa` at
 2.72:1, against the 4.5:1 WCAG AA minimum — on the login button, the first control every user
 meets. Fixed by using `--teal-dark` (5.7:1) for `.button--primary`. The e2e axe checks on
 login, dashboard and settings now pass unconditionally.
@@ -454,11 +485,14 @@ The failover tests refuse to run against anything that is not this stack.
 
 - **Real hardware.** Everything above ran on a 12-core laptop with the backend capped at 2 CPUs.
   That approximates the 2-vCPU EC2 instance; it is not the same as measuring it.
-- **The frontend tests cover three units.** The quiz answer flow, the transcript editor and
-  live transcription have no component tests yet.
-- **Playwright's own Chromium download did not complete here** (it stalled twice at 10%), so
-  e2e ran against an older cached Chromium via `PW_CHROMIUM_PATH`. On a normal connection
-  `npx playwright install chromium` is enough.
+- **The transcript editor and live transcription still have no component tests.** The quiz
+  answer flow, the voice-command hook, the accessibility controls and the voice meter do.
+- **Playwright's Chromium download repeatedly stalled here**, so both Chromium-backed projects
+  fall back to an already-installed binary via `PW_CHROMIUM_PATH`. Firefox and WebKit
+  downloaded normally. On a normal connection `npx playwright install` is enough and the
+  variable is unnecessary.
+- **Real devices and real Safari.** Playwright's WebKit is Safari's engine, not Safari; it
+  found a genuine defect but cannot certify iOS.
 - **Locust is not pinned.** It was installed ad hoc and is absent from `backend/requirements.txt`,
   which still has no version constraints at all (see §5).
 - **Multi-worker deployment.** `_active_sessions` is per-process, so the session cap and these

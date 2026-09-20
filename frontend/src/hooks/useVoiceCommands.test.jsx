@@ -105,6 +105,37 @@ describe('useVoiceCommands', () => {
     expect(FakeSocket.instances).toHaveLength(0)
   })
 
+  it('works on a browser with no MediaRecorder, because it never uses one', async () => {
+    // The capture pipeline here is getUserMedia -> AudioContext ->
+    // ScriptProcessor; MediaRecorder is never constructed. Gating on it
+    // refuses the feature on browsers that could run it perfectly well -
+    // Playwright's WebKit reports no MediaRecorder, and Safari lacked it
+    // entirely before 14.1. For an accessibility feature, wrongly reporting
+    // "not supported" is worse than most outright failures: it is silent.
+    vi.stubGlobal('MediaRecorder', undefined)
+
+    const { result } = renderHook(() => useVoiceCommands())
+    await act(async () => {
+      await result.current.start()
+    })
+
+    expect(result.current.error).toBe('')
+    expect(FakeSocket.instances).toHaveLength(1)
+  })
+
+  it('still refuses when the capture pipeline really is unavailable', async () => {
+    vi.stubGlobal('AudioContext', undefined)
+    vi.stubGlobal('webkitAudioContext', undefined)
+
+    const { result } = renderHook(() => useVoiceCommands())
+    await act(async () => {
+      await result.current.start()
+    })
+
+    expect(result.current.error).toMatch(/not supported/i)
+    expect(FakeSocket.instances).toHaveLength(0)
+  })
+
   it('connects with the stored token, url-encoded, over ws', async () => {
     localStorage.setItem('sinhaspeech_token', 'a b+c')
     const { result } = renderHook(() => useVoiceCommands())

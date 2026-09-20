@@ -156,7 +156,13 @@ export default function LiveTranscription({
       setError(t('live.titleRequired'))
       return
     }
-    if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
+    // Same pipeline as useVoiceCommands - getUserMedia -> AudioContext ->
+    // ScriptProcessor, with no MediaRecorder anywhere in it. Checking for
+    // MediaRecorder here turned off live captioning on browsers that support
+    // every API it genuinely needs (WebKit reports none; Safari had none
+    // before 14.1). AudioRecorder, which really does construct one, keeps
+    // its own MediaRecorder check.
+    if (!navigator.mediaDevices?.getUserMedia || !(window.AudioContext || window.webkitAudioContext)) {
       setError(t('live.notSupported'))
       return
     }

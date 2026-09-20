@@ -120,8 +120,36 @@ def _own_submission(db, quiz: Quiz, student_id: uuid.UUID) -> QuizSubmission | N
     ).scalar_one_or_none()
 
 
-def serialize_quiz_student(quiz: Quiz, db, student_id: uuid.UUID) -> QuizListItem:
-    submission = _own_submission(db, quiz, student_id)
+def _own_submissions_by_quiz(
+    db, quiz_ids: list[uuid.UUID], student_id: uuid.UUID
+) -> dict[uuid.UUID, QuizSubmission]:
+    """Every submission this student has against `quiz_ids`, in one query.
+
+    The listing endpoint needs one submission per quiz it returns. Asking per
+    quiz makes the query count grow with the number of published quizzes, and
+    each of those is a network round trip to a managed database. One `IN`
+    query costs the same whether the list holds one quiz or fifty.
+    `uq_quiz_submissions_student` guarantees at most one row per quiz here, so
+    a plain dict cannot silently drop a second one.
+    """
+
+    if not quiz_ids:
+        return {}
+
+    submissions = db.execute(
+        select(QuizSubmission).where(
+            QuizSubmission.quiz_id.in_(quiz_ids),
+            QuizSubmission.student_id == student_id,
+        )
+    ).scalars().all()
+
+    return {submission.quiz_id: submission for submission in submissions}
+
+
+def serialize_quiz_student(quiz: Quiz, submission: QuizSubmission | None) -> QuizListItem:
+    """Takes the student's submission rather than looking it up, so the caller
+    decides how many queries that costs - one per quiz, or one for all of them."""
+
     return QuizListItem(
         id=quiz.quiz_id,
         title=quiz.title,
@@ -152,7 +180,10 @@ def get_quizzes(db: SessionDependency, current_user: CurrentUserDependency):
         .where(Quiz.status == "PUBLISHED")
         .options(selectinload(Quiz.questions).selectinload(Question.options))
     ).scalars().all()
-    return [serialize_quiz_student(q, db, current_user.user_id) for q in quizzes]
+    submissions = _own_submissions_by_quiz(
+        db, [q.quiz_id for q in quizzes], current_user.user_id
+    )
+    return [serialize_quiz_student(q, submissions.get(q.quiz_id)) for q in quizzes]
 
 
 @router.get("/quizzes/{quiz_id}")
@@ -172,7 +203,7 @@ def get_quiz(quiz_id: uuid.UUID, db: SessionDependency, current_user: CurrentUse
 
     if quiz.status != "PUBLISHED":
         raise _not_found("Quiz was not found.")
-    return serialize_quiz_student(quiz, db, current_user.user_id)
+    return serialize_quiz_student(quiz, _own_submission(db, quiz, current_user.user_id))
 
 
 def _apply_questions(db, quiz: Quiz, questions_data) -> None:
