@@ -21,6 +21,13 @@ class Settings(BaseSettings):
     media_storage_dir: str = "storage/uploads"
     max_upload_size_bytes: int = 100 * 1024 * 1024
 
+    # A job whose worker crashed or was killed mid-transcription stays
+    # PROCESSING forever with no code path that ever revisits it - found
+    # by test/backend/test_db_concurrency.py's stuck-job test. After this
+    # many minutes with no progress, claim_next_job() treats it as
+    # abandoned and requeues it rather than leaving it stuck.
+    transcription_stuck_job_timeout_minutes: int = 30
+
     # Step-1 data collection only (see scripts/validate_command_embeddings.py) -
     # not part of the real per-student enrollment bank built in a later step.
     voice_samples_dir: str = "storage/voice_samples"
@@ -71,7 +78,12 @@ class Settings(BaseSettings):
     # COMMAND streaming mode only. Never applied to NOTE/dictation mode.
     voice_command_hotwords_enabled: bool = True
     voice_command_fuzzy_threshold: float = 80.0
-    voice_command_destructive_threshold: float = 90.0
+    # Raised from 90 after test/backend/test_command_safety.py found the
+    # English past tense "deleted" - plausible in ordinary dictation ("I
+    # deleted my notes") - scoring 92.3 against "delete", above the old
+    # bar. The next-closest near-miss in that sweep was 83.3, so 95 keeps
+    # a comfortable margin below both while still excluding "deleted".
+    voice_command_destructive_threshold: float = 95.0
     # A near-exact skeleton match on a short, distinctive command phrase
     # (e.g. saying "next" and it transcribing to precisely "next") is
     # about as certain as this system gets. Above this score, the fuzzy

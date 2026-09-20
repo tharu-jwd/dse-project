@@ -49,3 +49,4 @@ model-development/checkpoints/*
 /Caddyfile
 /DEVOPS.md
 .coverage
+reports/

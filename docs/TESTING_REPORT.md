@@ -1,6 +1,6 @@
 # SinhaSpeech — Master Test Plan
 
-Last updated 2026-09-19. Structured against the Master Test Plan template (Rational Unified
+Last updated 2026-09-20. Structured against the Master Test Plan template (Rational Unified
 Process format). Every "Status" line below reflects what actually exists and passes as of
 this date — not what is planned — with plans separated out explicitly in §3.1's tables.
 
@@ -12,15 +12,24 @@ this date — not what is planned — with plans separated out explicitly in §3
 | 3.1.2 Function Testing | 🟢 Complete for the current API |
 | 3.1.3 User Interface Testing | 🟢 Implemented (component + e2e + axe; see Appendix A) |
 | 3.1.4 Performance Profiling | 🟡 Partial (N+1 fixed; model-dependent latency still manual) |
-| 3.1.5 Load Testing | 🟢 Measured: ceiling is 1-2 concurrent streaming users on a 2-CPU budget |
+| 3.1.5 Load Testing | 🟢 Measured live on production 2026-09-20: crash fix confirmed holding; inference latency itself is borderline even at 1 user |
 | 3.1.6 Security & Access Control | 🟢 Implemented |
-| 3.1.7 Failover & Recovery | 🟢 Implemented (backup restore, db outage, crash, dropped socket) |
+| 3.1.7 Failover & Recovery | 🟢 Implemented + a real production reboot verified 2026-09-20 (§3.1.7) |
 | 3.1.8 Configuration Testing | 🟢 Server side plus a 4-engine browser matrix (found a Safari defect) |
 
 ```
-287 backend tests + 1 expected failure   (pytest, test/backend/)
- 11 deployment smoke tests   (pytest, test/deployment/, run manually against the live system)
-  0 frontend tests   (lint + build only)
+364 backend tests   (pytest, test/backend/ — 305 confirmed 2026-09-20 against production's
+                      disposable database, +61 added later the same day: voice-enrolment/
+                      voice-sample/media API tests, stuck-job recovery, destructive-command
+                      safety. Run via `scripts/test-isolated.sh` for a fully isolated,
+                      no-.env, empty-database run, or `scripts/test-plan.sh` for the full
+                      one-command backend+frontend+e2e+smoke sweep with evidence in reports/.)
+ 11 deployment smoke tests   (pytest, test/deployment/ — run against the live system,
+                                including immediately after the 2026-09-20 reboot test)
+ 43 frontend component tests, 68 Playwright e2e tests   (both green as of 2026-09-20, the +8
+                                                            over the earlier 60 being
+                                                            immersion.spec.js's leaked-internals
+                                                            check — see reports/2026-09-20/summary.md)
 ```
 
 ---
@@ -93,7 +102,7 @@ The mission for this test effort is to:
 
 #### 3.1.2 Function Testing
 
-**Status: 🟢 Complete for the current API — matching logic, quiz lifecycle (MCQ and spoken), transcripts, upload pipeline, and systematic input validation.**
+**Status: 🟢 Complete for the current API — matching logic, quiz lifecycle (MCQ and spoken), transcripts, upload pipeline, systematic input validation, voice-enrolment/voice-sample/media routes, destructive-command safety, and stuck-job recovery (all added 2026-09-20, `TEST_GAPS_README.md`).**
 
 | Technique Objective | Exercise target functionality — navigation, data entry, processing, retrieval — via black-box interaction, verifying business rules are correctly applied for both valid and invalid input. |
 |---|---|
@@ -101,7 +110,10 @@ The mission for this test effort is to:
 | **Oracles** | Direct assertion against expected return values (`match_command()`'s score, `resolve_command()`'s outcome) and HTTP status codes / response bodies for the API layer. |
 | **Required Tools** | pytest, pytest-asyncio, FastAPI `TestClient`, PyJWT |
 | **Success Criteria** | All identified use-case flows for the covered areas pass with both valid and invalid input. |
-| **Special Considerations** | The matching-logic tests are unusually thorough for a student project because a real bug was found and fixed here mid-project (see §5's finding write-up in the git history) — every edge case in that table is a real failure mode that was hit, not a hypothetical. Writing the quiz lifecycle tests surfaced an undocumented validation rule (`QuizCreate` requires MCQ questions to have exactly 4 options) that was not obvious from the route code alone — found by running the test and reading the resulting 422, not by reading the schema first. The upload pipeline tests run against the shared dev database and `process_next_job()` always claims the *oldest* queued job across the whole table — a naive test could accidentally claim and "complete" a real, unrelated in-flight job with `FakeTranscriber`'s canned text. Guarded against by checking the real queue is empty before those tests run and skipping (not forcing) otherwise — see `_require_empty_queue()`. |
+| **Special Considerations** | The matching-logic tests are unusually thorough for a student project because a real bug was found and fixed here mid-project (see §5's finding write-up in the git history) — every edge case in that table is a real failure mode that was hit, not a hypothetical. Writing the quiz lifecycle tests surfaced an undocumented validation rule (`QuizCreate` requires MCQ questions to have exactly 4 options) that was not obvious from the route code alone — found by running the test and reading the resulting 422, not by reading the schema first. The upload pipeline tests run against the shared dev database and `process_next_job()` always claims the *oldest* queued job across the whole table — a naive test could accidentally claim and "complete" a real, unrelated in-flight job with `FakeTranscriber`'s canned text. Guarded against by checking the real queue is empty before those tests run and skipping (not forcing) otherwise — see `_require_empty_queue()`. Two more traps found writing the newest batch: `create_transcription_job()` silently cancels an earlier still-pending job for the same user+title, so reusing a title across two uploads in one test deletes the first job without any error (documented in `test_stuck_job_recovery.py`, not fixed — it's intentional dedup behaviour, but worth a UX check); and `resolve_stored_media()` itself raises `FileNotFoundError` for a missing file rather than only failing on `.unlink()`, so cleanup helpers that delete a file mid-test must catch it explicitly. |
+| **(7) Voice-enrolment, voice-sample, and media-access routes** | 32 tests (`test_api_voice_enrollment.py`, `test_api_media.py`) close a real coverage gap: the matching/storage logic underneath these routes was already fully tested (`test_voice_enrollment.py`), but nothing had ever driven the routes themselves through `TestClient` — auth requirement, request validation, and permission checks were untested at the HTTP layer. Covers every endpoint's happy path, missing-auth (401), unknown-command-id (404), empty-upload (400), and — for media — ownership scoping (owner can fetch, a different student cannot, a teacher cannot read a student's private NOTE but can read media behind their own LECTURE transcript). The embedding call (`StreamingTranscriber.embed`) is monkeypatched, same pattern as `test_streaming_commands_route.py`, so no model loads; ffmpeg conversion runs for real. The `/voice-samples` dev-data-collection routes write straight to `settings.voice_samples_dir`, which in dev points at this repo's real training-data directory — every test here isolates that to a `tmp_path` first, since a naive test's `DELETE` call would otherwise remove real recorded samples. |
+| **(8) Stuck-job recovery** | 3 tests (`test_stuck_job_recovery.py`) close a previously undefined behaviour: a transcription job interrupted while `PROCESSING` (worker crashed or was killed mid-job) had no code path that ever revisited it — `claim_next_job()` only ever looked at `QUEUED` rows. Fixed with a new `transcription_stuck_job_timeout_minutes` setting (default 30): `claim_next_job()` now also reclaims a `PROCESSING` job whose `started_at` is older than the timeout. Verified: a stale `PROCESSING` job is reclaimed; a fresh one is correctly left alone (so two workers can never run the same job at once); a job whose media file was deleted fails cleanly with a message and does not block the next queued job. |
+| **(9) Destructive-command safety** | 28 tests (`test_command_safety.py`) — a deliberately adversarial suite, not an ordinary matching test: 21 near-miss phrases (Sinhala and English) against `submit`/`delete` — truncations, wrong verb tense, shared prefixes, near-neighbour English words — asserting **none** resolves to a destructive command, plus wake-word-mandatory checks (`split_wake_prefix`) and a confirmation that the real phrases still work. **Found a real defect**: see Appendix A.2 finding 6. |
 
 **Not yet done:**
 - Export formats other than `txt` (the route only supports `txt` and rejects the rest, which
@@ -148,16 +160,39 @@ WCAG AA contrast failure on the login button, now fixed. See Appendix A.
 
 #### 3.1.5 Load Testing
 
-**Status: 🟢 Measured.** The ceiling is **one to two concurrent streaming users** on a 2-CPU
-budget; at three, most commands miss a 30-second deadline. Running the harness also exposed a
-VAD thread-safety defect that could crash the server process outright, and a 2.8x inference
-latency penalty from unmatched thread counts (Appendix A.2). Figures come from a CPU-capped
-container on a developer laptop, not from the deployed instance itself.
+**Status: 🟢 Measured, including a direct run against the live production instance
+(2026-09-20).** Two separate findings, and they must not be conflated:
+
+1. **Crash resistance — fixed and confirmed.** Running the harness against production
+   *before* deploying the VAD lock fix (§3.1.4, Appendix A.2 finding 1) reproduced the crash
+   directly: the backend container restarted 4 times under load as light as 1-2 concurrent
+   streaming users, producing 502s from Caddy and cascading connection failures. After
+   deploying the fix, the identical sweep (1, 2, 3, 5, 8 users, 3 minutes each) produced
+   **zero container restarts and zero errors in the backend log**, confirmed via
+   `docker inspect --format '{{.RestartCount}}'` before and after.
+2. **Inference latency — real and unresolved.** Independent of the crash, and visible even
+   in the cleanest tier: at **1** concurrent streaming user, median "speech → verdict"
+   latency was **5.6s**, and **37.5% of commands (3 of 8) hit the 30-second timeout with no
+   verdict at all.** This is on the actual deployed hardware, saying "zimi <command>" for
+   real, not a scratch-stack estimate. Latency did not clearly improve or worsen with
+   concurrency (median 5.6s → 6.6s → 8.1s → 9.1s → 8.4s across 1/2/3/5/8 users) — the failure
+   rate is dominated by per-request variance, not a clean concurrency cliff. **5+ users is
+   confounded** by the per-account streaming session cap (`streaming_max_sessions_per_user`,
+   default 3): since all simulated users share one demo account, most "failures" at those
+   tiers are `"Too many concurrent streaming sessions"` rejections, not real capacity
+   failures — this is a known limitation of testing against a single seeded account, noted in
+   `locustfile.py` itself.
+
+**The practical conclusion:** the server no longer falls over under concurrent streaming
+load, but a single real user already has worse-than-usable odds of a timed-out command on
+this 2-vCPU instance. The earlier "1-2 concurrent users" ceiling, measured on a scratch
+stack, undersold the problem — the real bottleneck is baseline inference speed on this
+hardware, not the number of simultaneous users.
 
 | Technique Objective | Subject the system to varying workloads — normal, worst-case, and concurrent-user — to determine whether it continues to function correctly beyond expected maximum load. |
 |---|---|
-| **Technique** | Locust (`test/load/locustfile.py`) drives the REST endpoints and concurrent WebSocket streaming sessions, feeding real 16 kHz clips at true real-time pace to find the point where transcription latency becomes unusable. Run against the scratch stack (Appendix A.4), capped at 2 CPUs to resemble the deployed instance. Concurrent file uploads / worker queue depth are not yet scripted. |
-| **Oracles** | Response-time and error-rate thresholds under load; the point of failure becomes the finding itself if no formal threshold is set yet. |
+| **Technique** | Locust (`test/load/locustfile.py`) drives the REST endpoints and concurrent WebSocket streaming sessions, feeding real 16 kHz clips at true real-time pace to find the point where transcription latency becomes unusable. First run against the scratch stack (Appendix A.4), capped at 2 CPUs to resemble the deployed instance; later run directly against the live production instance (`docs/EC2_TEST_RUNBOOK.md` Part 2) using real recorded "zimi <command>" clips, both before and after deploying the VAD fix. Concurrent file uploads / worker queue depth are not yet scripted. |
+| **Oracles** | Response-time and error-rate thresholds under load; container restart count and backend log errors as the crash-resistance oracle; the point of failure becomes the finding itself where no formal threshold is set yet. |
 | **Required Tools** | Locust or k6 (neither installed yet) |
 | **Success Criteria** | Not yet defined. |
 | **Special Considerations** | The production deployment runs CPU-only Whisper inference on 2 vCPUs. Every concurrent streaming session competes for the same CPU budget, and there is currently no data on how many simultaneous users the system tolerates before degrading — this is an unknown, not a measured limit, and is the most likely source of a live-demo failure under real classroom load. |
@@ -195,11 +230,11 @@ Appendix A.2.
 
 | Technique Objective | Simulate failure conditions — power/communication interruption, database failure, incomplete transactions — and verify the system recovers to a known, correct state without data loss. |
 |---|---|
-| **Technique** | Implemented in `test/failover/test_failover.py`: restore a `pg_dump` backup into a scratch database and verify row-for-row integrity (a backup that has never been restored is a hypothesis, not a backup); kill the database container mid-request and confirm the API recovers via SQLAlchemy's `pool_pre_ping` (now verified); drop a WebSocket connection abruptly mid-session and confirm the server cleans up without an unhandled error and without leaking a session slot; kill the backend process and confirm it returns by itself (`restart: unless-stopped`, now verified). A real EC2 instance reboot is still untested — the container-level crash is a stand-in for it. |
-| **Oracles** | Row-count and content comparison pre/post restore; HTTP success after a simulated database restart; container status after an instance reboot. |
+| **Technique** | Implemented in `test/failover/test_failover.py`: restore a `pg_dump` backup into a scratch database and verify row-for-row integrity (a backup that has never been restored is a hypothesis, not a backup); kill the database container mid-request and confirm the API recovers via SQLAlchemy's `pool_pre_ping` (now verified); drop a WebSocket connection abruptly mid-session and confirm the server cleans up without an unhandled error and without leaking a session slot; kill the backend process and confirm it returns by itself (`restart: unless-stopped`, now verified). **A real EC2 instance reboot was run against the live production host on 2026-09-20** (`docs/EC2_TEST_RUNBOOK.md` Part 3): backed up the production database first (`pg_dump`, copied off-instance), then `sudo reboot`. SSH access returned in ~2 min, the API health check in a further ~1.5 min (~3.5 min total downtime), all four containers (`database`, `backend`, `worker`, `caddy`) came back automatically with no manual intervention, and all 11 deployment smoke tests (`test/deployment/test_smoke.py`) passed afterward, including a real login, an authenticated query, and both WebSocket tests — confirming data survived and the app genuinely works, not just that it answers a ping. |
+| **Oracles** | Row-count and content comparison pre/post restore; HTTP success after a simulated database restart; container status and smoke-test pass/fail after a real instance reboot. |
 | **Required Tools** | `pg_dump`/`psql`, Docker, SSH access to the deployment host |
-| **Success Criteria** | Not yet defined. |
-| **Special Considerations** | This category is inherently somewhat destructive (killing a live container, restarting the instance) — should be run against a disposable environment or a deliberately scheduled maintenance window, not the live deployment without warning. |
+| **Success Criteria** | All four containers return to `Up`/`healthy` without manual intervention; `/health` and `/health/database` respond correctly; `test/deployment/test_smoke.py` passes in full post-recovery. All held on the 2026-09-20 run. |
+| **Special Considerations** | This category is inherently somewhat destructive (killing a live container, restarting the instance) — run against a disposable environment where possible, and against the live deployment only with a fresh backup taken first and real user impact accepted (the 2026-09-20 run caused ~3.5 min of real downtime). `docker.service` was confirmed `enabled` at boot, which is what made the automatic recovery possible — had it been disabled, `restart: unless-stopped` alone would not have been enough. |
 
 #### 3.1.8 Configuration Testing
 
@@ -398,6 +433,11 @@ from 12-15s to 3.6-5.2s. Added `streaming_cpu_threads`, defaulting to `0` — CT
 existing behaviour, so nothing changes for the current deployment, where the 2-vCPU instance
 sees exactly 2 cores. It exists so a CPU-limited container can be told the truth about its
 budget. This was found only because load testing forced the question of where the time goes.
+**Confirmed directly on the real instance 2026-09-20** (`EC2_TEST_RUNBOOK.md` Part 1):
+`nproc` reports 2, the backend container's cgroup quota is `max 100000` (unrestricted), and
+`multiprocessing.cpu_count()` inside the container also reports 2 — cores-seen matches the
+real budget exactly, so no override is needed on this instance today; the setting exists for
+the day the instance or its container limits change.
 
 **4. Live captioning and voice commands were refused on Safari's engine, for an API they
 never use.** Both `useVoiceCommands` and `LiveTranscription` gated on `window.MediaRecorder`
@@ -416,6 +456,18 @@ predicted but had never been able to look for.
 2.72:1, against the 4.5:1 WCAG AA minimum — on the login button, the first control every user
 meets. Fixed by using `--teal-dark` (5.7:1) for `.button--primary`. The e2e axe checks on
 login, dashboard and settings now pass unconditionally.
+
+**6. The English past tense of a destructive command scored above the fuzzy-match bar.**
+`test_command_safety.py`'s adversarial sweep (§3.1.2's item 9) found that "deleted" — plausible
+in ordinary dictation, e.g. "I deleted my notes" — scored 92.3 against `delete` under the fuzzy
+skeleton matcher, above the then-current `voice_command_destructive_threshold` of 90.0. Every
+other near-miss tested (21 phrases, Sinhala and English) topped out at 83.3, a comfortable gap,
+so this was a real, isolated defect rather than the matcher being generally too loose. Fixed by
+raising the threshold to 95.0 — still well below every genuine exact-phrase match (100) and
+comfortably above every tested near-miss, including "deleted". Full backend suite (364 tests)
+re-run clean after the change. Unlike the embedding thresholds elsewhere in this file, this
+number is not yet backed by a large real-recording sample — it should be re-validated the same
+way (`scripts/validate_command_embeddings.py`-style analysis) once more real usage data exists.
 
 ### A.3 Load testing
 
@@ -485,6 +537,8 @@ The failover tests refuse to run against anything that is not this stack.
 
 - **Real hardware.** Everything above ran on a 12-core laptop with the backend capped at 2 CPUs.
   That approximates the 2-vCPU EC2 instance; it is not the same as measuring it.
+- **The voice-enrolment and voice-sample HTTP routes** (36% and 33% covered) — the service
+  beneath them is at 100%, but the endpoints themselves are barely exercised. See A.6.
 - **The transcript editor and live transcription still have no component tests.** The quiz
   answer flow, the voice-command hook, the accessibility controls and the voice meter do.
 - **Playwright's Chromium download repeatedly stalled here**, so both Chromium-backed projects
@@ -498,7 +552,55 @@ The failover tests refuse to run against anything that is not this stack.
 - **Multi-worker deployment.** `_active_sessions` is per-process, so the session cap and these
   leak tests only hold on a single worker, as the code's own comment notes.
 
-### A.6 CI
+### A.6 Coverage audit
+
+A full pass over the source tree, measured with `pytest --cov` rather than inferred:
+
+**Backend: 79% of statements (2471 total, 513 uncovered).** Fully covered: every model and
+schema, the streaming buffer, command matching, command resolution, and the voice-enrolment
+*service*. The uncovered remainder falls into two groups.
+
+*Needs a loaded model or a real server — the manual work in `EC2_TEST_RUNBOOK.md`:*
+
+| Module | Cover | Why |
+|---|---|---|
+| `transcribers/whisper.py` | 15% | Loads a real 1.2 GB Whisper model |
+| `transcribers/speak_asr.py` | 29% | Calls an external ASR service |
+| `streaming/inference.py` | 49% | Model construction and warm-up |
+| `streaming/embeddings.py` | 68% | Needs the embedding model |
+| `api/routes/streaming.py` | 71% | The rest needs a real WebSocket, covered by `test/failover/` |
+
+*Genuine gaps, testable without a model — closed 2026-09-20 (`TEST_GAPS_README.md` Task 3),
+except `streaming_persistence.py`, which still needs a live socket:*
+
+| Module | Cover (was → now) | Status |
+|---|---|---|
+| `api/routes/voice_samples.py` | 33% → route layer now exercised | `test_api_voice_enrollment.py`: every endpoint's happy path, 401, 404, 400. |
+| `api/routes/voice_enrollment.py` | 36% → route layer now exercised | Same file — all 5 endpoints driven through `TestClient`, embedding call monkeypatched so no model loads. |
+| `services/media_access_service.py` | 56% → route layer now exercised | `test_api_media.py`: owner, non-owner, teacher-via-LECTURE, teacher-blocked-on-NOTE. |
+| `services/streaming_persistence.py` | 33% | Still only reached through a live socket — `test/failover/` covers it in practice, the unit suite does not. Not part of Task 3's scope. |
+| `api/dependencies.py` | 58% | WebSocket auth branches — unchanged, not part of Task 3's scope. |
+
+Exact updated percentages weren't re-measured: running `pytest --cov` in this environment hit
+an unrelated local pip/numpy double-import error when installing `pytest-cov` at runtime. The
+gap itself is closed either way — every endpoint in both route modules now has at least one
+real `TestClient` request per response branch (200, 400, 401, 404); re-run
+`pytest --cov=app.api.routes.voice_enrollment --cov=app.api.routes.voice_samples --cov=app.api.routes.media`
+in a clean environment to get the exact number.
+
+**Frontend.** Four units have component tests — `useVoiceCommands`, `AccessibilityControls`,
+`VoiceMeter` and the quiz answer flow. Untested: `LiveTranscription`, `TranscriptEditor`,
+`AudioRecorder`, `FileUpload`, `useTranscriptionJob`, `AppShell`, `AuthContext`,
+`ToastContext`, and every page other than the quiz flow. Login, navigation, role boundaries
+and accessibility on three pages are covered end-to-end instead, across four browsers.
+
+**A note on suite reliability.** The e2e suite is pinned to one worker. Four browser engines in
+parallel exceeded available memory on the development machine and produced a timeout in a
+different test on most runs — never an assertion failure. Two workers failed 3 of 5 runs; one
+worker passed 2 of 2 at the same wall-clock time. This is recorded because an intermittently
+red suite teaches people to ignore it.
+
+### A.7 CI
 
 `npm test` runs in the existing frontend job alongside lint and build. Playwright, Locust and
 the failover suite stay out of CI deliberately: they are slow, they need Docker or a browser,
