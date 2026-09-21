@@ -1,10 +1,11 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
+from app.core.config import settings
 from app.db.session import SessionLocal
 from app.models.media import MediaFile
 from app.models.transcription import (
@@ -24,12 +25,26 @@ class InvalidJobStateError(RuntimeError):
 
 
 def claim_next_job() -> UUID | None:
-    """Atomically claim the oldest queued job."""
+    """Atomically claim the oldest queued job - or a PROCESSING job whose
+    worker died without ever finishing it (started_at older than
+    transcription_stuck_job_timeout_minutes). Without this, a crashed
+    worker leaves its in-flight job stuck forever: nothing else ever
+    looks at a PROCESSING row again."""
+
+    stuck_before = datetime.now(timezone.utc) - timedelta(
+        minutes=settings.transcription_stuck_job_timeout_minutes
+    )
 
     with SessionLocal.begin() as db:
         statement = (
             select(TranscriptionJob)
-            .where(TranscriptionJob.status == "QUEUED")
+            .where(
+                or_(
+                    TranscriptionJob.status == "QUEUED",
+                    (TranscriptionJob.status == "PROCESSING")
+                    & (TranscriptionJob.started_at < stuck_before),
+                )
+            )
             .order_by(TranscriptionJob.created_at.asc())
             .with_for_update(skip_locked=True)
             .limit(1)
