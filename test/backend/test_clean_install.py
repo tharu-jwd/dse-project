@@ -123,19 +123,33 @@ def test_compose_file_is_syntactically_valid(compose_file):
     if not path.exists():
         pytest.skip(f"{compose_file} does not exist")
 
-    # `config` only parses and validates; it starts nothing. A dummy .env
-    # (via env vars) satisfies files that require POSTGRES_* / JWT_SECRET_KEY
-    # to interpolate, since compose config fails on undefined required vars.
-    result = subprocess.run(
-        ["docker", "compose", "-f", str(path), "config", "--quiet"],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        env={
-            "PATH": __import__("os").environ.get("PATH", ""),
-            "POSTGRES_DB": "x", "POSTGRES_USER": "x", "POSTGRES_PASSWORD": "x", "POSTGRES_PORT": "5432",
-        },
-    )
+    # `config` only parses and validates; it starts nothing. The compose
+    # files declare `env_file: .env`, which compose requires to exist even
+    # for `config` - present on a developer machine, absent on a fresh
+    # checkout or CI runner. Stand in .env.example for it when missing (and
+    # remove it afterwards), which is also exactly what a new contributor
+    # does on first setup. Never overwrites a real .env.
+    env_path = REPO_ROOT / ".env"
+    created_env = False
+    if not env_path.exists():
+        env_path.write_text((REPO_ROOT / ".env.example").read_text())
+        created_env = True
+
+    try:
+        result = subprocess.run(
+            ["docker", "compose", "-f", str(path), "config", "--quiet"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            env={
+                "PATH": __import__("os").environ.get("PATH", ""),
+                "POSTGRES_DB": "x", "POSTGRES_USER": "x", "POSTGRES_PASSWORD": "x", "POSTGRES_PORT": "5432",
+            },
+        )
+    finally:
+        if created_env:
+            env_path.unlink(missing_ok=True)
+
     assert result.returncode == 0, result.stdout + result.stderr
 
 
