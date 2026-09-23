@@ -127,6 +127,18 @@ export default function TranscriptEditor({
   useEffect(() => {
     if (interactionMode !== 'command' && voice.isListening) voice.stop()
   }, [interactionMode]) // eslint-disable-line react-hooks/exhaustive-deps
+  // The review page's command mic opens by itself, like the quiz page's, so
+  // the student can speak commands without first finding the button. It
+  // closes once the transcript is finalized. Skipped in compact mode, where
+  // the hosting page (the quiz) already runs its own command mic.
+  useEffect(() => {
+    if (compact || interactionMode !== 'command') return
+    if (transcript.status === 'FINALIZED') {
+      if (voice.isListening) voice.stop()
+    } else if (voice.status === 'idle') {
+      voice.start()
+    }
+  }, [interactionMode, transcript.status]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => setTranscript(initialTranscript), [initialTranscript])
   useEffect(() => {
     let active = true

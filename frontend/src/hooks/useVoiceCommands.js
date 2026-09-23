@@ -177,6 +177,10 @@ export default function useVoiceCommands({ onCommand, onCommandMaybe } = {}) {
         const AudioCtx = window.AudioContext || window.webkitAudioContext
         const audioCtx = new AudioCtx()
         audioCtxRef.current = audioCtx
+        // Auto-start runs without a click, and a browser may hand back a
+        // suspended AudioContext then - which would never call
+        // onaudioprocess, so the mic would look open but hear nothing.
+        if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {})
 
         const source = audioCtx.createMediaStreamSource(stream)
         const processor = audioCtx.createScriptProcessor(4096, 1, 1)

@@ -56,7 +56,7 @@ export default function LiveTranscription({
   autoStart = false,
 }) {
   const { t } = useLanguage()
-  const [status, setStatus] = useState('idle') // idle | connecting | recording | stopping | error
+  const [status, setStatus] = useState('idle') // idle | connecting | recording | paused | stopping | error
   const [error, setError] = useState('')
   const [finals, setFinals] = useState([]) // [{ segment, segmentId, text, dirty }]
   const [partial, setPartial] = useState('')
@@ -75,6 +75,7 @@ export default function LiveTranscription({
   const intervalRef = useRef(null)
   const endedRef = useRef(false)
   const statusRef = useRef('idle')
+  const pausedRef = useRef(false)
   const levelRef = useRef(0)
   const voiceDetectedRef = useRef(false)
   const barRefs = useRef([])
@@ -151,6 +152,7 @@ export default function LiveTranscription({
     setPartial('')
     setSeconds(0)
     endedRef.current = false
+    pausedRef.current = false
 
     if (!title.trim()) {
       setError(t('live.titleRequired'))
@@ -191,6 +193,8 @@ export default function LiveTranscription({
 
         processor.onaudioprocess = (event) => {
           if (socket.readyState !== WebSocket.OPEN) return
+          // Paused: the socket and mic stay open, but nothing is heard.
+          if (pausedRef.current) return
           const input = event.inputBuffer.getChannelData(0)
 
           let sumSquares = 0
@@ -318,6 +322,32 @@ export default function LiveTranscription({
     }
   }
 
+  // Pause keeps the session (socket, transcript, mic permission) alive and
+  // just stops feeding it audio. A second of silence is sent first so the
+  // server's VAD sees a pause and finalizes whatever was half-said, instead
+  // of holding it until the student resumes.
+  const pause = () => {
+    if (statusRef.current !== 'recording') return
+    const socket = wsRef.current
+    if (socket?.readyState === WebSocket.OPEN) {
+      const silence = new Int16Array(CHUNK_SAMPLES)
+      for (let i = 0; i < 4; i++) socket.send(silence.buffer.slice(0))
+    }
+    pausedRef.current = true
+    pendingSamplesRef.current = new Float32Array(0)
+    window.clearInterval(intervalRef.current)
+    stopMeterLoop()
+    setStatus('paused')
+  }
+
+  const resume = () => {
+    if (statusRef.current !== 'paused') return
+    pausedRef.current = false
+    intervalRef.current = window.setInterval(() => setSeconds((value) => value + 1), 1000)
+    startMeterLoop()
+    setStatus('recording')
+  }
+
   const saveEdits = async () => {
     const transcriptId = transcriptIdRef.current
     const changed = finals.filter((item) => item.dirty && item.segmentId)
@@ -374,7 +404,7 @@ export default function LiveTranscription({
   const time = (value) =>
     `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`
 
-  const isRecording = status === 'recording' || status === 'stopping'
+  const isRecording = status === 'recording' || status === 'paused' || status === 'stopping'
   const hasUnsavedEdits = finals.some((item) => item.dirty)
 
   return (
@@ -390,6 +420,17 @@ export default function LiveTranscription({
         >
           <Icon name={isRecording ? 'stop' : 'mic'} size={19} />
         </button>
+        {(status === 'recording' || status === 'paused') && (
+          <button
+            type="button"
+            className={`note-toolbar__pause ${status === 'paused' ? 'is-paused' : ''}`}
+            onClick={status === 'paused' ? resume : pause}
+            aria-label={status === 'paused' ? t('live.resume') : t('live.pause')}
+            title={status === 'paused' ? t('live.resume') : t('live.pause')}
+          >
+            <Icon name={status === 'paused' ? 'play' : 'pause'} size={19} />
+          </button>
+        )}
         <div className={`voice-meter ${voiceDetected ? 'voice-meter--active' : ''}`}>
           {Array.from({ length: VOICE_BAR_COUNT }).map((_, index) => (
             <i key={index} ref={(el) => (barRefs.current[index] = el)} />
@@ -398,6 +439,7 @@ export default function LiveTranscription({
         <span className="note-toolbar__status" aria-live="polite">
           {status === 'connecting' && t('live.connecting')}
           {status === 'stopping' && t('live.finishing')}
+          {status === 'paused' && t('live.paused')}
           {status === 'recording' && (voiceDetected ? t('live.voiceDetected') : t('live.listening'))}
           {(status === 'idle' || status === 'error') && t('live.readyToRecord')}
         </span>
