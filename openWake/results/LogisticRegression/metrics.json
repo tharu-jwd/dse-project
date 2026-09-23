@@ -1,0 +1,39 @@
+{
+  "model": "LogisticRegression",
+  "params": {
+    "C": 1.0,
+    "class_weight": "balanced",
+    "dual": false,
+    "fit_intercept": true,
+    "intercept_scaling": 1,
+    "l1_ratio": 0.0,
+    "max_iter": 1000,
+    "n_jobs": null,
+    "penalty": "deprecated",
+    "random_state": null,
+    "solver": "lbfgs",
+    "tol": 0.0001,
+    "verbose": 0,
+    "warm_start": false
+  },
+  "accuracy": 0.972072072072072,
+  "macro_f1": 0.9768886868809699,
+  "weighted_f1": 0.9722153377746451,
+  "false_accepts_from_none": 19,
+  "total_none": 234,
+  "labels": [
+    "cancel",
+    "delete",
+    "next",
+    "none",
+    "option1",
+    "option2",
+    "option3",
+    "option4",
+    "previous",
+    "save",
+    "start",
+    "stop",
+    "submit"
+  ]
+}

@@ -1,0 +1,19 @@
+              precision    recall  f1-score   support
+
+      cancel       1.00      1.00      1.00        81
+      delete       1.00      1.00      1.00        57
+        next       1.00      0.99      0.99        81
+        none       0.99      0.94      0.96       234
+     option1       0.99      1.00      0.99        81
+     option2       0.91      0.99      0.95        81
+     option3       1.00      1.00      1.00        81
+     option4       0.89      0.95      0.92        81
+    previous       1.00      0.99      0.99        81
+        save       1.00      0.98      0.99        57
+       start       1.00      0.98      0.99        81
+        stop       0.97      0.98      0.97        57
+      submit       0.98      1.00      0.99        57
+
+    accuracy                           0.98      1110
+   macro avg       0.98      0.98      0.98      1110
+weighted avg       0.98      0.98      0.98      1110
