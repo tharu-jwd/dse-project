@@ -167,6 +167,15 @@ class Settings(BaseSettings):
     voice_wake_text_threshold: float = 75.0
     voice_wake_window_seconds: float = 3.0
 
+    # English COMMAND-mode sessions: after the wake word ("zimi", matched by
+    # embedding/text as before), the next clip is classified straight from
+    # its audio by the openWake-trained model (openWake/results/README.md)
+    # instead of fuzzy-matching Whisper's transcript. Sinhala and NOTE mode
+    # keep the transcript path. Below the confidence threshold is "none".
+    voice_command_audio_matching_enabled: bool = True
+    voice_command_audio_model_path: str = "openWake/results/MLPClassifier/model.joblib"
+    voice_command_audio_confidence_threshold: float = 0.8
+
     @property
     def cors_origins_list(self) -> list[str]:
         return[
@@ -210,6 +219,16 @@ class Settings(BaseSettings):
     def streaming_model_source_path(self) -> str:
         """Resolve the source HF checkpoint to convert, relative to repo root."""
         path = Path(self.streaming_source_model)
+
+        if not path.is_absolute():
+            path = PROJECT_ROOT / path
+
+        return str(path.resolve())
+
+    @property
+    def voice_command_audio_model_source_path(self) -> str:
+        """Resolve the classifier joblib path against the repo root."""
+        path = Path(self.voice_command_audio_model_path)
 
         if not path.is_absolute():
             path = PROJECT_ROOT / path
