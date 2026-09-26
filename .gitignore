@@ -54,3 +54,22 @@ reports/
 
 /openWake/data_split
 /openWake/data_train
+# Held-out real-voice samples (personal audio; regenerate your own - see
+# openWake/README.md). Already covered by the *.wav rule above, but named
+# explicitly here as documentation.
+/openWake/my_recordings/
+# Unused classifiers: neither ships anywhere (see openWake/README.md's
+# "Decision: MLP is what ships") - their small metrics/reports stay
+# committed, but the model files themselves don't need to.
+/openWake/results/RandomForestClassifier/model.joblib
+/openWake/results/LogisticRegression/model.joblib
+# openWake/app.py's standalone prototype (not used by the backend) - its
+# own wake-word and command models. See openWake/README.md.
+/openWake/command_model.joblib
+/openWake/models/hey_nexa.onnx
+/openWake/models/bye_nexa.onnx
+# Extracted training features (~78MB) - fully regeneratable from
+# data_split/ via extract_features.py. See openWake/README.md's Pipeline.
+/openWake/features/train.npz
+/openWake/features/val.npz
+/openWake/features/test.npz

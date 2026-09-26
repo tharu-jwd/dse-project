@@ -1,6 +1,6 @@
 """
 prepare_audio.py
-Shared audio-preparation code (README_Command_Classifier_Plan.md, Step B4).
+Shared audio-preparation code (see openWake/README.md's Pipeline section).
 
 Used by BOTH extract_features.py (training) and app.py (runtime), so that
 clips are prepared identically in training and in the live app.
