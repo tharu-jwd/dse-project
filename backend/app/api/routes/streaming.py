@@ -18,7 +18,7 @@ from app.services.streaming_persistence import (
 )
 from app.services.transcript_service import DuplicateTranscriptTitleError
 from app.streaming.buffer import StreamingBuffer
-from app.streaming.command_resolution import resolve_command
+from app.streaming.command_resolution import resolve_command, resolve_command_from_audio
 from app.streaming.commands import WAKE_WORD_ID, split_wake_prefix
 from app.streaming.embeddings import ClipTooShortError, best_match
 from app.streaming.inference import get_streaming_transcriber
@@ -227,6 +227,13 @@ async def _run_session(websocket: WebSocket, user: User) -> None:
     # The wake word's samples are only ever used to detect the wake word,
     # never offered to resolve_command as a command candidate.
     wake_bank = bank.pop(WAKE_WORD_ID, [])
+
+    # "zimi" is the same word in every language, so a student who enrolled it
+    # once (Sinhala) is not asked to enroll it again for English.
+    if not wake_bank and language != "si" and settings.voice_command_embedding_matching_enabled:
+        wake_bank = (
+            await asyncio.to_thread(voice_enrollment.load_bank, user.user_id, "si")
+        ).get(WAKE_WORD_ID, [])
 
     buffer = StreamingBuffer(
         max_buffer_seconds=settings.streaming_max_buffer_seconds,
@@ -495,9 +502,19 @@ async def _emit_final(
     avg_logprob: float | None,
     audio,
 ) -> None:
-    segment = buffer.finalize(text) if text else None
+    # The audio classifier works on the clip, not the transcript, so an
+    # empty Whisper result (common for one-word commands) must not discard
+    # the utterance while the wake window is open.
+    # English COMMAND mode also keeps them so the zimi embedding check
+    # below still sees a wake word Whisper transcribed as nothing.
+    audio_path = _use_audio_classifier(state) or (
+        state["mode"] == "COMMAND"
+        and state["language"] == "en"
+        and settings.voice_command_audio_matching_enabled
+    )
+    segment = buffer.finalize(text) if (text or audio_path) else None
 
-    if segment is None or not segment.text.strip():
+    if segment is None or (not segment.text.strip() and not audio_path):
         buffer.force_cut()
         return
 
@@ -542,6 +559,8 @@ async def _resolve_and_dispatch(
         if decision is None or decision.outcome == "none":
             await _send_armed(websocket)
             return
+    elif _use_audio_classifier(state):
+        decision = await resolve_command_from_audio(audio)
     else:
         decision = resolve_command(
             segment.text,
@@ -578,6 +597,20 @@ async def _resolve_and_dispatch(
         return
 
     await _persist_and_send_final(websocket, state, transcript_id, segment)
+
+
+def _use_audio_classifier(state: dict) -> bool:
+    """English COMMAND mode, right after the wake word: the next clip is a
+    command, read from its audio. Everything else keeps the transcript path."""
+
+    armed_until = state.get("armed_until")
+    return (
+        settings.voice_command_audio_matching_enabled
+        and state["mode"] == "COMMAND"
+        and state["language"] == "en"
+        and armed_until is not None
+        and time.monotonic() < armed_until
+    )
 
 
 def _sounds_like_wake(embedding, bank: dict, wake_bank: list) -> bool:

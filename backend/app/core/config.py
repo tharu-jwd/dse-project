@@ -4,6 +4,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
+# backend/ itself - unlike PROJECT_ROOT, this resolves to the same relative
+# position in a dev checkout (backend/) and inside the Docker image (/app,
+# since the Dockerfile's WORKDIR is /app and COPY . . copies backend/'s
+# contents there). Used for anything shipped inside the backend image
+# itself rather than mounted in separately, like the large Whisper
+# checkpoints under the top-level (gitignored) /models are.
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
 class Settings(BaseSettings):
     postgres_db: str
@@ -167,6 +174,17 @@ class Settings(BaseSettings):
     voice_wake_text_threshold: float = 75.0
     voice_wake_window_seconds: float = 3.0
 
+    # English COMMAND-mode sessions: after the wake word ("zimi", matched by
+    # embedding/text as before), the next clip is classified straight from
+    # its audio by the openWake-trained model (openWake/results/README.md)
+    # instead of fuzzy-matching Whisper's transcript. Sinhala and NOTE mode
+    # keep the transcript path. Below the confidence threshold is "none".
+    voice_command_audio_matching_enabled: bool = True
+    # Small enough (~11MB) to ship inside the backend image itself, at
+    # backend/app/models/command_classifier/ - see voice_command_audio_model_source_path.
+    voice_command_audio_model_path: str = "app/models/command_classifier/model.joblib"
+    voice_command_audio_confidence_threshold: float = 0.8
+
     @property
     def cors_origins_list(self) -> list[str]:
         return[
@@ -213,6 +231,19 @@ class Settings(BaseSettings):
 
         if not path.is_absolute():
             path = PROJECT_ROOT / path
+
+        return str(path.resolve())
+
+    @property
+    def voice_command_audio_model_source_path(self) -> str:
+        """Resolve the classifier joblib path against the backend directory
+        (BACKEND_ROOT, not PROJECT_ROOT) - the model file ships inside the
+        backend image itself, so it must resolve the same way whether this
+        is a dev checkout or the container (see BACKEND_ROOT)."""
+        path = Path(self.voice_command_audio_model_path)
+
+        if not path.is_absolute():
+            path = BACKEND_ROOT / path
 
         return str(path.resolve())
 

@@ -216,3 +216,37 @@ def _log(transcript: str, decision: CommandDecision) -> None:
         f"{decision.embedding_score:.3f}" if decision.embedding_score is not None else None,
         decision.agreed,
     )
+
+
+async def resolve_command_from_audio(audio: np.ndarray) -> CommandDecision:
+    """Decide from the raw clip with the audio classifier (English only).
+
+    No "confirm" tier: below the confidence threshold is "none".
+    """
+
+    import asyncio
+
+    from app.streaming.audio_command_classifier import classify
+
+    prediction = await asyncio.to_thread(classify, audio)
+    command_id = (
+        prediction.command_id
+        if prediction.confidence >= settings.voice_command_audio_confidence_threshold
+        else None
+    )
+    decision = CommandDecision(
+        outcome="execute" if command_id else "none",
+        command_id=command_id,
+        fuzzy_command_id=None,
+        fuzzy_score=None,
+        embedding_command_id=None,
+        embedding_score=None,
+        agreed=False,
+    )
+    logger.info(
+        "voice_command_audio_decision predicted=%s confidence=%.3f outcome=%s",
+        prediction.command_id,
+        prediction.confidence,
+        decision.outcome,
+    )
+    return decision

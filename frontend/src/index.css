@@ -1835,6 +1835,26 @@ textarea:focus-visible {
 .note-toolbar__record.is-recording {
   background: var(--danger);
 }
+.note-toolbar__pause {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface-2, rgba(255, 255, 255, 0.12));
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.note-toolbar__pause.is-paused {
+  background: var(--teal);
+  color: #fff;
+}
+.note-toolbar__pause:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 .note-toolbar__record:disabled {
   opacity: 0.5;
   cursor: not-allowed;

@@ -1,0 +1,24 @@
+{
+  "model": "RandomForestClassifier",
+  "set": "held_out_test (real, never-augmented recordings)",
+  "accuracy": 0.9833333333333333,
+  "macro_f1": 0.9872598162071847,
+  "weighted_f1": 0.9872598162071847,
+  "false_accepts_from_none": null,
+  "total_none": null,
+  "labels": [
+    "cancel",
+    "delete",
+    "next",
+    "option1",
+    "option2",
+    "option3",
+    "option4",
+    "previous",
+    "save",
+    "start",
+    "stop",
+    "submit"
+  ],
+  "n_test_clips": 120
+}
