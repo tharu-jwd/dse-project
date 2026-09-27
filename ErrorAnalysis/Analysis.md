@@ -1,73 +1,498 @@
-# Error Analysis — Whisper Small Sinhala (5 fine-tuning runs)
+# Error Analysis — Whisper Small Sinhala fine-tuning (5 runs)
 
-This folder holds the output of `error_analysis.py` run against the test-set predictions of the fine-tuning runs. For each run it groups every wrong sample into 8 clusters (TF-IDF over **character n-grams** + KMeans — chosen so it works directly on Sinhala script without needing a word tokenizer), buckets every sample by severity, and tallies the most common substitution / deletion / insertion words. This document summarizes what those outputs actually show and why.
+This is the analysis document for the Sinhala ASR fine-tuning work: what each run
+scored, how the failures were grouped and diagnosed, which data defects that
+diagnosis exposed, what was changed in response, and whether the change actually
+worked.
 
-Each run gets its own top-level folder, named `run1`–`run5` in chronological order (order run), containing two subfolders:
-- `error_analysis/` — `clusters.txt` (themed failure groups), `errors_by_severity.csv` (every wrong sample, worst first), `confusions.txt` (top substitution/deletion/insertion words)
-- `run_summary/` — `predictions.csv` (raw reference/prediction pairs), `README.md`, `training_curves.png`, `lr_schedule.png`, `wandb_config.json`, `wandb_summary.json`
+It is organized as the actual chain of reasoning that was followed, because the
+interesting part of this work is not any single WER number — it is that the
+headline WER **went up** (17.36% → 19.06%) while the specific error class being
+targeted **collapsed by 84%**, and understanding why both of those are true at
+once is the whole point.
 
-`comparison_summary.csv` (one row per run) and this file sit at the top level, shared across every run.
+## The arc in one page
 
-| Folder | `finetune_tracker.csv` run name | Date |
+| Step | What was done | Outcome |
 |---|---|---|
-| `run1` | run1-lr3e-5-bs32 | 2026-08-18 |
-| `run2` | run6-lr3e-5-bs32_amd | 2026-08-20 |
-| `run3` | run2-lr3e-5-bs32_lora | 2026-08-25 |
-| `run4` | run3-lr1e-4-r32-lora | 2026-08-26 |
-| `run5` | run5-v4-lr3e-5-bs64-v3-resume | 2026-09-09 |
+| 1 | Fine-tuned 5 configurations (full FT vs. LoRA variants) on `stratified` (v1) | Best: **run1, 17.36% WER** (full fine-tune) |
+| 2 | Clustered run1's 6,128 wrong samples to find *what kind* of errors they were | The single largest cluster (2,749 / 6,128 = **45%**) was pure **word-boundary/spacing** disagreement, not mishearing |
+| 3 | Fixed the data: spacing normalization + **speaker-disjoint** re-split → `stratified_v4` | — |
+| 4 | Re-ran the same recipe as run1 on the new data → **run5, 19.06% WER** | Headline WER rose, but the targeted class collapsed (see §5) |
+| 5 | Re-clustered run5 | Spacing errors down ~84–94%; the new #1 residual is **register/spelling inconsistency**, and it shows up **bidirectionally** — proof it is a label defect, not an acoustic one |
+| 6 | Built and applied register + boundary normalization → `stratified_v5` (published) | Next fine-tune pending; see [`run5/NORMALIZATION_APPROACH.md`](run5/NORMALIZATION_APPROACH.md) |
 
-## 1. Headline numbers (15,483 test samples per run)
+The crucial methodological point, stated up front so no chart in this document
+is read the wrong way: **run1's 17.36% and run5's 19.06% are not measured on the
+same test set.** run1 was evaluated on 15,483 samples from `stratified` (v1),
+run5 on 15,860 samples from `stratified_v4`, which is speaker-disjoint. Any
+direct "17 → 19, so it got worse" reading is wrong. §5 unpacks this.
 
-| Run | Type | Wrong samples | Mean WER | exact_match | minor | moderate | major | severe |
-|---|---|---|---|---|---|---|---|---|
-| **run1** | Full fine-tune | 6,128 (39.6%) | **0.158** | 9,355 (60.4%) | 1,850 | 3,174 | 1,075 | 29 |
-| **run2** | LoRA (AMD hw) | 7,522 (48.6%) | 0.199 | 7,961 (51.4%) | 2,647 | 3,322 | 1,477 | 76 |
-| **run4** | LoRA | 8,910 (57.5%) | 0.250 | 6,573 (42.5%) | 2,817 | 3,920 | 2,068 | 105 |
-| **run3** | LoRA (best-epoch2) | 13,993 (90.4%) | **0.575** | 1,490 (9.6%) | 1,356 | 4,436 | 7,860 | 341 |
+## Folder layout
 
-Severity bins (by per-sample WER): `exact_match`=0, `minor`≤0.25, `moderate`≤0.5, `major`≤1.0, `severe`>1.0 (more inserted/substituted words than the reference has).
+Each run has its own top-level folder, named `run1`–`run5` in the order the runs
+were executed, containing:
 
-**Ranking: run1 > run2 > run4 >> run3.** The full fine-tune generalizes best; both merged/adapter LoRA runs trail it by a moderate margin; run3 is a clear outlier and should not be used as-is (see §4).
+- `error_analysis/` — `clusters.txt` (themed failure groups), `errors_by_severity.csv`
+  (every wrong sample, worst first), `confusions.txt` (top substitution / deletion /
+  insertion words, plus the severity histogram)
+- `run_summary/` — `predictions.csv` (raw reference/prediction pairs), `README.md`,
+  `training_curves.png`, `lr_schedule.png`, `wandb_config.json`, `wandb_summary.json`
 
-## 2. What the clusters actually contain
+`comparison_summary.csv` (one row per run) and this file sit at the top level.
 
-Across every run, the 8 clusters are not random — the same handful of *themes* keep reappearing, just at different rates:
+| Folder | `finetune_tracker.csv` run name | Date | Trained on |
+|---|---|---|---|
+| `run1` | run1-lr3e-5-bs32 | 2026-08-18 | `stratified` (v1) |
+| `run2` | run6-lr3e-5-bs32_amd | 2026-08-20 | `stratified` (v1) |
+| `run3` | run2-lr3e-5-bs32_lora | 2026-08-25 | `stratified` (v1) |
+| `run4` | run3-lr1e-4-r32-lora | 2026-08-26 | `stratified` (v1) |
+| `run5` | run5-v4-lr3e-5-bs64-v3-resume | 2026-09-09 | **`stratified_v4`** |
 
-1. **Conjunct-consonant / ligature clusters** — keyed on n-grams like `්‍ය`, `‍ය`, `්‍ර`, `‍ර` (the yansaya and rakaransaya conjuncts, which Unicode Sinhala renders with a zero-width joiner). e.g. run1 cluster 0 (278 samples) and cluster 2 (401 samples) are almost entirely this. Predictions get the base consonant right but drop or restructure the conjunct: `සත්‍යයද` → `සත්‍යය ද`, `මනෝවිද්‍යාව` → `මනෝ විද්‍යාව`.
-2. **Word-boundary / compounding clusters** — the single largest cluster in nearly every run (run1 cluster 1: 2,749 samples; run2 cluster 0: 3,146; run3 cluster 2: 7,819; run4 cluster 3: 3,220). The model splits words that are written joined in the reference, or joins words that are written apart: `තුන්වැදෑරුම්ය` → `තුන් වැදෑරුම් ය`, `කදාවළලු` → `කඳා වළලු`, `ටීවිවල` → `ටීවි වල`.
-3. **Colloquial-ending clusters** (`කිය`, `කියල`, `ගන්න`, `න්න`) — spoken-register verb/quotative endings where the model normalizes toward the "book" form: `කියල` → `කියලා`, `කරන්නෙ` → `කරන්නේ`, `තියනවා` → `තියෙනවා`.
-4. **Honorific / religious-register cluster** (`වහන්සේ`, `න්සේ`) — present as its own cluster in run2 (123), run3 (259), run4 (151): `භික්‍ෂූන්වහන්සේ` → `භික්ෂූන් වහන්සේ`, `උන්වන්සේගේ` → `උන්වහන්සේගේ`.
-5. **Degenerate repetition ("hallucination loop") cluster** — the single worst individual samples in run2 and run4 (WER up to 7.60) are the decoder getting stuck repeating one word/phrase dozens of times (`මෙම මෙම මෙම...` repeated ~40 times for a 9-word reference). Not present as a distinct cluster in run1.
+---
 
-## 3. Root-cause analysis
+# 1. The runs and how they compare
 
-### a) Formal vs. colloquial orthography mismatch (biggest single driver)
-The #1 substitution pattern in **every run** is a spoken-register word being "corrected" to (or from) its formal/written equivalent: `කියල⇄කියලා`, `කරන්නෙ⇄කරන්නේ`, `එමෙන්⇄එමෙන්ම`, `කථාව⇄කතාව`, `මොකද⇄මුකද`. Sinhala has a large gap between spoken and written registers, and the training corpora mix registers unevenly — OpenSLR-52 (97% of the training pool) is read/formal speech, while YouTube/BizBrains/Linga are conversational. The model ends up hedging between conventions rather than reliably reproducing whichever one is in front of it. **This alone likely explains a large share of "minor" and "moderate" severity errors** in every run, since these are single-word edits, not comprehension failures.
+## 1a. Headline numbers
 
-### b) Inconsistent word-boundary/compounding conventions across source datasets
-The largest cluster in 3 of 4 runs is pure spacing: the model and the reference disagree on whether a compound is one word or two (`ටීවිවල` vs `ටීවි වල`, `බොරුකීම` vs `බොරු කීම`). This is consistent with **the four source corpora not sharing a single transcription/compounding standard** — a scripted correction pass on OpenSLR vs. ad-hoc human transcription on YouTube/collected data would produce exactly this kind of disagreement, and the model can't do better than the labels it was trained on. This is a **data-labeling consistency issue**, not a model-capacity issue — it will not go away with more training on the same data.
+Corpus-level WER and the error-type breakdown, from `comparison_summary.csv`:
 
-### c) Zero-width-joiner (ZWJ) / conjunct-consonant rendering inconsistency
-Sinhala conjuncts (යන්සය, රකාරාංශය) can be encoded in Unicode with or without an explicit ZWJ, and different tools/keyboards normalize them differently. The recurring `්‍ය` / `‍ය` / `්‍ර` / `‍ර` clusters in run1 (679 of 6,128 wrong samples, ~11%) point to the training transcripts not being normalized to one encoding, so the model learned an inconsistent mapping for these characters specifically. **Recommendation: run a Unicode NFC/ZWJ-normalization pass over all transcripts before the next training run** — this is a cheap, one-time data fix that should directly reduce this cluster.
+| Run | Type | Test samples | Wrong samples | **WER** | Substitutions | Deletions | Insertions |
+|---|---|---|---|---|---|---|---|
+| **run1** | Full fine-tune | 15,483 | 6,128 (39.6%) | **17.36%** | 11.47% | 4.68% | 1.21% |
+| **run5** | Full fine-tune (on v4) | 15,860 | 7,476 (47.1%) | **19.06%** | 14.67% | **2.33%** | 2.07% |
+| **run2** | LoRA (AMD hw) | 15,483 | 7,522 (48.6%) | 21.01% | 15.80% | 2.89% | 2.32% |
+| **run4** | LoRA (r=32, wide targets) | 15,483 | 8,910 (57.5%) | 25.99% | 19.67% | 3.49% | 2.83% |
+| **run3** | LoRA (best-epoch2) | 15,483 | 13,993 (90.4%) | 59.07% | 45.22% | 11.22% | 2.63% |
 
-### d) Underrepresented religious/formal vocabulary
-The `වහන්සේ` (Buddhist monastic honorific) cluster shows up across LoRA runs with the model dropping or garbling the honorific specifically (`උන්වන්සේගේ` → `උන්වහන්සේගේ`, i.e. missing a syllable). This is very likely sermon/Dhamma-talk content from the YouTube slice (only ~2% of training data) — too little exposure for the model to lock in this specific, low-frequency but structurally distinct vocabulary.
+## 1b. Severity distribution
 
-### e) LoRA capacity/training-length limits → degenerate repetition
-The exact-repeated-token failure mode (`මෙම මෙම මෙම...`) only shows up prominently in **LoRA** runs (run2, run4), not the full fine-tune (run1). This is a classic symptom of a decoder that hasn't been adapted enough to confidently terminate generation on out-of-distribution or acoustically ambiguous input (background noise, very short utterances, rare words) — it falls back to repeating its highest-probability token instead of stopping. A full fine-tune updates all weights and is more robust to this; a low-rank adapter has less capacity to correct the base model's decoding behavior on hard inputs. **Recommendation: add a repetition penalty / no_repeat_ngram_size at generation time for the LoRA checkpoints**, and consider a higher LoRA rank if this persists after that.
+Severity bins are by per-sample WER: `exact_match`=0, `minor`≤0.25,
+`moderate`≤0.5, `major`≤1.0, `severe`>1.0 (the prediction has more
+inserted/substituted words than the reference has words at all).
 
-### f) run3 is a clear outlier — likely an undertrained/wrong checkpoint, not a data problem
-run3's error profile isn't just "a bit worse" — 90% of samples are wrong (vs. ~40–58% for the others) and the *shape* of its errors is different: its largest cluster (7,819 samples, avg WER 0.64) has no coherent linguistic theme, and its confusions include basic word confusions the other runs don't make (`මොකද`→`මුකද`, `විශාල`→`විෂාල`, `එයින්`→`එහෙන්`) alongside the same orthographic issues seen elsewhere. Since this run is labeled "best-epoch2", it suggests either:
-  - training was stopped too early (epoch 2) and the adapter hadn't converged, or
-  - the LoRA config for this run (rank/target modules/learning rate) was mismatched to the task, or
-  - there's a checkpoint/merge mismatch between what was evaluated and what was intended to be evaluated.
+| Run | exact_match | minor | moderate | major | severe |
+|---|---|---|---|---|---|
+| **run1** | 9,355 (60.4%) | 1,850 (11.9%) | 3,174 (20.5%) | 1,075 (6.9%) | 29 (0.2%) |
+| **run5** | 8,384 (52.9%) | 2,875 (18.1%) | 3,242 (20.4%) | 1,307 (8.2%) | 52 (0.3%) |
+| run2 | 7,961 (51.4%) | 2,647 | 3,322 | 1,477 | 76 |
+| run4 | 6,573 (42.5%) | 2,817 | 3,920 | 2,068 | 105 |
+| run3 | 1,490 (9.6%) | 1,356 | 4,436 | 7,860 | 341 |
 
-  **Recommendation: re-check run3's training logs/config before drawing any conclusions from it, and re-run evaluation on its later checkpoints (`checkpoint-3871`, `checkpoint-7742`) if they exist** — `best-epoch2` may simply have been selected on too little training.
+This distribution matters more than the WER average for a product decision: in
+run1 and run5, roughly **four out of five wrong samples are `minor` or
+`moderate`** — single-word or few-word edits, not comprehension failures. Those
+are the errors a human reviewing a transcript fixes in one keystroke. `severe`
+is under 0.35% in both.
 
-## 4. Practical takeaways
+## 1c. Reading of the comparison
 
-- **Use run1 (full fine-tune)** as the primary model; it has the lowest error rate and the cleanest error profile.
-- **Don't ship run3 as-is** — its errors aren't representative of the LoRA approach's ceiling, they're representative of an undertrained/misconfigured run.
-- **Before the next training run**, normalize transcript orthography: (1) pick one convention for compounding/spacing and re-run it across all four source datasets, (2) NFC-normalize all Sinhala text to fix ZWJ/conjunct inconsistencies. Both are pure data fixes and should reduce error rates across all future runs regardless of model/LoRA choice.
-- **For LoRA deployment**, add decoding-time repetition guards (`no_repeat_ngram_size=3` or similar) to eliminate the degenerate-loop failure mode seen on hard inputs.
-- Religious/formal-register vocabulary (`වහන්සේ` and similar) would benefit from targeted additional data if that domain matters for the product.
+**Ranking: run1 > run5 > run2 > run4 >> run3** — but with two caveats that the
+raw ordering hides:
+
+- **Full fine-tune beats LoRA consistently** (run1 17.36% and run5 19.06% vs.
+  run2 21.01%, run4 25.99%). For this task, at this data scale, the low-rank
+  adapters did not catch up.
+- **run5 is not worse than run1**, despite sitting below it in the table — it
+  was scored on a harder, speaker-disjoint test set. §5 is entirely about this.
+- **run3 is an outlier, not a data point.** 90.4% of samples wrong and a 59.07%
+  WER is not "LoRA but weaker," it is a broken run: its largest cluster (7,819
+  samples) has no coherent linguistic theme, and its confusions include basic
+  word errors the other runs never make (`මොකද`→`මුකද`, `විශාල`→`විෂාල`,
+  `එයින්`→`එහෙන්`). It is labelled `best-epoch2`, so the most likely causes are
+  (a) stopped before convergence, (b) a rank/target-module/LR mismatch, or (c) a
+  checkpoint/merge mismatch between what was intended and what was evaluated.
+  **run3 should not be used to argue anything about LoRA's ceiling.**
+
+### Side note: catastrophic forgetting of English
+
+Worth having on a slide because it drove a deployment decision. From
+`finetune_tracker.csv`, the LibriSpeech test-clean check against base
+Whisper-small (4.27% WER):
+
+| Run | English WER after fine-tune | Delta vs. base | Severity |
+|---|---|---|---|
+| run1 (full FT) | 80.86% | **+76.59 pt** | severe |
+| run2 (LoRA q,v) | 73.74% | +69.47 pt | severe |
+| run4 (LoRA q,k,v,out,fc1,fc2) | 7.03% | +2.76 pt | mild |
+| full-lr1e-5-cosine (full FT, lr 1e-5) | 6.06% | +1.79 pt | mild |
+| run5 | not evaluated | — | — |
+
+The pattern: **aggressive full fine-tuning at lr 3e-5 destroys English**
+(+76pt), while either a wider LoRA target set or a low LR (1e-5) with a cosine
+schedule preserves it (+2 to +3pt). That is why the English command path in the
+product does **not** go through the fine-tuned Sinhala model at all — it uses a
+dedicated audio classifier instead (see [`openWake/README.md`](../openWake/README.md)).
+run5's English check was explicitly skipped, so that cell is blank rather than
+assumed.
+
+---
+
+# 2. The clustering strategy (how failures were grouped)
+
+This section exists because "we clustered the errors" is the step most likely to
+be challenged, and the honest answer includes what the method *cannot* do.
+
+## 2a. The algorithm
+
+Implemented in `final-scripts/error_analysis.py` (`write_clusters`):
+
+1. **Select** only the wrong samples (per-sample WER > 0). run1: 6,128 of
+   15,483. run5: 7,476 of 15,860.
+2. **Build one string per error** by concatenating reference and prediction:
+   `reference + " " + prediction`. Clustering the *pair* rather than either side
+   alone is deliberate — what characterizes an error is the relationship between
+   what was said and what came out, so the features need to see both.
+3. **Vectorize** with TF-IDF over **character n-grams**:
+   `TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 4), min_df=2, max_features=5000)`.
+4. **Cluster** with `KMeans(n_clusters=8, random_state=0, n_init=10)`.
+5. **Report** per cluster: size, mean WER, the 8 highest-weighted n-grams at the
+   cluster centroid (its "signature"), and the 5 worst-WER member examples.
+
+## 2b. Why character n-grams, and not words or embeddings
+
+- **No Sinhala tokenizer needed.** Word-level features would require a reliable
+  Sinhala word tokenizer, and word segmentation is *itself* one of the defects
+  under investigation (§3). Using word features to diagnose a word-boundary
+  problem would be circular.
+- **It surfaces orthographic structure directly.** Sinhala conjuncts are encoded
+  as multi-codepoint sequences (`්‍ය`, `්‍ර` — consonant + virama + ZWJ + vowel).
+  A 2–4 character window captures those sequences as first-class features, which
+  is exactly why the ZWJ clusters fell out of the data on their own rather than
+  having to be looked for.
+- **`char_wb` respects word boundaries** when generating n-grams, so features
+  stay interpretable as "inside a word" patterns.
+- **It is cheap and fully reproducible** (`random_state=0`), which matters for a
+  diagnostic that gets re-run after every training run and compared across runs.
+
+## 2c. What this method genuinely cannot do — state this before someone asks
+
+The clustering is **unsupervised similarity of character shapes**. It has no
+notion of meaning, grammar, or root cause. Concretely:
+
+- **Clusters are not error categories.** KMeans was told to produce 8 groups, so
+  it produces 8 groups whether or not the data contains 8 phenomena. Several
+  clusters in every run are grab-bags whose "top n-grams" are just frequent
+  Sinhala characters (`ය`, `ම`, `්`, `න්`) — those clusters mix multiple unrelated
+  causes because none of their members shared a distinctive enough signature to
+  separate out.
+- **A clean cluster is a coincidence of shape, not an insight.** run1's cluster 0
+  is a genuine ZWJ-conjunct cluster only because those errors literally share the
+  `්‍ය` byte sequence. The algorithm did not "understand" conjuncts.
+- **It reports symptoms, on model output.** It looks only at test-time
+  predictions, so it can tell you *where* to look, never *what to fix in the
+  training data*. Every root cause in §3 and §6 came from a human reading
+  clusters and then going back into the training transcripts — the clustering
+  narrowed the search, it did not produce the answer.
+- **`k=8` is a knob, not a finding.** Nothing was optimized (no elbow/silhouette
+  search). It was chosen as "enough groups to separate the obvious themes,
+  few enough to read by hand."
+
+The right framing for a slide: **clustering is triage.** It converted 6,128
+unordered failures into 8 readable piles, one of which turned out to hold 45% of
+all errors and a single fixable cause. That is all it was asked to do.
+
+---
+
+# 3. Step 2 — clustering run1 (the 17.36% baseline)
+
+run1's 6,128 wrong samples, grouped into 8 clusters:
+
+| Cluster | Size | Mean WER | Signature n-grams | What it actually is |
+|---|---|---|---|---|
+| **1** | **2,749 (44.9%)** | 0.42 | `්`, `ව`, `ම`, `ස` (generic) | **Word-boundary / compounding disagreement** |
+| 3 | 857 | 0.39 | `න්න`, `න්`, `නේ` | Verb-ending splits + colloquial endings |
+| 7 | 633 | 0.38 | `ින්`, `න්`, `ම`, `ව` | Clitic-particle gluing (`ම`, `ව`) |
+| 5 | 534 | 0.40 | `හැකි`, `ීම`, `ැක` | Compound-verb splits (`සිදු කිරීම`) |
+| 2 | 401 | 0.38 | `්‍ර`, `ප්‍ර`, `‍ර` | **ZWJ rakaransaya conjunct** |
+| 4 | 353 | 0.36 | `කිය`, `කියල` | Colloquial quotative (`කියල`/`කියලා`) |
+| 6 | 323 | 0.38 | `තියෙ`, `ියෙන` | Colloquial `තියෙන`/`තියන` + spacing |
+| 0 | 278 | 0.37 | `්‍ය`, `‍යා` | **ZWJ yansaya conjunct** |
+
+## 3a. The headline finding: 45% of all errors were spacing, not hearing
+
+Cluster 1 alone is 2,749 of 6,128 wrong samples. Its members are overwhelmingly
+cases where the model transcribed the *right sounds* and disagreed only about
+where the word breaks go:
+
+| Reference | Prediction | Per-sample WER |
+|---|---|---|
+| `තුන්වැදෑරුම්ය.` | `තුන් වැදෑරුම් ය.` | **3.00** |
+| `කදාවළලු,` | `කඳා වළලු` | 2.00 |
+| `බොරුකීම` | `බොරු කීම,` | 2.00 |
+| `ටීවිවල` | `ටීවි වල` | 2.00 |
+| `එනම්ඉතිරිය` | `එනම් ඉතිරිය` | 2.00 |
+
+Note the WER values. `තුන්වැදෑරුම්ය` is **one** word in the reference; the
+prediction writes it as three. Against a 1-word reference that scores WER 3.00 —
+the worst severity bucket in the entire dataset — for an utterance the model
+arguably transcribed *correctly*. A handful of these inflate the corpus WER far
+out of proportion to how wrong they actually are.
+
+The same pattern runs through the other clusters:
+
+- Cluster 5: `මෙය සිදුකිරීමට` → `මේ සිදු කිරීමට`; `ආහාර ලබාදීමට` → `ආහාර ලබා දීමට`
+- Cluster 3: `හිතාගන්න බෑ` → `හිතා ගන්න බෑ.`; `මගෙන් දැනගන්න ඕනෙනං` → `මගෙන් දැන ගන්න ඕනෙ නං.`
+- Cluster 0: `බුදුදහම හා මනෝවිද්‍යාව` → `බුදු දහම හා මනෝ විද්‍යාව`
+
+## 3b. The clitic-particle sub-pattern — the clearest single signal
+
+run1's deletion list is dominated not by content words but by **single-character
+grammatical particles**:
+
+| "Deleted" word | Count in run1 | What it is |
+|---|---|---|
+| `ම` | **872** | emphatic particle ("the very / itself") |
+| `ව` | **407** | adverbial marker ("-ly") |
+| `ද` | **289** | question / "also" particle |
+| `දී` | 236 | locative ("at / in") |
+| `ය` | 188 | copula ("is") |
+
+These are not really deletions. The reference wrote the particle as a
+**separate word**; the model glued it onto the preceding word. Word-level
+alignment then scores that as one deletion *plus* one substitution. The
+substitution list confirms it directly — **16 of run1's top 25 substitutions are
+this exact glue pattern**:
+
+| Reference → Prediction | Count | Particle glued |
+|---|---|---|
+| `එමෙන්` → `එමෙන්ම` | 39 | `ම` |
+| `පිළිබඳ` → `පිළිබඳව` | 36 | `ව` |
+| `නො` → `නොවේ` | 35 | `වේ` |
+| `ඇත්තට` → `ඇත්තටම` | 29 | `ම` |
+| `මෙන්` → `මෙන්ම` | 28 | `ම` |
+| `මෙහෙ` → `මෙහෙම` | 22 | `ම` |
+| `මුලින්` → `මුලින්ම` | 21 | `ම` |
+| `කොහොම` → `කොහොමද` | 21 | `ද` |
+| `පසු` → `පසුව` | 21 | `ව` |
+| `යුතු` → `යුතුව` | 20 | `ව` |
+| `මෙහි` → `මෙහිදී` | 20 | `දී` |
+| `මොකක්` → `මොකක්ද` | 19 | `ද` |
+| `හැකි` → `හැකිය` | 19 | `ය` |
+| `එහි` → `එහිදී` | 18 | `දී` |
+| `අනතුරු` → `අනතුරුව` | 18 | `ව` |
+| `අමතර` → `අමතරව` | 17 | `ව` |
+
+And in-context, from cluster 2:
+
+- `ref: ප්‍රතිලෝම ව සමානුපාතික ව` → `pred: ප්‍රතිලෝමව සමානුපාතිකව`
+- `ref: අතිශයින් ම ප්‍රකාශිත ය` → `pred: අතිශයින්ම ප්‍රකාශිතය`
+
+Both predictions are arguably the *more* standard written form. The model was
+being penalised for disagreeing with a transcription convention, not for
+mishearing anything.
+
+## 3c. Diagnosis drawn from step 2
+
+1. **The dominant error class was a data-labeling inconsistency, not a model
+   deficiency.** Four source corpora (OpenSLR-52 ≈ 97% of the pool, plus
+   YouTube / BizBrains / Linga) were transcribed without a shared
+   compounding/spacing standard. The model cannot be more consistent than its
+   labels. More training on the same data would not fix this.
+2. **ZWJ/conjunct encoding was inconsistent** (clusters 0 + 2 = 679 samples,
+   ~11% of errors). The same visual conjunct can be encoded with or without an
+   explicit ZWJ, and different keyboards/tools normalize differently.
+3. **Colloquial ↔ formal register was being hedged** (`කියල`⇄`කියලා`,
+   `කරන්නෙ`⇄`කරන්නේ`, `තියනවා`→`තියෙනවා`) — flagged here, but not yet acted on.
+4. **A suspicion about the split itself:** these numbers looked good partly
+   because the v1 split was not speaker-disjoint, so the test set contained
+   voices the model had trained on.
+
+Actions taken: **(1) normalize spacing/compounding conventions** across all four
+corpora, and **(2) re-split speaker-disjoint** so the evaluation stops rewarding
+speaker memorization. That produced `stratified_v4`.
+
+---
+
+# 4. Step 3 — the fix, and what `stratified_v4` actually is
+
+`stratified_v4` = the same audio pool, with:
+
+- **spacing/compounding normalized** across all four source corpora
+- **speaker-disjoint train / validation / test** splits (no speaker appears in
+  more than one split)
+
+Documented in `final-scripts/finetune_whisper.py` and `finetuneGuide.md` as
+"speaker-disjoint, spacing-normalized text." The dataset lineage:
+
+```
+stratified (v1)  ── 18k manual word/phrase QA corrections + ZWNJ fix ─→  stratified_v2
+stratified_v2    ── speaker-disjoint re-split (make_speaker_split.py) ─→  stratified_v3
+stratified_v3    ── (earlier attempt) ──────────────────────────────────→  stratified_v4   ← run5 trained here
+stratified_v4    ── register + word-boundary normalization (this work) ─→  stratified_v5   ← published, next run
+```
+
+run5 then re-ran **run1's recipe** (full fine-tune, lr 3e-5 linear, effective
+batch 64, 4 epochs, warmup 500) on `stratified_v4`, so the data is the main
+deliberate difference. Two honest confounds to disclose on the slide: run5 used
+effective batch 64 vs. run1's 32, and it was resumed mid-training from
+`checkpoint-5778` after a `transformers`/`torch.load` (CVE-2025-32434)
+incompatibility forced a pod switch.
+
+---
+
+# 5. Step 4/5 — run5, re-clustered: the number went up, the defect went away
+
+run5 scored **19.06% WER** where run1 scored 17.36%. Taken at face value that
+reads as a regression. It is not, and this is the most important analytical point
+in the whole project.
+
+## 5a. Why the two numbers are not comparable
+
+| | run1 | run5 |
+|---|---|---|
+| Test samples | 15,483 | **15,860** |
+| Test split | `stratified` (v1) | `stratified_v4` |
+| Speaker-disjoint? | **No** | **Yes** |
+
+Different test set, different size, different difficulty. run1's test set
+contained speakers the model had also trained on, so part of its 17.36% was
+speaker memorization rather than generalization. run5's 19.06% is measured
+entirely on **voices the model had never heard**. A higher number on a harder,
+honest test is not a worse model.
+
+The error-type breakdown shows exactly this trade:
+
+| | Substitutions | Deletions | Insertions |
+|---|---|---|---|
+| run1 | 11.47% | **4.68%** | 1.21% |
+| run5 | 14.67% | **2.33%** | 2.07% |
+
+- **Deletions halved** (4.68% → 2.33%). That is the spacing fix landing.
+- **Substitutions rose** (11.47% → 14.67%). That is the cost of unseen speakers —
+  genuine acoustic confusions on new voices.
+
+## 5b. Direct evidence the spacing fix worked
+
+The clitic-particle deletions from §3b, before and after:
+
+| "Deleted" particle | run1 | run5 | Change |
+|---|---|---|---|
+| `ම` | 872 | **80** | **−91%** |
+| `ව` | 407 | **48** | **−88%** |
+| `ද` | 289 | **73** | −75% |
+| `දී` | 236 | **11** | **−95%** |
+| `ය` | 188 | **106** | −44% |
+| **Top-5 total** | **1,992** | **318** | **−84%** |
+
+And the glue-pattern substitutions, which were 16 of run1's top 25:
+
+| | Glue-pattern entries in top-25 substitutions |
+|---|---|
+| run1 | **16 / 25** (`එමෙන්`→`එමෙන්ම`, `පිළිබඳ`→`පිළිබඳව`, …) |
+| run5 | **1 / 25** (only `යුතු`→`යුතුය`) |
+
+The error class that was 45% of run1's failures is essentially gone from run5's
+top failure modes. **This is the result to put on the slide**: the intervention
+is validated by the disappearance of the specific defect it targeted, not by the
+headline average, which moved for an unrelated reason (harder test set).
+
+## 5c. run5's clusters — what is left
+
+| Cluster | Size | Mean WER | Signature | What it is |
+|---|---|---|---|---|
+| 0 | 2,656 | 0.41 | generic (`ස`, `ව`, `ය`) | Mixed: register + rare words + proper nouns |
+| 7 | 1,255 | 0.39 | `ක්`, `්` | Mixed residual |
+| 2 | 1,038 | 0.39 | `න්න`, `ෙන` | Verb endings, register |
+| 6 | 993 | 0.37 | `න්`, `ින්` | Mixed residual |
+| **5** | **652** | 0.37 | `්‍ර`, `ප්‍ර` | **ZWJ rakaransaya — still present** |
+| 1 | 472 | 0.38 | `කිය`, `කියල` | **Register (`කියල`/`කියලා`)** |
+| 3 | 280 | 0.36 | `හැකි`, `නිසා` | Compound-verb splits |
+| **4** | **130** | 0.37 | `වහන්සේ` | **Honorific/religious register** |
+
+Still alive, in priority order:
+
+**(1) Register inconsistency is now the #1 residual — and it is provably a label
+defect.** The tell is that the *same pair errs in both directions*:
+
+| Pair | A → B | B → A |
+|---|---|---|
+| `කියල` / `කියලා` | 91 | 23 |
+| `එය` / `ඒ` | 20 | 18 |
+| `සමග` / `සමඟ` | 16 | 13 |
+
+A model that mishears a word does not mishear it symmetrically both ways. A
+model trained on a corpus that spells the same word two ways, with no consistent
+rule, produces exactly this. Corpus-wide counts confirm it: `සමග` appears 353
+times and `සමඟ` 345 — a 51/49 coin flip, so the model gets no signal at all
+about which to emit.
+
+**(2) ZWJ conjuncts survived the v4 pass** (cluster 5, 652 samples). Example from
+run5's own output: `ref: ක්‍රියාකළ යුතුයි.` → `pred: ක්‍රියා කළ හේතුවෙයි.` — the
+compound `ක්‍රියාකළ` split at the conjunct. Whatever spacing normalization v4
+applied did not cover conjunct-boundary compounds.
+
+**(3) Honorific/religious register** (cluster 4, 130 samples) — e.g.
+`මහාකස්සපයන්` → `මහා කශ්ෂපයන්`. Low volume, high per-sample WER. This is a
+data-*volume* problem (sermon/Dhamma content is a small slice of the pool), not a
+labeling one, so text normalization will not touch it.
+
+**(4) Rare proper nouns and abbreviations** — `එස්.ඩබ්ලිව්.ආර්.ඩී.බණ්ඩාරනායක` →
+`එස් ඩබ්ලිව් ආර්ලිය වණ්ඩාරනායක`. Genuine acoustic/OOV difficulty. Lowest
+priority.
+
+## 5d. One more check: is the test set leaking?
+
+Because §5a rests on "v4 is speaker-disjoint," that claim was verified rather
+than trusted. 16,079 sentences (~10% of the corpus) have **identical text** in
+both train and test/validation — which looks alarming. Every row's audio was
+then SHA-256 hashed and compared across splits: **zero** cases of the same audio
+file appearing in more than one split. So it is a fixed prompt list read by
+different speakers (normal for read-speech corpora), not audio leakage.
+Speaker-disjointness holds, and run5's 19.06% is not inflated by memorization.
+Full method in [`run5/NORMALIZATION_APPROACH.md`](run5/NORMALIZATION_APPROACH.md) §7.
+
+---
+
+# 6. Step 6 — what was built in response, and what is still open
+
+The §5c diagnosis drove a further normalization pass, now published as
+**`stratified_v5`** (`Yohan2003/whisper-sl-data`, `data/stratified_v5/`):
+
+- **407 register-spelling pairs** unified (`කියල`→`කියලා`, `සමග`→`සමඟ`,
+  `තුල`→`තුළ`, …)
+- **60 word-boundary/ZWJ-conjunct pairs** glued (`ක්‍රියා කළ`→`ක්‍රියාකළ`,
+  `විශ්ව විද්‍යාලයේ`→`විශ්වවිද්‍යාලයේ`, …)
+- **13,120 of 154,828 rows changed (~8.5%)**; audio untouched; `stratified_v4`
+  left in place so run5 stays reproducible
+
+The full method — including the 12 false-positive pairs that had to be caught by
+hand (e.g. `ගන්න` "to take" vs. `ගන්නා` "the one who takes" are different words,
+not spelling variants) — is in
+[`run5/NORMALIZATION_APPROACH.md`](run5/NORMALIZATION_APPROACH.md). That document
+is the one to cite for the "how I approached reducing WER" part of a
+presentation; this one is the evidence base.
+
+Still open:
+- The next fine-tune on `stratified_v5` has not been run, so v5's effect on WER
+  is **unmeasured**. Nothing in this document should be read as claiming v5
+  improves WER — only that it removes a defect that provably drove run5's errors.
+- Honorific register (§5c.3) and rare proper nouns (§5c.4) need *data*, not text
+  fixes.
+- A dictionary/spellcheck pass is missing. This method only finds words spelled
+  inconsistently *between two forms that both exist*; it is blind to words
+  misspelled the same wrong way everywhere — e.g. `ප්‍රථිපල` and `ප්‍රතිපල` are
+  both typos of `ප්‍රතිඵල`, which appears nowhere in the corpus.
+
+# 7. Practical takeaways
+
+1. **Full fine-tune over LoRA** for this task and data scale — consistently, across
+   every comparison made here.
+2. **Judge an intervention by the error class it targeted, not by the headline
+   average.** run5's WER rose and the fix still worked (−84% on the targeted
+   class). The two facts have separate causes.
+3. **Never compare WER across different test splits.** run1 vs. run5 is the
+   cautionary example; the split changed underneath the number.
+4. **Bidirectional confusion pairs are the signature of a label defect,** not an
+   acoustic one. They are the cheapest high-confidence thing to look for in a
+   confusion table.
+5. **Fix data conventions before buying more compute.** The largest single error
+   class in the baseline (45%) was a transcription-convention disagreement that
+   no amount of additional training would have resolved.
+6. **For LoRA deployment**, add decoding-time repetition guards
+   (`no_repeat_ngram_size=3`): the degenerate-loop failure mode
+   (`මෙම මෙම මෙම…` up to WER 7.60) appears in the LoRA runs (run2, run4) and not
+   in the full fine-tunes.
+7. **Do not route English through the fine-tuned Sinhala model** — +76pt English
+   WER regression on run1. English commands use a separate audio classifier
+   ([`openWake/README.md`](../openWake/README.md)).

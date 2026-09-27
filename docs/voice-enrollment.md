@@ -42,6 +42,97 @@ distance is bounded above by `2·√dim`, so `1 - distance / (2·√dim)`
 gives a principled 0–1-ish "higher is better" score without needing
 re-deriving if the embedding dimension ever changes.
 
+## The three approaches, and why each one was added
+
+Command recognition in this project went through three stages. Each stage was
+added because the previous one had a specific, identifiable failure mode — this
+is the progression to walk through when explaining the design.
+
+### Stage 1 — Fuzzy text matching (baseline)
+
+Whisper transcribes the utterance, the text is fuzzy-matched against the known
+command phrases (`backend/app/streaming/commands.py`). Always on, zero setup.
+
+**Failure mode:** it inherits every ASR error. Short command phrases are exactly
+the hardest case for an ASR model — little acoustic context, no surrounding words
+to disambiguate from. If Whisper does not produce the right words, the command is
+simply lost.
+
+**Concrete example from a real held-out recording in this project:** a "delete"
+(`මකන්න`) clip transcribed as `මක් කන්නේ`. The fuzzy path correctly found no
+match (score 42.0, below threshold) — the text genuinely does not resemble the
+command phrase. Nothing about fuzzy matching can rescue this; the information was
+already destroyed upstream.
+
+### Stage 2 — Speaker-embedding matching (the Sinhala upgrade)
+
+Compare the **audio itself** against a bank of the student's own recordings of
+each command (`backend/app/streaming/embeddings.py`), bypassing the transcript
+entirely. VAD-trim → encoder-only Whisper forward pass → mean-pool → L2-normalize
+→ compare by rescaled Manhattan similarity.
+
+**What it fixed:** the same `මක් කන්නේ` clip above was recognized as `delete` at
+**85.4% similarity** — comfortably above the 0.828 threshold — because it sounds
+like the student's other four `delete` takes even though it transcribed wrong.
+That is the gap this stage closes, and it closes it *for any language*, since it
+never looks at text.
+
+**Why Manhattan and not cosine:** a same-session comparison across all commands
+found Manhattan separates same-command from different-command pairs slightly
+better (Cohen's d **2.47** vs. **2.27** for Euclidean). Thresholds (0.828
+normal / 0.85 destructive) came from a real 31-clip recording session via
+`scripts/validate_command_embeddings.py`, not from guessing.
+
+**Failure mode:** it requires **per-user enrollment** — 12 commands × 5 samples =
+60 recordings per student before it does anything at all. It is inherently
+speaker-*dependent*: that is its strength (it adapts to how *this* student
+speaks) and its cost (a student who has not enrolled gets no benefit, and there
+is no way to ship a working default).
+
+### Stage 3 — Audio command classifier (the English upgrade)
+
+For English, train a supervised classifier once, offline, on TTS-generated audio,
+and ship it — no per-student enrollment at all. Raw audio → openWakeWord's
+`AudioFeatures` (EAR) embedding → scikit-learn MLP → label. Full write-up and
+model comparison in [`../openWake/README.md`](../openWake/README.md).
+
+**What it fixed:** it removes the enrollment prerequisite entirely and is
+speaker-*independent*, so it works for a brand-new user on their first session.
+It also adds an explicit **`none`** class — a trained "this is not a command"
+rejection, rather than inferring non-commands from a similarity threshold.
+
+**Results:** MLP at **97.7% accuracy / 0.981 macro-F1** on a 1,110-clip TTS
+validation set (13 labels), and **99.2% accuracy** on 120 clips of real
+held-out voice never used in training. Chosen over LogisticRegression (97.2%)
+and RandomForest (96.1%) specifically for the lowest false-accept rate from
+`none` (**14/234** vs. 19 and 28) — firing an unwanted action mid-session is the
+costliest error class in this product.
+
+**Why English only:** this is a supervised classifier, so it needs labelled
+training audio per language. The English set was generated with TTS; there is no
+equivalent Sinhala TTS corpus of comparable quality, so **Sinhala stays on
+Stage 1 + Stage 2** (fuzzy + embedding, combined by `command_resolution.py`).
+This is a data-availability constraint, not a design preference.
+
+### Comparison
+
+| | Stage 1: Fuzzy text | Stage 2: Speaker embedding | Stage 3: Audio classifier |
+|---|---|---|---|
+| Input | Whisper transcript | Raw audio | Raw audio |
+| Survives ASR errors? | ❌ No | ✅ Yes | ✅ Yes |
+| Per-user enrollment | None | **60 clips** (12 × 5) | None |
+| Speaker dependence | Independent | **Dependent** (by design) | Independent |
+| Works for a new user? | ✅ Yes | ❌ Not until enrolled | ✅ Yes |
+| Explicit "not a command" class | Threshold only | Threshold only | ✅ Trained `none` class |
+| Languages | Both | Both | **English only** |
+| Headline accuracy | — | 85.4% sim. on the rescue case | **97.7% val / 99.2% real voice** |
+| Live in | Sinhala + English | Sinhala (+ English wake word) | English commands |
+
+The wake word (`"zimi"`) stays on **Stage 2 for both languages** — there is no
+separate English wake model. A student who enrolled "zimi" once in Sinhala does
+not re-enroll for English, since it is the same spoken word either way (see
+`_run_session` in `backend/app/api/routes/streaming.py`).
+
 ## How it works, end to end
 
 ### 1. Enrollment (recording samples)
@@ -49,9 +140,13 @@ re-deriving if the embedding dimension ever changes.
 Page: **Settings → Set up voice commands** (`/settings/voice-commands`,
 students only — `frontend/src/pages/VoiceEnrollmentPage.jsx`).
 
-For each of the six commands, the student records a short clip (reuses
-the same record → `MediaRecorder` blob → upload pattern as
-`AudioRecorder.jsx`, not a second recorder implementation). On upload:
+For each command in the active language's set (12 per language — see
+`COMMANDS_SI` / `COMMANDS_EN` in `backend/app/streaming/commands.py`:
+`next`, `previous`, `stop`, `save`, `submit`, `delete`, `option_1`–`option_4`,
+`cancel`, `answer`), the student records
+`voice_enrollment_samples_required` clips (default **5**). It reuses the same
+record → `MediaRecorder` blob → upload pattern as `AudioRecorder.jsx`, not a
+second recorder implementation. On upload:
 
 1. The backend converts whatever format the browser produced (webm/opus,
    typically) to 16kHz mono via `ffmpeg`.
@@ -59,14 +154,14 @@ the same record → `MediaRecorder` blob → upload pattern as
    encoder-only Whisper forward pass, mean-pooled, L2-normalized).
 3. If this command already has samples, the new embedding is compared
    against them. Below `voice_enrollment_min_sample_similarity`
-   (default 0.80), it's **rejected** — a mis-recorded sample would
+   (default 0.77), it's **rejected** — a mis-recorded sample would
    otherwise poison the bank — and the student is asked to say it again.
    The first sample for a command is always accepted (nothing to compare
    against yet).
 4. On acceptance, the embedding is stored in `command_enrollments`,
    keyed by `(user_id, command_id, sample_index)`.
 
-Resumable by design: nothing requires finishing all six commands in one
+Resumable by design: nothing requires finishing every command in one
 sitting, and the page shows per-command progress
 (`collected`/`required`) so a student can pick up where they left off.
 

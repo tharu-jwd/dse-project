@@ -10,6 +10,30 @@ Sinhala command mode is unaffected by any of this — it stays on the older
 fuzzy-transcript + speaker-embedding path (`command_resolution.resolve_command`),
 untouched. This classifier is English-only.
 
+## Where this sits in the design
+
+This is **stage 3** of three command-recognition approaches. The progression, why
+each stage was added, and a side-by-side comparison are documented in
+[`../docs/voice-enrollment.md`](../docs/voice-enrollment.md#the-three-approaches-and-why-each-one-was-added).
+In short:
+
+1. **Fuzzy text matching** — matches Whisper's transcript against command
+   phrases. Fails whenever ASR mistranscribes the phrase, which is common for
+   short commands (a real `මකන්න` "delete" clip came out as `මක් කන්නේ`).
+2. **Speaker-embedding matching** — compares raw audio against the student's own
+   enrolled recordings, so it survives ASR errors (it recognized that same clip
+   at 85.4% similarity). Cost: **60 enrollment clips per student** (12 commands ×
+   5 samples), and it only helps students who enroll.
+3. **This classifier** — removes the enrollment requirement entirely and is
+   speaker-independent, so it works for a brand-new user on their first session.
+   It also adds a trained **`none`** rejection class instead of relying on a
+   similarity threshold to infer "not a command."
+
+**Why English only:** a supervised classifier needs labelled training audio per
+language. The English set here is TTS-generated; there is no comparable Sinhala
+TTS corpus, so Sinhala remains on stages 1 + 2. That is a data-availability
+constraint, not a design preference.
+
 ## Pipeline
 
 ```
