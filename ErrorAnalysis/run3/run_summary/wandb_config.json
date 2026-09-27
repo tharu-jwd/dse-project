@@ -26,7 +26,7 @@
     "LABEL_0": 0,
     "LABEL_1": 1
   },
-  "run_name": "run2-lr3e-5-bs32_lora",
+  "run_name": "run3",
   "adafactor": false,
   "data_seed": null,
   "deepspeed": null,
@@ -53,7 +53,7 @@
   "min_length": 0,
   "model_type": "whisper",
   "optim_args": null,
-  "output_dir": "/workspace/whisper-small-sinhala-lora/run2-lr3e-5-bs32_lora",
+  "output_dir": "/workspace/whisper-small-sinhala-lora/run3",
   "past_index": -1,
   "save_steps": 500,
   "vocab_size": 51865,
@@ -68,7 +68,7 @@
   "label_names": [
     "labels"
   ],
-  "logging_dir": "/workspace/whisper-small-sinhala-lora/run2-lr3e-5-bs32_lora/runs/Aug25_05-19-28_1c75093c9f08",
+  "logging_dir": "/workspace/whisper-small-sinhala-lora/run3/runs/Aug25_05-19-28_1c75093c9f08",
   "peft_config": {
     "default": {
       "r": 32,

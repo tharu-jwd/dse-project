@@ -26,7 +26,7 @@
     "LABEL_0": 0,
     "LABEL_1": 1
   },
-  "run_name": "run6-lr3e-5-bs32_amd",
+  "run_name": "run2",
   "adafactor": false,
   "data_seed": null,
   "deepspeed": null,

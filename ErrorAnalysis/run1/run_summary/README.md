@@ -1,8 +1,8 @@
-# run1-lr3e-5-bs32
+# run1
 
-- **Canonical name (dse-project finetune_tracker.csv):** `run1-lr3e-5-bs32`
-- **W&B run:** [run1-lr3e-5-bs32](https://wandb.ai/yohanj-23-university-of-moratuwa/whisper/runs/peti3e5t) (id `peti3e5t`, state `finished`)
-- **Error-analysis folder:** `ErrorAnalysis/run1-lr3e-5-bs32/error_analysis/` -- originally saved under the inconsistent name `run1_full`, matched to this run by **hyperparameters** (lr, scheduler, batch size, LoRA config) and renamed to match this run's actual name.
+- **Canonical name (dse-project finetune_tracker.csv):** `run1`
+- **W&B run:** [run1](https://wandb.ai/yohanj-23-university-of-moratuwa/whisper/runs/peti3e5t) (id `peti3e5t`, state `finished`)
+- **Error-analysis folder:** `ErrorAnalysis/run1/error_analysis/` -- originally saved under the inconsistent name `run1_full`, matched to this run by **hyperparameters** (lr, scheduler, batch size, LoRA config) and renamed to match this run's actual name.
 
 ## Hyperparameters (from W&B config)
 - `learning_rate`: 3e-05

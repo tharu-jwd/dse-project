@@ -26,7 +26,7 @@
     "LABEL_0": 0,
     "LABEL_1": 1
   },
-  "run_name": "run1-lr3e-5-bs32",
+  "run_name": "run1",
   "adafactor": false,
   "data_seed": null,
   "deepspeed": null,
@@ -52,7 +52,7 @@
   "min_length": 0,
   "model_type": "whisper",
   "optim_args": null,
-  "output_dir": "/workspace/whisper-small-sinhala/run1-lr3e-5-bs32",
+  "output_dir": "/workspace/whisper-small-sinhala/run1",
   "past_index": -1,
   "save_steps": 500,
   "vocab_size": 51865,
@@ -65,7 +65,7 @@
     "xla_fsdp_grad_ckpt": false
   },
   "label_names": null,
-  "logging_dir": "/workspace/whisper-small-sinhala/run1-lr3e-5-bs32/runs/Aug18_04-46-19_e95554486eec",
+  "logging_dir": "/workspace/whisper-small-sinhala/run1/runs/Aug18_04-46-19_e95554486eec",
   "push_to_hub": false,
   "return_dict": true,
   "temperature": 1,

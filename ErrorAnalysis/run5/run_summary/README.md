@@ -1,8 +1,8 @@
-# run5-v4-lr3e-5-bs64-v3-resume
+# run5
 
-- **Canonical name (dse-project finetune_tracker.csv):** `run5-v4-lr3e-5-bs64-v3-resume`
+- **Canonical name (dse-project finetune_tracker.csv):** `run5`
 - **W&B run:** [run7-v4-lr3e-5-bs64-v3-resume](https://wandb.ai/yohanj-23-university-of-moratuwa/whisper/runs/qww5akos) (id `qww5akos`, state `finished`)
-- **Error-analysis folder:** `ErrorAnalysis/run5-v4-lr3e-5-bs64-v3-resume/error_analysis/` -- originally saved under the inconsistent name `run5_full`, matched to this run by **hyperparameters** (lr, scheduler, batch size, LoRA config) and renamed to match this run's actual name.
+- **Error-analysis folder:** `ErrorAnalysis/run5/error_analysis/` -- originally saved under the inconsistent name `run5_full`, matched to this run by **hyperparameters** (lr, scheduler, batch size, LoRA config) and renamed to match this run's actual name.
 
 ## Resume chain (predecessor W&B attempts)
 This run is the last link in a 4-attempt chain, all logged as separate W&B runs under the (misleading) name `run7-v4-lr3e-5-bs64*`. Only the final attempt finished and is the one used for evaluation/error analysis above.

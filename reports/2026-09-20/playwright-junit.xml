@@ -1,0 +1,138 @@
+<testsuites id="" name="" tests="60" failures="0" skipped="0" errors="0" time="140.770834">
+<testsuite name="app.spec.js" timestamp="2026-09-20T16:05:42.622Z" hostname="chromium" tests="8" failures="0" skipped="0" time="14.699" errors="0">
+<testcase name="login › shows required-field errors and does not navigate" classname="app.spec.js" time="0.923">
+</testcase>
+<testcase name="login › demo student can sign in with the keyboard alone" classname="app.spec.js" time="1.586">
+</testcase>
+<testcase name="login › unauthenticated visits to a protected page redirect to login" classname="app.spec.js" time="0.615">
+</testcase>
+<testcase name="role boundaries in the UI › a student cannot open teacher pages" classname="app.spec.js" time="1.917">
+</testcase>
+<testcase name="accessibility (axe, WCAG A/AA) › login page" classname="app.spec.js" time="1.732">
+</testcase>
+<testcase name="accessibility (axe, WCAG A/AA) › /dashboard page" classname="app.spec.js" time="3.073">
+</testcase>
+<testcase name="accessibility (axe, WCAG A/AA) › /settings page" classname="app.spec.js" time="3.183">
+</testcase>
+<testcase name="accessibility (axe, WCAG A/AA) › high-contrast setting persists across reloads" classname="app.spec.js" time="1.67">
+</testcase>
+</testsuite>
+<testsuite name="browser-matrix.spec.js" timestamp="2026-09-20T16:05:42.622Z" hostname="chromium" tests="7" failures="0" skipped="0" time="10.236" errors="0">
+<testcase name="the app works in every engine › a student can sign in and reach the dashboard" classname="browser-matrix.spec.js" time="1.504">
+</testcase>
+<testcase name="the app works in every engine › client-side routing survives a hard reload on a deep link" classname="browser-matrix.spec.js" time="1.534">
+</testcase>
+<testcase name="the app works in every engine › no unexpected console errors on the main pages" classname="browser-matrix.spec.js" time="2.009">
+</testcase>
+<testcase name="recording APIs the product depends on › reports what this engine actually supports" classname="browser-matrix.spec.js" time="0.719">
+</testcase>
+<testcase name="recording APIs the product depends on › every engine has what streaming needs, with or without MediaRecorder" classname="browser-matrix.spec.js" time="0.576">
+</testcase>
+<testcase name="layout › no horizontal scrolling at this viewport" classname="browser-matrix.spec.js" time="3.176">
+</testcase>
+<testcase name="layout › the primary action stays reachable and tappable" classname="browser-matrix.spec.js" time="0.718">
+</testcase>
+</testsuite>
+<testsuite name="app.spec.js" timestamp="2026-09-20T16:05:42.622Z" hostname="firefox" tests="8" failures="0" skipped="0" time="20.226" errors="0">
+<testcase name="login › shows required-field errors and does not navigate" classname="app.spec.js" time="2.208">
+</testcase>
+<testcase name="login › demo student can sign in with the keyboard alone" classname="app.spec.js" time="2.128">
+</testcase>
+<testcase name="login › unauthenticated visits to a protected page redirect to login" classname="app.spec.js" time="0.801">
+</testcase>
+<testcase name="role boundaries in the UI › a student cannot open teacher pages" classname="app.spec.js" time="2.533">
+</testcase>
+<testcase name="accessibility (axe, WCAG A/AA) › login page" classname="app.spec.js" time="2.1">
+</testcase>
+<testcase name="accessibility (axe, WCAG A/AA) › /dashboard page" classname="app.spec.js" time="3.763">
+</testcase>
+<testcase name="accessibility (axe, WCAG A/AA) › /settings page" classname="app.spec.js" time="4.108">
+</testcase>
+<testcase name="accessibility (axe, WCAG A/AA) › high-contrast setting persists across reloads" classname="app.spec.js" time="2.585">
+</testcase>
+</testsuite>
+<testsuite name="browser-matrix.spec.js" timestamp="2026-09-20T16:05:42.622Z" hostname="firefox" tests="7" failures="0" skipped="0" time="16.293" errors="0">
+<testcase name="the app works in every engine › a student can sign in and reach the dashboard" classname="browser-matrix.spec.js" time="2.203">
+</testcase>
+<testcase name="the app works in every engine › client-side routing survives a hard reload on a deep link" classname="browser-matrix.spec.js" time="3.668">
+</testcase>
+<testcase name="the app works in every engine › no unexpected console errors on the main pages" classname="browser-matrix.spec.js" time="2.909">
+</testcase>
+<testcase name="recording APIs the product depends on › reports what this engine actually supports" classname="browser-matrix.spec.js" time="1.143">
+</testcase>
+<testcase name="recording APIs the product depends on › every engine has what streaming needs, with or without MediaRecorder" classname="browser-matrix.spec.js" time="1.219">
+</testcase>
+<testcase name="layout › no horizontal scrolling at this viewport" classname="browser-matrix.spec.js" time="3.885">
+</testcase>
+<testcase name="layout › the primary action stays reachable and tappable" classname="browser-matrix.spec.js" time="1.266">
+</testcase>
+</testsuite>
+<testsuite name="app.spec.js" timestamp="2026-09-20T16:05:42.622Z" hostname="webkit" tests="8" failures="0" skipped="0" time="24.058" errors="0">
+<testcase name="login › shows required-field errors and does not navigate" classname="app.spec.js" time="1.986">
+</testcase>
+<testcase name="login › demo student can sign in with the keyboard alone" classname="app.spec.js" time="3.495">
+</testcase>
+<testcase name="login › unauthenticated visits to a protected page redirect to login" classname="app.spec.js" time="1.367">
+</testcase>
+<testcase name="role boundaries in the UI › a student cannot open teacher pages" classname="app.spec.js" time="2.929">
+</testcase>
+<testcase name="accessibility (axe, WCAG A/AA) › login page" classname="app.spec.js" time="2.286">
+</testcase>
+<testcase name="accessibility (axe, WCAG A/AA) › /dashboard page" classname="app.spec.js" time="4.295">
+</testcase>
+<testcase name="accessibility (axe, WCAG A/AA) › /settings page" classname="app.spec.js" time="4.34">
+</testcase>
+<testcase name="accessibility (axe, WCAG A/AA) › high-contrast setting persists across reloads" classname="app.spec.js" time="3.36">
+</testcase>
+</testsuite>
+<testsuite name="browser-matrix.spec.js" timestamp="2026-09-20T16:05:42.622Z" hostname="webkit" tests="7" failures="0" skipped="0" time="19.378" errors="0">
+<testcase name="the app works in every engine › a student can sign in and reach the dashboard" classname="browser-matrix.spec.js" time="2.984">
+</testcase>
+<testcase name="the app works in every engine › client-side routing survives a hard reload on a deep link" classname="browser-matrix.spec.js" time="3.448">
+</testcase>
+<testcase name="the app works in every engine › no unexpected console errors on the main pages" classname="browser-matrix.spec.js" time="3.593">
+</testcase>
+<testcase name="recording APIs the product depends on › reports what this engine actually supports" classname="browser-matrix.spec.js" time="1.567">
+</testcase>
+<testcase name="recording APIs the product depends on › every engine has what streaming needs, with or without MediaRecorder" classname="browser-matrix.spec.js" time="1.381">
+</testcase>
+<testcase name="layout › no horizontal scrolling at this viewport" classname="browser-matrix.spec.js" time="4.939">
+</testcase>
+<testcase name="layout › the primary action stays reachable and tappable" classname="browser-matrix.spec.js" time="1.466">
+</testcase>
+</testsuite>
+<testsuite name="app.spec.js" timestamp="2026-09-20T16:05:42.622Z" hostname="mobile-chrome" tests="8" failures="0" skipped="0" time="16.295" errors="0">
+<testcase name="login › shows required-field errors and does not navigate" classname="app.spec.js" time="0.859">
+</testcase>
+<testcase name="login › demo student can sign in with the keyboard alone" classname="app.spec.js" time="1.471">
+</testcase>
+<testcase name="login › unauthenticated visits to a protected page redirect to login" classname="app.spec.js" time="0.528">
+</testcase>
+<testcase name="role boundaries in the UI › a student cannot open teacher pages" classname="app.spec.js" time="1.731">
+</testcase>
+<testcase name="accessibility (axe, WCAG A/AA) › login page" classname="app.spec.js" time="1.706">
+</testcase>
+<testcase name="accessibility (axe, WCAG A/AA) › /dashboard page" classname="app.spec.js" time="3.537">
+</testcase>
+<testcase name="accessibility (axe, WCAG A/AA) › /settings page" classname="app.spec.js" time="4.323">
+</testcase>
+<testcase name="accessibility (axe, WCAG A/AA) › high-contrast setting persists across reloads" classname="app.spec.js" time="2.14">
+</testcase>
+</testsuite>
+<testsuite name="browser-matrix.spec.js" timestamp="2026-09-20T16:05:42.622Z" hostname="mobile-chrome" tests="7" failures="0" skipped="0" time="11.738" errors="0">
+<testcase name="the app works in every engine › a student can sign in and reach the dashboard" classname="browser-matrix.spec.js" time="2.369">
+</testcase>
+<testcase name="the app works in every engine › client-side routing survives a hard reload on a deep link" classname="browser-matrix.spec.js" time="1.997">
+</testcase>
+<testcase name="the app works in every engine › no unexpected console errors on the main pages" classname="browser-matrix.spec.js" time="2.26">
+</testcase>
+<testcase name="recording APIs the product depends on › reports what this engine actually supports" classname="browser-matrix.spec.js" time="0.499">
+</testcase>
+<testcase name="recording APIs the product depends on › every engine has what streaming needs, with or without MediaRecorder" classname="browser-matrix.spec.js" time="0.509">
+</testcase>
+<testcase name="layout › no horizontal scrolling at this viewport" classname="browser-matrix.spec.js" time="3.444">
+</testcase>
+<testcase name="layout › the primary action stays reachable and tappable" classname="browser-matrix.spec.js" time="0.66">
+</testcase>
+</testsuite>
+</testsuites>

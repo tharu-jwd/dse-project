@@ -1,8 +1,8 @@
-# run6-lr3e-5-bs32_amd
+# run2
 
-- **Canonical name (dse-project finetune_tracker.csv):** `run6-lr3e-5-bs32_amd`
-- **W&B run:** [run6-lr3e-5-bs32_amd](https://wandb.ai/yohanj-23-university-of-moratuwa/whisper/runs/rcb54cuc) (id `rcb54cuc`, state `finished`)
-- **Error-analysis folder:** `ErrorAnalysis/run6-lr3e-5-bs32_amd/error_analysis/` -- originally saved under the inconsistent name `run2_amd_lora`, matched to this run by **hyperparameters** (lr, scheduler, batch size, LoRA config) and renamed to match this run's actual name.
+- **Canonical name (dse-project finetune_tracker.csv):** `run2`
+- **W&B run:** [run2](https://wandb.ai/yohanj-23-university-of-moratuwa/whisper/runs/rcb54cuc) (id `rcb54cuc`, state `finished`)
+- **Error-analysis folder:** `ErrorAnalysis/run2/error_analysis/` -- originally saved under the inconsistent name `run2_amd_lora`, matched to this run by **hyperparameters** (lr, scheduler, batch size, LoRA config) and renamed to match this run's actual name.
 
 ## Hyperparameters (from W&B config)
 - `learning_rate`: 5e-05
