@@ -24,16 +24,25 @@ Full fine-tune, lr=3e-5 linear, per_device_bs=8 x grad_accum=4 (eff. 32), 4 epoc
 
 ## Why this run matters: it is the baseline that drove the data fix
 
+*Two WER figures for this run, by design:* the section above quotes **17.08%**
+(the tracker's `evaluate_finetuned.py` figure); this section and the
+error-analysis outputs use **17.36%** (`error_analysis.py` re-scoring
+`predictions.csv`). run1 is the only one of the five runs where the two scripts
+disagree. The cause was not investigated. See `Analysis.md` §1a.
+
 run1 is the **best WER of the five runs (17.36%)** and also the run whose error
 analysis exposed the data defect that `stratified_v4` and `stratified_v5` were
-built to fix. It was trained on `stratified` (v1) — the original split, which
-was **not speaker-disjoint**.
+built to fix. It was trained on `stratified` (v1), the original split, which was
+not built as a speaker-disjoint split.
 
 ### What clustering its 6,128 wrong samples revealed
 
-| Cluster | Size | Share of errors | What it is |
+The "what it shows" column is my reading of each cluster's five worst examples,
+not a measured label. The clusters are unsupervised (see `Analysis.md` §2c).
+
+| Cluster | Size | Share of errors | What its worst examples show |
 |---|---|---|---|
-| **1** | **2,749** | **44.9%** | **Word-boundary / compounding disagreement** |
+| **1** | **2,749** | **44.9%** | Spacing disagreements (largest, least distinctive cluster) |
 | 3 | 857 | 14.0% | Verb-ending splits + colloquial endings |
 | 7 | 633 | 10.3% | Clitic-particle gluing (`ම`, `ව`) |
 | 5 | 534 | 8.7% | Compound-verb splits (`සිදු කිරීම`) |
@@ -42,8 +51,11 @@ was **not speaker-disjoint**.
 | 6 | 323 | 5.3% | Colloquial `තියෙන`/`තියන` + spacing |
 | 0 | 278 | 4.5% | ZWJ yansaya conjunct (`්‍ය`) |
 
-**Nearly half of all errors were spacing disagreements, not mishearing.** The
-model transcribed the right sounds and disagreed only about where word breaks go:
+**About 42% of the wrong samples were spacing disagreements, not mishearing.**
+Measured directly: 2,551 of 6,128 (41.6%) become identical to the reference once
+spaces and punctuation are removed, and they carry 42.6% of all word-level errors.
+In these the model transcribed the right sounds and disagreed only about where
+word breaks go:
 
 | Reference | Prediction | WER |
 |---|---|---|
@@ -79,9 +91,10 @@ prediction is arguably the *more* standard written form.
 ### What was done about it
 
 Two changes, producing `stratified_v4`: **spacing/compounding normalization**
-across all four source corpora, and a **speaker-disjoint re-split** (the v1 split
-put the same speakers in train and test, so part of this run's 17.36% was speaker
-memorization). run5 re-ran this run's recipe on that data — see
+across all four source corpora, and a **speaker-disjoint re-split** (v1 was not
+built as a speaker-disjoint split, so its test set may share speakers with train,
+which would flatter this run's 17.36%. That effect was not measured; the parquet
+files have no speaker column to measure it with). run5 re-ran this run's recipe on that data — see
 [`../../run5/run_summary/README.md`](../../run5/run_summary/README.md) for the
 before/after comparison, and [`../../Analysis.md`](../../Analysis.md) §3 for the
 full diagnosis.
@@ -93,11 +106,13 @@ samples, speaker-disjoint). See `Analysis.md` §5a.
 ### Caveat: catastrophic English forgetting
 
 This run destroyed the base model's English: **80.86% English WER vs. 4.27% for
-base Whisper-small (+76.59 pt, "severe")**. Full fine-tuning at lr 3e-5 is the
-cause — run4 (wider LoRA targets) and `full-lr1e-5-e4-cosine-bs64` (lr 1e-5,
-cosine) both stayed within +3 pt. This is why English voice commands do not go
-through this model at all; they use a dedicated audio classifier
-([`openWake/README.md`](../../../openWake/README.md)).
+base Whisper-small (+76.59 pt, "severe")**. run4 (wider LoRA targets) and
+`full-lr1e-5-e4-cosine-bs64` (lr 1e-5, cosine) both stayed within +3 pt, but those
+runs differ from this one in several variables at once, so this doesn't isolate
+which of them caused the loss. After the wake word, English voice commands are
+classified by a separate audio classifier that works from raw audio rather than
+from a Whisper transcript ([`openWake/README.md`](../../../openWake/README.md)).
+The repo doesn't say whether forgetting motivated that choice.
 
 ## Contents of this folder
 - `training_curves.png` - train/eval loss, eval WER, eval CER vs. step (from W&B history)

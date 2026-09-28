@@ -29,10 +29,12 @@ In short:
    It also adds a trained **`none`** rejection class instead of relying on a
    similarity threshold to infer "not a command."
 
-**Why English only:** a supervised classifier needs labelled training audio per
-language. The English set here is TTS-generated; there is no comparable Sinhala
-TTS corpus, so Sinhala remains on stages 1 + 2. That is a data-availability
-constraint, not a design preference.
+**Why English only:** the repo doesn't document a reason. What it does show is
+that the training set is TTS-generated English (`generate.py` uses Microsoft
+Edge TTS voices plus gTTS in US/UK/Indian/Australian accents) and that no
+Sinhala equivalent has been built, so Sinhala stays on stages 1 + 2. Whether a
+Sinhala set could be generated the same way hasn't been checked, so treat this
+as an open question rather than a settled constraint.
 
 ## Pipeline
 

@@ -1,0 +1,108 @@
+=== run6-v5-lr3e-5-bs64: 6698 wrong samples grouped into 8 clusters ===
+(clusters are by textual similarity of reference+prediction, not meaning -- 
+ use them to spot repeated failure patterns, e.g. same speaker/topic/word)
+
+--- cluster 0 (1044 samples, avg WER 0.38, top n-grams: න් , න්, ් , ින, ින්, ින් , ෙන, ෙන් ) ---
+  WER=3.00  ref:  ඒවංමේසුතං!
+              pred: ඒවන් මේ සුතාන්
+  WER=1.50  ref:  කාසාවකණ්ඨක යනුවෙන්
+              pred: කසාව කන්ට් එක යනුවෙන්
+  WER=1.50  ref:  දිවැසින් බැලූසේක.
+              pred: දිවෙසින් බැලූ සේක.
+  WER=1.50  ref:  ඒකට සමාවෙයන්
+              pred: එකට සමාව යන්
+  WER=1.50  ref:  දිවැසින් බැලූසේක.
+              pred: දෙවැසින් බැලූ සේක.
+  ... and 1039 more in this cluster (see run6-v5-lr3e-5-bs64_errors_by_severity.csv)
+
+--- cluster 1 (3214 samples, avg WER 0.41, top n-grams: ් ,  ව,  ම,  ස, ේ , ා , ක්, ට ) ---
+  WER=3.00  ref:  ඔබාමාමා
+              pred: ඔබා මා මා
+  WER=2.00  ref:  කදාවළලු,
+              pred: කඳා වළලු.
+  WER=2.00  ref:  එච්.සී.පී.බෙල් පවසයි.
+              pred: එච් ලී පී බෙල් පවසයි
+  WER=2.00  ref:  එලඑකක්.
+              pred: පල එකක්.
+  WER=2.00  ref:  ඩී.එස්.සේනානායක,
+              pred: ඩීයෙක් සේනානායක
+  ... and 3209 more in this cluster (see run6-v5-lr3e-5-bs64_errors_by_severity.csv)
+
+--- cluster 2 (660 samples, avg WER 0.36, top n-grams: ්‍, ්‍ර, ‍ර, ප්‍ර, ප්‍, ප්,  ප්‍,  ප්) ---
+  WER=2.00  ref:  ක්‍රියාකළ යුතුයි.
+              pred: ක්‍රියා කළ හිතු වේ.
+  WER=2.00  ref:  ප්‍රායෝගිකවශයෙන්
+              pred: ප්‍රායෝගික වශයෙන්
+  WER=2.00  ref:  ලක්‍ෂණත්ය.
+              pred: ලක්‍ෂණ අත්‍ය.
+  WER=1.50  ref:  අතිමාත්‍රයෙන් විඳීම
+              pred: අති මාත්‍රයෙන් මිදීම
+  WER=1.33  ref:  අර්ජුන වික්‍රමාරච්චි මහතා
+              pred: අඩු ජූනු වික්‍රමාරාජ්‍ය අහතා
+  ... and 655 more in this cluster (see run6-v5-lr3e-5-bs64_errors_by_severity.csv)
+
+--- cluster 3 (125 samples, avg WER 0.35, top n-grams: වහන්, වහන, හන්ස, න්සේ, වහ, න්ස, ්සේ,  වහන) ---
+  WER=1.33  ref:  ක්රිස්තුස්වහන්සේගේ දෙවෙනි පෑමිනීමයි
+              pred: උපසුන් වහන්සේගේ දෙවැනි පැමිණීමයි.
+  WER=1.14  ref:  ඉක්බිති ආයුෂ්මත් මහාකස්සපයන් වහන්සේ භික්ෂූන් ඇමතූ සේක
+              pred: ඉක්බිත අරුෂ්මත් මහා කශ්‍යපයන් වහන්සේ භික්ෂූ නැමැති වූ ශේක
+  WER=1.00  ref:  බුදුරජාණන් වහන්සේ සැවැත්නුවර ජේතවනාරාමයෙහි වැඩවෙසෙන විට
+              pred: බුදුරජාණන් වහන්සේ සැවැත් නුර ජේතවනා රාමයෙහි වැඩ වැසෙන විට
+  WER=0.83  ref:  එතුමිය පිරිනිවී පසු එතැනට වැඩිය උන්වහන්සේ
+              pred: එතුමය පිරුණු වී ම පසු එතැනට වැඩි උන්වහන්සේ
+  WER=0.80  ref:  ඔබ වහන්සේ නිර්වාණාවබෝධය ලැබී නම්
+              pred: ඔබවහන්සේ නිර්වාණාවබෝධය ලැබීනම්
+  ... and 120 more in this cluster (see run6-v5-lr3e-5-bs64_errors_by_severity.csv)
+
+--- cluster 4 (405 samples, avg WER 0.38, top n-grams: ිය,  කිය, කිය,  කි, කි,  ක, ා , ලා) ---
+  WER=4.60  ref:  ඒත් කියන දේ ලියන දේ
+              pred: අද ඔය කියලා අද අදට නම් සයින් එකයි නමයි සමහර වායු කිරීම ජයවර්ධන කියලා. මේ message එකක් ආවේ නෑ. මතකව ටික කියවනේ තියනවා. ඒත් කියන දේ ලියන දේ
+  WER=1.00  ref:  එහාට විහිදෙනවා.
+              pred: එහාට වියහි දෙනවා.
+  WER=1.00  ref:  කලබල ඇතිවෙනවා.
+              pred: කලබල ඇති වෙනවා.
+  WER=1.00  ref:  ගැටළු තියනවානම් අහන්න
+              pred: ගැටට තියෙනවා නම් අහන්න
+  WER=1.00  ref:  යැයි කියැවේ.
+              pred: යයි කියවේ
+  ... and 400 more in this cluster (see run6-v5-lr3e-5-bs64_errors_by_severity.csv)
+
+--- cluster 5 (435 samples, avg WER 0.37, top n-grams: ්නේ, න්නේ, නේ, ්නේ , නේ , න්න, ්න, න්) ---
+  WER=1.50  ref:  පුරුදුවන්න යැයි
+              pred: පුරුදු වන්නේ ඇයි?
+  WER=1.50  ref:  එකපාරටම කියන්නේ?
+              pred: එක පාරට ම කියන්නේ
+  WER=1.50  ref:  මේ ආශ්‍රම භූමියතුලදී ඉවතලන්නේ
+              pred: මෙම ආශ්‍රම භූමිය තුළ දී ඉවත යන්නේ
+  WER=1.00  ref:  කුසගින්නේ මියැදීමට ය.
+              pred: කුසගින්නෙ මියැදීමටය.
+  WER=1.00  ref:  ඉතා සංයමයෙන්
+              pred: ඉතා සන්නේ මේ
+  ... and 430 more in this cluster (see run6-v5-lr3e-5-bs64_errors_by_severity.csv)
+
+--- cluster 6 (139 samples, avg WER 0.40, top n-grams: හැක, ැක, ැකි, හැකි,  හැක, හැ,  හැ, කි) ---
+  WER=1.50  ref:  ඔබට පෙනීයාහැකිය.
+              pred: ඔබට පෙනී යා හැකිය.
+  WER=1.33  ref:  කටපුරා කිවහැකි නිෂ්පාදනයක්
+              pred: කට පුරා කිව හැකි නිෂ්පාදනයක්
+  WER=1.00  ref:  හිතාගන්ඩ ඇහැකි නේ
+              pred: හිතා ගන්න හැකි නේ
+  WER=1.00  ref:  සුබාන්වල විය හැකියි
+              pred: සුභ අනුන් වන විය හැකියි.
+  WER=1.00  ref:  මෙවැනි සිද්ධීන් නවතාලිය නොහැකියි.
+              pred: මෙවැනි සිද්ධීන් තාවකාලික නො විය හැක.
+  ... and 134 more in this cluster (see run6-v5-lr3e-5-bs64_errors_by_severity.csv)
+
+--- cluster 7 (676 samples, avg WER 0.38, top n-grams: න්න, ්න, න්, න්න , ්න , න , ් , ෙන) ---
+  WER=2.00  ref:  ආතර්ගෙම්ම අහගන්නකෝ.
+              pred: ආතර් ගෙන් ම අහන්නකෝ.
+  WER=2.00  ref:  අවදිවන්න
+              pred: අවදි වන්න.
+  WER=1.33  ref:  ඒ ඝණදුර නැතිවෙන්න
+              pred: ඒ ගනන්දු ර නැති වෙන්න
+  WER=1.00  ref:  පුළුවන් දේවල්ද?
+              pred: පුළුවන් දේවල් ද
+  WER=1.00  ref:  හිතා ගන්න බැ
+              pred: හිතාගන්න බෑ.
+  ... and 671 more in this cluster (see run6-v5-lr3e-5-bs64_errors_by_severity.csv)
+

@@ -47,16 +47,17 @@ corpora, and **speaker-disjoint** train/validation/test splits.
 | Speaker-disjoint? | **No** | **Yes** |
 | WER | 17.36% | 19.06% |
 
-run1's test set contained speakers the model had trained on, so part of its
-17.36% was speaker memorization. run5's 19.06% is measured entirely on **voices
-the model had never heard**. A higher number on a harder, honest test is not a
-worse model.
+v1 was not built as a speaker-disjoint split, so run1's test set may share
+speakers with its training data, which would flatter its 17.36%. That effect was
+not measured (the parquet files have no speaker column). run5's 19.06% is measured
+on a speaker-disjoint split, so it reflects **voices the model had not heard**. A
+higher number on a stricter test is not necessarily a worse model.
 
 Two further confounds to disclose: run5 used effective batch 64 (run1 used 32),
 and it was resumed mid-training from `checkpoint-5778` after a version
 incompatibility forced a pod switch (see "Resume chain" above).
 
-### The data fix demonstrably worked
+### The data fix looks like it worked (before/after evidence)
 
 The error-type split shows the trade directly:
 
@@ -65,8 +66,9 @@ The error-type split shows the trade directly:
 | run1 | 11.47% | **4.68%** | 1.21% |
 | run5 | 14.67% | **2.33%** | 2.07% |
 
-**Deletions halved** — that is the spacing fix landing. **Substitutions rose** —
-that is the cost of unseen speakers (genuine acoustic confusions on new voices).
+**Deletions halved**, consistent with the spacing fix landing (the glue pattern
+shows up as deletions). **Substitutions rose**, plausibly the cost of unseen
+speakers (acoustic confusions on new voices), though this run did not isolate that.
 
 run1's dominant error class was clitic particles written separately in the
 reference but glued on by the model. Those collapsed:
@@ -82,8 +84,11 @@ reference but glued on by the model. Those collapsed:
 
 Same story in the substitution table — the glue pattern (`එමෙන්`→`එමෙන්ම`,
 `පිළිබඳ`→`පිළිබඳව`, …) was **16 of run1's top 25** substitutions and is **1 of
-run5's top 25** (only `යුතු`→`යුතුය`). The error class that was 45% of run1's
-failures is effectively gone.
+run5's top 25** (only `යුතු`→`යුතුය`). Measured directly, wrong samples that
+differ from the reference only by spaces/punctuation fell from 2,551 (41.6% of
+wrong) in run1 to 1,013 (13.6%) in run5. This is before/after evidence, not a
+controlled ablation: the test split, effective batch size and resume history also
+differ between the two runs.
 
 ### What its re-clustering shows is left
 

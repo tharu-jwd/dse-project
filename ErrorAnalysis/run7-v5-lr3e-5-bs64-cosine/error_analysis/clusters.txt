@@ -1,0 +1,108 @@
+=== run7-v5-lr3e-5-bs64-cosine: 6815 wrong samples grouped into 8 clusters ===
+(clusters are by textual similarity of reference+prediction, not meaning -- 
+ use them to spot repeated failure patterns, e.g. same speaker/topic/word)
+
+--- cluster 0 (948 samples, avg WER 0.38, top n-grams: න්න, ්න, න්, න්න , ්න , න , නේ, ්නේ) ---
+  WER=2.00  ref:  අවදිවන්න
+              pred: අවදි වන්න.
+  WER=1.50  ref:  පුරුදුවන්න යැයි
+              pred: පුරුදු වන්නේ ඇයි?
+  WER=1.50  ref:  ආතර්ගෙම්ම අහගන්නකෝ.
+              pred: ආතර් ගෙම් අහන්නකෝ.
+  WER=1.50  ref:  ශිෂ්ඨසම්පන්න උනානම් කොච්චර හොදද?
+              pred: ශිෂ්ට සම්පන්න වුණා නම් කොච්චර හොඳ ද
+  WER=1.33  ref:  පවත්වන්නේ කිංස්බරි හෝටලයේදී.
+              pred: පවත්වන්නේ කින්ස් බෙරි හෝටලයේ දී
+  ... and 943 more in this cluster (see run7-v5-lr3e-5-bs64-cosine_errors_by_severity.csv)
+
+--- cluster 1 (375 samples, avg WER 0.38, top n-grams: කි, හැක, යුත, ැක, හැකි, ැකි, යු, යුතු) ---
+  WER=1.50  ref:  ඔබට පෙනීයාහැකිය.
+              pred: ඔබට පෙනී යා හැකිය.
+  WER=1.33  ref:  ලබාදෙන්නට අපට හැකිවිය.
+              pred: ලබා දෙන්නට අපට හැකි විය.
+  WER=1.33  ref:  ඕනෑකමක් තිබිය යුතුය.
+              pred: ඕනෑ කමක් තිබිය යුතු ය.
+  WER=1.33  ref:  ඊට වගකිවයුත්තන්ට එරෙහිව
+              pred: ඊට වග කෙවියුත්තන්ට එරෙහි ව
+  WER=1.00  ref:  එක්තැන් කිරීමට
+              pred: එක් තැන් කිරීමට
+  ... and 370 more in this cluster (see run7-v5-lr3e-5-bs64-cosine_errors_by_severity.csv)
+
+--- cluster 2 (371 samples, avg WER 0.36, top n-grams:  කිය, කිය,  කි, කි, ිය,  ක, ියල, කියල) ---
+  WER=3.38  ref:  episode එකේ ඉඳන් මේක බලගෙන එන්න කියලා. 0766026171
+              pred: මේක බලාගෙන එන්න කියලා. 0766026171 ක් බිදුකයි 0766026171 ක් බිදුකයි 0766026171 ක් බිදුකයි 0766026171 ක් බිදුකයි 0766026171 ක් බිදුකයි 07660261 ක් බිදුකයි 07660261 ක් බිදුකයි 07660261 ක් බිදුකය�
+  WER=2.00  ref:  කැල්කියුලස්
+              pred: කැල් කියුලස්
+  WER=1.50  ref:  එකපාරටම කියන්නේ?
+              pred: එක පාරට ම කියන්නේ
+  WER=1.00  ref:  තිබුනනම් කියලා
+              pred: තිබුණා නම් කියලා.
+  WER=1.00  ref:  මැන්චෙස්ටර් අත් ඔරලෝසුව වටිනා කියන එකක්ලුනෙ.
+              pred: මැංච්යෙස්ට ඇත්තට ලස්සේ වඩිනා කියන එකක් ලුණේ
+  ... and 366 more in this cluster (see run7-v5-lr3e-5-bs64-cosine_errors_by_severity.csv)
+
+--- cluster 3 (611 samples, avg WER 0.36, top n-grams: ‍ර, ්‍ර, ්‍, ප්‍, ප්‍ර, ප්,  ප්‍,  ප්) ---
+  WER=2.00  ref:  ප්‍රායෝගිකවශයෙන්
+              pred: ප්‍රායෝගික වශයෙන්
+  WER=1.67  ref:  අර්ජුන වික්‍රමාරච්චි මහතා
+              pred: අඩු ජනු වික්‍රමා රජ්ජි අහතා
+  WER=1.67  ref:  එය සත්‍යයද අසත්‍යද
+              pred: එය සත්‍යය ය ද අසත්‍ය ද
+  WER=1.50  ref:  වාරිත්‍ර ශීලයයි.
+              pred: වාරිත්ව සීලා යයි.
+  WER=1.00  ref:  සූත්‍රගත කොට
+              pred: සූත්‍ර ගත කොට
+  ... and 606 more in this cluster (see run7-v5-lr3e-5-bs64-cosine_errors_by_severity.csv)
+
+--- cluster 4 (372 samples, avg WER 0.37, top n-grams: නව, නවා, වා, ෙනව, ෙනවා, ෙන, නවා , ා ) ---
+  WER=1.50  ref:  ආසාවක් ඇතිවෙනවා.
+              pred: ආශාවක් ඇති වෙනවා.
+  WER=1.33  ref:  අටුවාවෙන් ඇරපු රෝලක්.
+              pred: අටුවා වෙන ඇරඹුර ඕලා
+  WER=1.00  ref:  හිතෙනවා
+              pred: හිතනවා
+  WER=1.00  ref:  අඩිපාරක් තියෙනවා.
+              pred: අඩි පාරක් තියෙනවා
+  WER=1.00  ref:  මේ ගොල්ලෝ මුනිවත රකිනවා
+              pred: මේගොල්ලෝ මොනිවසරක් එනවා
+  ... and 367 more in this cluster (see run7-v5-lr3e-5-bs64-cosine_errors_by_severity.csv)
+
+--- cluster 5 (1241 samples, avg WER 0.39, top n-grams: න්, න් , ් ,  ස, ින, සි, ින්,  සි) ---
+  WER=3.00  ref:  ඒවංමේසුතං!
+              pred: එවන් මේ සුතන්
+  WER=1.50  ref:  දිවැසින් බැලූසේක.
+              pred: දිවෙසින් බැලූ සියයි.
+  WER=1.50  ref:  සිතුවිලිවල රළුභාවයන්
+              pred: සිතිවිලිවල රළු භාවයන්
+  WER=1.50  ref:  දිවැසින් බැලූසේක.
+              pred: දෙවැසියෙන් බැලූ සේක.
+  WER=1.50  ref:  හීනමානයෙන් පෙලෙන්නෙකුට
+              pred: හීන මානයෙන් පැලෙන්නෙකුට
+  ... and 1236 more in this cluster (see run7-v5-lr3e-5-bs64-cosine_errors_by_severity.csv)
+
+--- cluster 6 (2778 samples, avg WER 0.41, top n-grams: ් ,  ම,  ව, ේ , ක්, ත්, ා , ි ) ---
+  WER=6.33  ref:  මේ දිග ඇනෝ කමෙන්ටුවක් දාලා තියෙන්නේ
+              pred: මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම මෙම ම�
+  WER=3.00  ref:  ඔබාමාමා
+              pred: ඔබා මා මා
+  WER=2.00  ref:  එලඑකක්.
+              pred: පල එකක්.
+  WER=2.00  ref:  මොනතරම් අවාසනාවක්ද?
+              pred: මොන තරම් අවාසනාවක් ද
+  WER=2.00  ref:  බුද්ධකාලයේ
+              pred: බුද්ධ කාලයේ
+  ... and 2773 more in this cluster (see run7-v5-lr3e-5-bs64-cosine_errors_by_severity.csv)
+
+--- cluster 7 (119 samples, avg WER 0.37, top n-grams: හන්ස, වහන්, වහන, න්සේ, න්ස, වහ, හන්, ්සේ) ---
+  WER=1.00  ref:  බුදුන් වහන්සේට
+              pred: බුදුන්වහන්සේට
+  WER=1.00  ref:  ක්රිස්තුස්වහන්සේගේ දෙවෙනි පෑමිනීමයි
+              pred: බිස්තුන් වහන්සේගේ දෙවෙනි පැමිණීමයි.
+  WER=1.00  ref:  යේසුස් වහන්සේටත්
+              pred: යුෂ්ණු ස්වහන්සේටත්
+  WER=0.83  ref:  බුදුරජාණන් වහන්සේ සැවැත්නුවර ජේතවනාරාමයෙහි වැඩවෙසෙන විට
+              pred: බුදුරජාණන් වහන්සේ සැවැත් නුර ජේතවනා රාමයෙහි වැඩවැසින විට
+  WER=0.80  ref:  බුදුරජාණන් වහන්සේගේ තුන්වන ලංකා ගමනයේදි
+              pred: බුදුරජාණන් වහන්සේගේ තුන් වන ලංකා ගමනයේ දී
+  ... and 114 more in this cluster (see run7-v5-lr3e-5-bs64-cosine_errors_by_severity.csv)
+

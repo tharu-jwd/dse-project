@@ -16,10 +16,10 @@ once is the whole point.
 | Step | What was done | Outcome |
 |---|---|---|
 | 1 | Fine-tuned 5 configurations (full FT vs. LoRA variants) on `stratified` (v1) | Best: **run1, 17.36% WER** (full fine-tune) |
-| 2 | Clustered run1's 6,128 wrong samples to find *what kind* of errors they were | The single largest cluster (2,749 / 6,128 = **45%**) was pure **word-boundary/spacing** disagreement, not mishearing |
+| 2 | Clustered run1's 6,128 wrong samples to find *what kind* of errors they were | Measured directly: **2,551 of 6,128 (41.6%)** differ from the reference *only* by spaces/punctuation, and carry **42.6%** of all word-level errors: spacing disagreement, not mishearing |
 | 3 | Fixed the data: spacing normalization + **speaker-disjoint** re-split → `stratified_v4` | — |
 | 4 | Re-ran the same recipe as run1 on the new data → **run5, 19.06% WER** | Headline WER rose, but the targeted class collapsed (see §5) |
-| 5 | Re-clustered run5 | Spacing errors down ~84–94%; the new #1 residual is **register/spelling inconsistency**, and it shows up **bidirectionally** — proof it is a label defect, not an acoustic one |
+| 5 | Re-clustered run5 | Spacing-only wrong samples fell from 41.6% to **13.6%**, and the particle-deletion counts fell 84%; the new #1 residual is **register/spelling inconsistency**, and it shows up **bidirectionally**, which points to a label defect rather than an acoustic one |
 | 6 | Built and applied register + boundary normalization → `stratified_v5` (published) | Next fine-tune pending; see [`run5/NORMALIZATION_APPROACH.md`](run5/NORMALIZATION_APPROACH.md) |
 
 The crucial methodological point, stated up front so no chart in this document
@@ -64,6 +64,16 @@ Corpus-level WER and the error-type breakdown, from `comparison_summary.csv`:
 | **run2** | LoRA (AMD hw) | 15,483 | 7,522 (48.6%) | 21.01% | 15.80% | 2.89% | 2.32% |
 | **run4** | LoRA (r=32, wide targets) | 15,483 | 8,910 (57.5%) | 25.99% | 19.67% | 3.49% | 2.83% |
 | **run3** | LoRA (best-epoch2) | 15,483 | 13,993 (90.4%) | 59.07% | 45.22% | 11.22% | 2.63% |
+
+**One number to state carefully: run1's WER is 17.36% here but 17.08% in
+`finetune_tracker.csv`.** The two come from different scripts: the tracker figure
+is from `evaluate_finetuned.py`, and this table is `error_analysis.py` re-scoring
+`predictions.csv`. For run2–run5 the two agree to two decimals; run1 is the only
+run where they differ by 0.28 pt. The cause was not investigated. This document
+uses the `comparison_summary.csv` figures throughout because every cluster count,
+severity bin and confusion table below is derived from that same pipeline, so the
+cross-run comparisons stay internally consistent. On a slide, quote one figure and
+footnote the other.
 
 ## 1b. Severity distribution
 
@@ -118,11 +128,16 @@ Whisper-small (4.27% WER):
 | full-lr1e-5-cosine (full FT, lr 1e-5) | 6.06% | +1.79 pt | mild |
 | run5 | not evaluated | — | — |
 
-The pattern: **aggressive full fine-tuning at lr 3e-5 destroys English**
-(+76pt), while either a wider LoRA target set or a low LR (1e-5) with a cosine
-schedule preserves it (+2 to +3pt). That is why the English command path in the
-product does **not** go through the fine-tuned Sinhala model at all — it uses a
-dedicated audio classifier instead (see [`openWake/README.md`](../openWake/README.md)).
+The pattern: run1 (full FT, lr 3e-5, linear) lost most of its English (+76pt) and
+run2 (LoRA on `q,v` only) lost nearly as much (+69pt), while run4 (LoRA on all six
+target modules, lr 1e-4, cosine) and the full FT at lr 1e-5 with a cosine schedule
+both stayed within +3pt. These runs differ in several variables at once (LoRA vs.
+full, target modules, LR, schedule), so this does not isolate a single cause; the
+tracker's own notes point to the wider LoRA target set and the lower LR / cosine
+schedule. After the wake word, English commands are classified by an audio
+classifier that works from raw audio rather than a transcript (see
+[`openWake/README.md`](../openWake/README.md)); the repo does not say whether
+English forgetting motivated that choice.
 run5's English check was explicitly skipped, so that cell is blank rather than
 assumed.
 
@@ -189,8 +204,9 @@ notion of meaning, grammar, or root cause. Concretely:
   few enough to read by hand."
 
 The right framing for a slide: **clustering is triage.** It converted 6,128
-unordered failures into 8 readable piles, one of which turned out to hold 45% of
-all errors and a single fixable cause. That is all it was asked to do.
+unordered failures into 8 readable piles, and reading the worst examples in each
+pointed at a fixable cause (spacing) that a direct count then confirmed at 41.6%
+of wrong samples. That is all it was asked to do.
 
 ---
 
@@ -200,7 +216,7 @@ run1's 6,128 wrong samples, grouped into 8 clusters:
 
 | Cluster | Size | Mean WER | Signature n-grams | What it actually is |
 |---|---|---|---|---|
-| **1** | **2,749 (44.9%)** | 0.42 | `්`, `ව`, `ම`, `ස` (generic) | **Word-boundary / compounding disagreement** |
+| **1** | **2,749 (44.9%)** | 0.42 | `්`, `ව`, `ම`, `ස` (generic) | Largest and least distinctive cluster; its worst examples are spacing disagreements (only the top 5 were read) |
 | 3 | 857 | 0.39 | `න්න`, `න්`, `නේ` | Verb-ending splits + colloquial endings |
 | 7 | 633 | 0.38 | `ින්`, `න්`, `ම`, `ව` | Clitic-particle gluing (`ම`, `ව`) |
 | 5 | 534 | 0.40 | `හැකි`, `ීම`, `ැක` | Compound-verb splits (`සිදු කිරීම`) |
@@ -209,11 +225,15 @@ run1's 6,128 wrong samples, grouped into 8 clusters:
 | 6 | 323 | 0.38 | `තියෙ`, `ියෙන` | Colloquial `තියෙන`/`තියන` + spacing |
 | 0 | 278 | 0.37 | `්‍ය`, `‍යා` | **ZWJ yansaya conjunct** |
 
-## 3a. The headline finding: 45% of all errors were spacing, not hearing
+## 3a. The headline finding: about 42% of wrong samples were spacing, not hearing
 
-Cluster 1 alone is 2,749 of 6,128 wrong samples. Its members are overwhelmingly
-cases where the model transcribed the *right sounds* and disagreed only about
-where the word breaks go:
+Measured directly, not inferred from the clusters: of run1's 6,128 wrong samples,
+**2,551 (41.6%) become identical to the reference once spaces and punctuation are
+removed**, and those rows carry **42.6%** of all word-level errors (5,567 of
+13,062). Only 51 more (0.8%) differ solely by the ZWJ character. The model
+transcribed the *right sounds* in these and disagreed only about where the word
+breaks go. The largest cluster (cluster 1, 2,749 samples) has a generic
+signature, and its five worst examples show the pattern:
 
 | Reference | Prediction | Per-sample WER |
 |---|---|---|
@@ -294,13 +314,14 @@ mishearing anything.
    explicit ZWJ, and different keyboards/tools normalize differently.
 3. **Colloquial ↔ formal register was being hedged** (`කියල`⇄`කියලා`,
    `කරන්නෙ`⇄`කරන්නේ`, `තියනවා`→`තියෙනවා`) — flagged here, but not yet acted on.
-4. **A suspicion about the split itself:** these numbers looked good partly
-   because the v1 split was not speaker-disjoint, so the test set contained
-   voices the model had trained on.
+4. **A suspicion about the split itself:** v1 was not built as a speaker-disjoint
+   split, so its test set may contain voices the model trained on, which would
+   make these numbers look better than they should. This was a suspicion, not a
+   measurement: the parquet files carry no speaker column.
 
 Actions taken: **(1) normalize spacing/compounding conventions** across all four
-corpora, and **(2) re-split speaker-disjoint** so the evaluation stops rewarding
-speaker memorization. That produced `stratified_v4`.
+corpora, and **(2) re-split speaker-disjoint** so the evaluation can no longer
+reward speaker overlap. That produced `stratified_v4`.
 
 ---
 
@@ -345,11 +366,12 @@ in the whole project.
 | Test split | `stratified` (v1) | `stratified_v4` |
 | Speaker-disjoint? | **No** | **Yes** |
 
-Different test set, different size, different difficulty. run1's test set
-contained speakers the model had also trained on, so part of its 17.36% was
-speaker memorization rather than generalization. run5's 19.06% is measured
-entirely on **voices the model had never heard**. A higher number on a harder,
-honest test is not a worse model.
+Different test set, different size, and a stricter split. v1 was not built as a
+speaker-disjoint split, so run1's test set may share speakers with its training
+data, which would flatter its 17.36%. That effect was not measured, so it is a
+likely contributor rather than a quantified one. run5's 19.06% is measured on a
+speaker-disjoint split, so it reflects **voices the model had not heard**. A
+higher number on a stricter test is not necessarily a worse model.
 
 The error-type breakdown shows exactly this trade:
 
@@ -358,11 +380,18 @@ The error-type breakdown shows exactly this trade:
 | run1 | 11.47% | **4.68%** | 1.21% |
 | run5 | 14.67% | **2.33%** | 2.07% |
 
-- **Deletions halved** (4.68% → 2.33%). That is the spacing fix landing.
-- **Substitutions rose** (11.47% → 14.67%). That is the cost of unseen speakers —
-  genuine acoustic confusions on new voices.
+- **Deletions halved** (4.68% → 2.33%). Consistent with the spacing fix landing,
+  since the glue pattern shows up as deletions.
+- **Substitutions rose** (11.47% → 14.67%). Plausibly the cost of unseen speakers
+  (acoustic confusions on new voices), though this run did not isolate that.
 
-## 5b. Direct evidence the spacing fix worked
+## 5b. Evidence the spacing fix worked (before/after, not a controlled ablation)
+
+The direct measurement from §3a, repeated on run5: wrong samples that differ from
+the reference only by spaces/punctuation fell from **2,551 (41.6% of wrong)** to
+**1,013 (13.6%)**, and the word-level errors they carry fell from **5,567 to
+2,147** (42.6% → 15.0% of all word errors), even though the run5 test set is
+slightly larger.
 
 The clitic-particle deletions from §3b, before and after:
 
@@ -382,10 +411,13 @@ And the glue-pattern substitutions, which were 16 of run1's top 25:
 | run1 | **16 / 25** (`එමෙන්`→`එමෙන්ම`, `පිළිබඳ`→`පිළිබඳව`, …) |
 | run5 | **1 / 25** (only `යුතු`→`යුතුය`) |
 
-The error class that was 45% of run1's failures is essentially gone from run5's
-top failure modes. **This is the result to put on the slide**: the intervention
-is validated by the disappearance of the specific defect it targeted, not by the
-headline average, which moved for an unrelated reason (harder test set).
+The spacing error class that was 41.6% of run1's wrong samples is down to 13.6%
+in run5, and the particle-gluing pattern has left the top failure modes. **This is
+the result to put on the slide**, framed as before/after evidence rather than proof
+of cause: run1 and run5 differ in more than the data (the test split, effective
+batch 64 vs. 32, and a mid-run resume), so this shows the defect largely went away
+after the fix, not that the spacing fix alone was responsible. The headline
+average moved the other way, plausibly because of the stricter test split.
 
 ## 5c. run5's clusters — what is left
 
@@ -487,12 +519,15 @@ Still open:
    acoustic one. They are the cheapest high-confidence thing to look for in a
    confusion table.
 5. **Fix data conventions before buying more compute.** The largest single error
-   class in the baseline (45%) was a transcription-convention disagreement that
-   no amount of additional training would have resolved.
+   class in the baseline (41.6% of wrong samples differed only by spacing) was a
+   transcription-convention disagreement that additional training on the same
+   labels would not be expected to resolve.
 6. **For LoRA deployment**, add decoding-time repetition guards
    (`no_repeat_ngram_size=3`): the degenerate-loop failure mode
    (`මෙම මෙම මෙම…` up to WER 7.60) appears in the LoRA runs (run2, run4) and not
    in the full fine-tunes.
-7. **Do not route English through the fine-tuned Sinhala model** — +76pt English
-   WER regression on run1. English commands use a separate audio classifier
-   ([`openWake/README.md`](../openWake/README.md)).
+7. **Aggressive fine-tuning can wreck English** — +76.59pt English WER on run1 and
+   +69.47pt on run2, versus +2 to +3pt for the gentler configurations. English
+   commands are classified by a separate raw-audio classifier
+   ([`openWake/README.md`](../openWake/README.md)); the repo doesn't say whether
+   forgetting motivated that.

@@ -1,0 +1,22 @@
+{
+  "_runtime": 15143,
+  "_step": 391,
+  "_timestamp": 1790585547.302868,
+  "_wandb.runtime": 15143,
+  "eval/cer": 6.232309139293658,
+  "eval/loss": 0.13395436108112335,
+  "eval/runtime": 1232.7852,
+  "eval/samples_per_second": 12.786,
+  "eval/steps_per_second": 0.4,
+  "eval/wer": 20.35301948135064,
+  "total_flos": 1.77775821232128e+20,
+  "train/epoch": 5,
+  "train/global_step": 9630,
+  "train/grad_norm": 1.2435182332992554,
+  "train/learning_rate": 3.1968466219223225e-11,
+  "train/loss": 0.0476,
+  "train_loss": 0.1278823973759931,
+  "train_runtime": 13910.9503,
+  "train_samples_per_second": 44.283,
+  "train_steps_per_second": 0.692
+}

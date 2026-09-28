@@ -27,15 +27,18 @@ Concretely, on a real held-out recording from this project: Whisper
 transcribed a "delete" (මකන්න) recording as "මක් කන්නේ" — the fuzzy path
 correctly found no match. The embedding path, comparing the same audio
 against four other enrolled "delete" takes, recognized it anyway
-(85.4% similarity on the metric described below, comfortably above the
-threshold). That's the gap this feature closes.
+(85.4% similarity on the metric described below). `delete` is a
+destructive command, so under the current config it has to clear
+`voice_embedding_destructive_threshold` (0.85), not the 0.828 general
+threshold. 85.4% clears that, but narrowly. That's the gap this feature
+closes.
 
 **Similarity metric**: `best_match` scores on a rescaled Manhattan
-distance, not cosine similarity — a same-recording-session comparison
-across all six commands found Manhattan distance separates
-same-command from different-command pairs slightly better (Cohen's d
-2.47 vs 2.27; see `scripts/validate_command_embeddings.py --csv` for
-the numbers, which also reports Euclidean and Pearson for comparison).
+distance, not cosine similarity — on the first real recording session
+tried, Manhattan distance separated same-command from different-command
+pairs slightly better than cosine did (Cohen's d 2.47 vs 2.27; see
+`scripts/validate_command_embeddings.py --csv` for the numbers, which
+also reports Euclidean and Pearson for comparison).
 The rescale (`embeddings.manhattan_similarity`) isn't an arbitrary
 number — for L2-normalised vectors of dimension `dim`, Manhattan
 distance is bounded above by `2·√dim`, so `1 - distance / (2·√dim)`
@@ -72,16 +75,18 @@ entirely. VAD-trim → encoder-only Whisper forward pass → mean-pool → L2-no
 → compare by rescaled Manhattan similarity.
 
 **What it fixed:** the same `මක් කන්නේ` clip above was recognized as `delete` at
-**85.4% similarity** — comfortably above the 0.828 threshold — because it sounds
-like the student's other four `delete` takes even though it transcribed wrong.
-That is the gap this stage closes, and it closes it *for any language*, since it
-never looks at text.
+**85.4% similarity** because it sounds like the student's other four `delete`
+takes even though it transcribed wrong. `delete` is destructive, so the bar is
+the 0.85 destructive threshold rather than 0.828, and 85.4% clears it narrowly,
+not comfortably. That is the gap this stage closes, and it closes it *for any
+language*, since it never looks at text.
 
-**Why Manhattan and not cosine:** a same-session comparison across all commands
-found Manhattan separates same-command from different-command pairs slightly
-better (Cohen's d **2.47** vs. **2.27** for Euclidean). Thresholds (0.828
-normal / 0.85 destructive) came from a real 31-clip recording session via
-`scripts/validate_command_embeddings.py`, not from guessing.
+**Why Manhattan and not cosine:** on the first real recording session tried,
+Manhattan separated same-command from different-command pairs slightly better
+than cosine did (Cohen's d **2.47** vs. **2.27** for cosine). That is one early
+session, so treat it as a reason for the choice rather than a benchmark.
+Thresholds (0.828 normal / 0.85 destructive) came from a real 31-clip recording
+session via `scripts/validate_command_embeddings.py`, not from guessing.
 
 **Failure mode:** it requires **per-user enrollment** — 12 commands × 5 samples =
 60 recordings per student before it does anything at all. It is inherently
@@ -108,11 +113,13 @@ and RandomForest (96.1%) specifically for the lowest false-accept rate from
 `none` (**14/234** vs. 19 and 28) — firing an unwanted action mid-session is the
 costliest error class in this product.
 
-**Why English only:** this is a supervised classifier, so it needs labelled
-training audio per language. The English set was generated with TTS; there is no
-equivalent Sinhala TTS corpus of comparable quality, so **Sinhala stays on
-Stage 1 + Stage 2** (fuzzy + embedding, combined by `command_resolution.py`).
-This is a data-availability constraint, not a design preference.
+**Why English only:** the repo doesn't document a reason. What it does show is
+that the training set is TTS-generated English (`openWake/generate.py` uses
+Microsoft Edge TTS voices plus gTTS in US/UK/Indian/Australian accents) and that
+no Sinhala equivalent has been built, so **Sinhala stays on Stage 1 + Stage 2**
+(fuzzy + embedding, combined by `command_resolution.py`). Whether a Sinhala set
+could be generated the same way hasn't been checked, so treat this as an open
+question rather than a settled constraint.
 
 ### Comparison
 
