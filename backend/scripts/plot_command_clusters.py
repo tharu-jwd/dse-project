@@ -26,8 +26,24 @@ COLORS = {
     "save": "#eda100",
     "stop": "#e87ba4",
     "submit": "#008300",
+    "option_1": "#8e44ad",
+    "option_2": "#16a085",
+    "option_3": "#c0392b",
+    "option_4": "#2980b9",
+    "cancel": "#7f8c8d",
 }
-ORDER = ["delete", "next", "previous", "save", "stop", "submit"]
+ORDER = [
+    "delete", "next", "previous", "save", "stop", "submit",
+    "option_1", "option_2", "option_3", "option_4", "cancel",
+]
+# Display labels -- option_1..4 are the spoken Sinhala numerals (MCQ answer
+# picks), shown by their romanization rather than the internal command id.
+LABELS = {
+    "option_1": "eka (1)",
+    "option_2": "deka (2)",
+    "option_3": "tuna (3)",
+    "option_4": "hatara (4)",
+}
 
 
 def main() -> None:
@@ -64,7 +80,7 @@ def main() -> None:
             color=COLORS[command],
             edgecolor="#fcfcfb",
             linewidth=1.2,
-            label=command,
+            label=LABELS.get(command, command),
             zorder=3,
         )
 
@@ -94,7 +110,7 @@ def main() -> None:
         spine.set_color("#c3c2b7")
 
     handles = [
-        Line2D([0], [0], marker="o", color="none", markerfacecolor=COLORS[c], markersize=8, label=c)
+        Line2D([0], [0], marker="o", color="none", markerfacecolor=COLORS[c], markersize=8, label=LABELS.get(c, c))
         for c in ORDER
     ]
     handles.append(Line2D([0], [0], marker="x", color="#0b0b0b", markersize=8, linestyle="none", label="k-means centroid"))

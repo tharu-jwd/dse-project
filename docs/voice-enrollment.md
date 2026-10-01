@@ -6,7 +6,7 @@ note-taking ("delete", "stop", ...):
 1. **Fuzzy text matching** (`backend/app/streaming/commands.py`) — Whisper
    transcribes the utterance, the text is fuzzy-matched against the known
    command phrases. Always on, no setup required.
-2. **Speaker-embedding matching** (`backend/app/streaming/embeddings.py`) —
+2. **Speaker-embedding matching** (`backend/app/streaming/embeddings.py`) 
    the audio itself (not the transcribed text) is compared against a bank
    of the student's own recordings of each command. Off by default, and
    only does anything for a student who has enrolled.
