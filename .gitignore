@@ -50,3 +50,9 @@ model-development/checkpoints/*
 /DEVOPS.md
 .coverage
 reports/
+
+# Local planning and contribution documents
+/My contribution log.md
+/Template for Test plan.docx
+/Testing Resources - Sheet1.pdf
+/docs/SINHASPEECH_TEST_PLAN.md
