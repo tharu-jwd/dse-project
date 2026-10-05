@@ -80,6 +80,35 @@ body {
   pointer-events: none;
   background: linear-gradient(180deg, rgba(23, 15, 40, 0.45) 0%, rgba(23, 15, 40, 0.85) 80%);
 }
+/* .page boxes are narrower than the main area (page--narrow / page--editor),
+   so painting the image on the box itself leaves it cut off at hard edges.
+   Pages pass their image as --page-bg and it is painted on a fixed layer
+   covering the whole main area (everything right of the sidebar) instead. */
+.page.has-bg-image {
+  background-image: none;
+}
+.page.has-bg-image::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 252px;
+  z-index: -2;
+  pointer-events: none;
+  background-image: var(--page-bg);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.page.has-bg-image::before {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 252px;
+  inset: 0 0 0 252px;
+}
 button,
 input,
 textarea,
@@ -3531,6 +3560,10 @@ textarea:focus-visible {
   .main-content {
     margin-left: 0;
     padding-top: 66px;
+  }
+  .page.has-bg-image::before,
+  .page.has-bg-image::after {
+    inset: 0;
   }
   .mobile-header {
     position: fixed;

@@ -18,7 +18,7 @@ export function SubmissionsPage() {
       .catch((cause) => setError(cause.message))
   }, [])
   return (
-    <div className="page has-bg-image" style={{ backgroundImage: `url(${submissionsBackground})` }}>
+    <div className="page has-bg-image" style={{ '--page-bg': `url(${submissionsBackground})` }}>
       <PageHeader
         eyebrow={t('teacherQuiz.workspace')}
         title={t('nav.reviewSubmissions')}
@@ -129,18 +129,18 @@ export function SubmissionReviewPage() {
   }
   if (error && !item)
     return (
-      <div className="page page--narrow has-bg-image" style={{ backgroundImage: `url(${submissionsBackground})` }}>
+      <div className="page page--narrow has-bg-image" style={{ '--page-bg': `url(${submissionsBackground})` }}>
         <Alert>{error}</Alert>
       </div>
     )
   if (!item)
     return (
-      <div className="page has-bg-image" style={{ backgroundImage: `url(${submissionsBackground})` }}>
+      <div className="page has-bg-image" style={{ '--page-bg': `url(${submissionsBackground})` }}>
         <Loading label={t('submissions.openingSubmission')} />
       </div>
     )
   return (
-    <div className="page page--narrow has-bg-image" style={{ backgroundImage: `url(${submissionsBackground})` }}>
+    <div className="page page--narrow has-bg-image" style={{ '--page-bg': `url(${submissionsBackground})` }}>
       <PageHeader
         eyebrow={t('submissions.submissionReview')}
         title={item.studentName}

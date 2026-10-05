@@ -27,7 +27,7 @@ export function TeacherQuizListPage() {
   }, [])
   const shown = (items || []).filter((item) => filter === 'ALL' || item.status === filter)
   return (
-    <div className="page has-bg-image" style={{ backgroundImage: `url(${teacherQuizBackground})` }}>
+    <div className="page has-bg-image" style={{ '--page-bg': `url(${teacherQuizBackground})` }}>
       <PageHeader
         eyebrow={t('teacherQuiz.workspace')}
         title={t('teacherQuiz.manageQuizzes')}
@@ -217,12 +217,12 @@ export function QuizFormPage() {
   }
   if (loading)
     return (
-      <div className="page has-bg-image" style={{ backgroundImage: `url(${teacherQuizBackground})` }}>
+      <div className="page has-bg-image" style={{ '--page-bg': `url(${teacherQuizBackground})` }}>
         <Loading label={t('teacherQuiz.loadingEditor')} />
       </div>
     )
   return (
-    <div className="page page--narrow has-bg-image" style={{ backgroundImage: `url(${teacherQuizBackground})` }}>
+    <div className="page page--narrow has-bg-image" style={{ '--page-bg': `url(${teacherQuizBackground})` }}>
       <PageHeader
         eyebrow={id ? t('teacherQuiz.editQuiz') : t('teacherQuiz.newQuiz')}
         title={id ? quiz.title : t('teacherQuiz.createSpeechQuiz')}

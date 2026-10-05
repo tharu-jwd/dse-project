@@ -98,7 +98,7 @@ export default function DashboardPage() {
   }).format(new Date())
   const firstAction = actions[user.role][0]
   return (
-    <div className="page has-bg-image" style={{ backgroundImage: `url(${dashboardBackground})` }}>
+    <div className="page has-bg-image" style={{ '--page-bg': `url(${dashboardBackground})` }}>
       <section className="hero-banner">
         <span className="eyebrow">{date}</span>
         <h1>{t('dashboard.greeting', user.name.split(' ')[0])}</h1>

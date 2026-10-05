@@ -69,7 +69,7 @@ export default function CreateTranscriptPage({ type = 'LECTURE' }) {
     return (
       <div
         className="page page--narrow has-bg-image"
-        style={{ backgroundImage: `url(${isNote ? noteBackground : lectureBackground})` }}
+        style={{ '--page-bg': `url(${isNote ? noteBackground : lectureBackground})` }}
       >
         <PageHeader
           eyebrow={t(isNote ? 'nav.selfStudyNotes' : 'nav.lectureCaptioning')}
@@ -92,7 +92,7 @@ export default function CreateTranscriptPage({ type = 'LECTURE' }) {
     return (
       <div
         className="page page--narrow has-bg-image"
-        style={{ backgroundImage: `url(${noteBackground})` }}
+        style={{ '--page-bg': `url(${noteBackground})` }}
       >
         <Loading label={t('create.preparingNote')} />
       </div>
@@ -101,7 +101,7 @@ export default function CreateTranscriptPage({ type = 'LECTURE' }) {
     return (
       <div
         className="page page--editor has-bg-image"
-        style={{ backgroundImage: `url(${noteBackground})` }}
+        style={{ '--page-bg': `url(${noteBackground})` }}
       >
         <PageHeader
           eyebrow={t('nav.selfStudyNotes')}
@@ -119,7 +119,7 @@ export default function CreateTranscriptPage({ type = 'LECTURE' }) {
   return (
     <div
       className="page has-bg-image"
-      style={{ backgroundImage: `url(${isNote ? noteBackground : lectureBackground})` }}
+      style={{ '--page-bg': `url(${isNote ? noteBackground : lectureBackground})` }}
     >
       <div className="upload-hero">
         <span className="eyebrow">

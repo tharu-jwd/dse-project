@@ -45,7 +45,7 @@ export function SettingsPage() {
   return (
     <div
       className="page page--narrow has-bg-image"
-      style={{ backgroundImage: `url(${settingsBackground})` }}
+      style={{ '--page-bg': `url(${settingsBackground})` }}
     >
       <PageHeader
         eyebrow={t('settings.eyebrow')}
@@ -359,7 +359,7 @@ const guides = [
 
 export function HelpPage() {
   return (
-    <div className="page has-bg-image" style={{ backgroundImage: `url(${settingsBackground})` }}>
+    <div className="page has-bg-image" style={{ '--page-bg': `url(${settingsBackground})` }}>
       <PageHeader
         eyebrow="English · සිංහල"
         title="Quick start guide"

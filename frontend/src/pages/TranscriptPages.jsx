@@ -69,7 +69,7 @@ export function TranscriptLibraryPage() {
     }
   }
   return (
-    <div className="page has-bg-image" style={{ backgroundImage: `url(${libraryBackground})` }}>
+    <div className="page has-bg-image" style={{ '--page-bg': `url(${libraryBackground})` }}>
       <PageHeader
         eyebrow={t('library.eyebrow')}
         title={t('library.title')}
@@ -243,7 +243,7 @@ export function TranscriptPage() {
     return (
       <div
         className="page page--narrow has-bg-image"
-        style={{ backgroundImage: `url(${editorBackground})` }}
+        style={{ '--page-bg': `url(${editorBackground})` }}
       >
         <Alert title={t('library.couldNotOpen')}>{error}</Alert>
         <button className="button button--secondary" onClick={() => navigate('/transcripts')}>
@@ -253,14 +253,14 @@ export function TranscriptPage() {
     )
   if (!item)
     return (
-      <div className="page has-bg-image" style={{ backgroundImage: `url(${editorBackground})` }}>
+      <div className="page has-bg-image" style={{ '--page-bg': `url(${editorBackground})` }}>
         <Loading label={t('library.openingEditor')} />
       </div>
     )
   return (
     <div
       className="page page--editor has-bg-image"
-      style={{ backgroundImage: `url(${editorBackground})` }}
+      style={{ '--page-bg': `url(${editorBackground})` }}
     >
       <PageHeader
         eyebrow={t('library.typeTranscript', typeLabel[item.type])}

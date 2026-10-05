@@ -33,7 +33,7 @@ export function QuizListPage() {
       .catch((cause) => setError(cause.message))
   }, [])
   return (
-    <div className="page has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>
+    <div className="page has-bg-image" style={{ '--page-bg': `url(${quizBackground})` }}>
       <PageHeader
         eyebrow={t('quiz.speakYourAnswer')}
         title={t('quiz.myQuizzes')}
@@ -245,25 +245,25 @@ export function QuizAnswerPage() {
   }, [job])
   if (error)
     return (
-      <div className="page page--narrow has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>
+      <div className="page page--narrow has-bg-image" style={{ '--page-bg': `url(${quizBackground})` }}>
         <Alert>{error}</Alert>
       </div>
     )
   if (!quiz)
     return (
-      <div className="page has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>
+      <div className="page has-bg-image" style={{ '--page-bg': `url(${quizBackground})` }}>
         <Loading label={t('quiz.openingQuiz')} />
       </div>
     )
   if (submitted && quiz.submissionStatus === 'REVIEWED') {
     if (!mySubmission)
       return (
-        <div className="page has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>
+        <div className="page has-bg-image" style={{ '--page-bg': `url(${quizBackground})` }}>
           <Loading label={t('quiz.openingResults')} />
         </div>
       )
     return (
-      <div className="page page--narrow has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>
+      <div className="page page--narrow has-bg-image" style={{ '--page-bg': `url(${quizBackground})` }}>
         <PageHeader
           eyebrow={t('quiz.results')}
           title={quiz.title}
@@ -334,7 +334,7 @@ export function QuizAnswerPage() {
   }
   if (submitted)
     return (
-      <div className="page page--narrow has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>
+      <div className="page page--narrow has-bg-image" style={{ '--page-bg': `url(${quizBackground})` }}>
         <div className="success-state">
           <span>
             <Icon name="check" size={34} />
@@ -414,7 +414,7 @@ export function QuizAnswerPage() {
     }
   }
   return (
-    <div className="page has-bg-image" style={{ backgroundImage: `url(${quizBackground})` }}>
+    <div className="page has-bg-image" style={{ '--page-bg': `url(${quizBackground})` }}>
       <PageHeader
         eyebrow={t('quiz.questionOf', current + 1, quiz.questions.length)}
         title={quiz.title}

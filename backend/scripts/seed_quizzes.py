@@ -41,10 +41,20 @@ DEMO_QUIZZES = [
         ],
     },
     {
-        "title": "Everyday Sinhala Vocabulary",
-        "description": "Practice recognizing common words and speaking a short answer.",
+        "title": "Sinhala Greetings and Daily Phrases",
+        "description": "Pick the right phrase for everyday situations, then answer aloud.",
         "due_date": None,
         "questions": [
+            {
+                "text": "Which phrase means \"thank you\" in Sinhala?",
+                "type": "MCQ",
+                "options": [
+                    ("ආයුබෝවන්", False),
+                    ("ස්තූතියි", True),
+                    ("සමාවෙන්න", False),
+                    ("සුබ රාත්‍රියක්", False),
+                ],
+            },
             {
                 "text": "Which word means \"water\" in Sinhala?",
                 "type": "MCQ",
@@ -56,17 +66,39 @@ DEMO_QUIZZES = [
                 ],
             },
             {
-                "text": "Which word means \"thank you\" in Sinhala?",
+                "text": "Introduce yourself in Sinhala: say your name and what you study.",
+                "type": "SPOKEN",
+                "options": [],
+            },
+        ],
+    },
+    {
+        "title": "Sri Lanka Geography and Nature",
+        "description": "Short questions about the island, followed by a spoken reflection.",
+        "due_date": None,
+        "questions": [
+            {
+                "text": "What is the highest mountain in Sri Lanka?",
                 "type": "MCQ",
                 "options": [
-                    ("ආයුබෝවන්", False),
-                    ("ස්තූතියි", True),
-                    ("සමාවෙන්න", False),
-                    ("සුබ රාත්‍රියක්", False),
+                    ("Adam's Peak", False),
+                    ("Pidurutalagala", True),
+                    ("Knuckles Peak", False),
+                    ("Sigiriya Rock", False),
                 ],
             },
             {
-                "text": "Describe your daily routine in Sinhala, speaking for about 30 seconds.",
+                "text": "Which is the longest river in Sri Lanka?",
+                "type": "MCQ",
+                "options": [
+                    ("Kelani River", False),
+                    ("Kalu River", False),
+                    ("Mahaweli River", True),
+                    ("Walawe River", False),
+                ],
+            },
+            {
+                "text": "Describe your favourite place in Sri Lanka and why you like it.",
                 "type": "SPOKEN",
                 "options": [],
             },
