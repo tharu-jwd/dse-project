@@ -36,8 +36,8 @@ services:
       POSTGRES_HOST: database
       MEDIA_STORAGE_DIR: /app/storage/uploads
       VOICE_SAMPLES_DIR: /app/storage/voice_samples
-      STREAMING_SOURCE_MODEL: /app/models/whisper-sinhala1
-      STREAMING_MODEL_PATH: /app/models/whisper-sinhala1-ct2
+      STREAMING_SOURCE_MODEL: ${STREAMING_SOURCE_MODEL:-/app/models/whisper-sinhala1}
+      STREAMING_MODEL_PATH: ${STREAMING_MODEL_PATH:-/app/models/whisper-sinhala1-ct2}
     volumes:
       # Model checkpoints are copied to the server separately (they are
       # gitignored and too large for the image) and mounted read-only.
@@ -56,8 +56,8 @@ services:
       POSTGRES_HOST: database
       MEDIA_STORAGE_DIR: /app/storage/uploads
       VOICE_SAMPLES_DIR: /app/storage/voice_samples
-      STREAMING_SOURCE_MODEL: /app/models/whisper-sinhala1
-      STREAMING_MODEL_PATH: /app/models/whisper-sinhala1-ct2
+      STREAMING_SOURCE_MODEL: ${STREAMING_SOURCE_MODEL:-/app/models/whisper-sinhala1}
+      STREAMING_MODEL_PATH: ${STREAMING_MODEL_PATH:-/app/models/whisper-sinhala1-ct2}
     volumes:
       - ./models:/app/models:ro
       - ./storage:/app/storage
