@@ -3,6 +3,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import torch
 from transformers import (
     AutoProcessor,
@@ -81,12 +82,6 @@ class WhisperTranscriber:
             generate_kwargs["language"] = self.language
 
         with self._lock:
-            output = asr_pipeline(
-                str(media_path),
-                return_timestamps=True,
-                generate_kwargs=generate_kwargs,
-            )
-
             # The wrapping pipeline only surfaces token ids/text - it builds
             # its `out` dict straight from `model.generate()`'s `sequences`
             # and drops everything else, so `output_scores` passed through
@@ -95,6 +90,36 @@ class WhisperTranscriber:
             # per-word confidence means re-decoding each chunk's own audio
             # ourselves with `output_scores=True` - see _score_segment.
             audio = ffmpeg_read(media_path.read_bytes(), SAMPLE_RATE)
+
+            # Whisper only sees 30s per forward pass, and the pipeline's own
+            # `chunk_length_s` is unreliable with this checkpoint (it drops
+            # timestamps and all but the first chunk's text). Without any
+            # windowing, recordings longer than 30s were silently cut to
+            # their first 30s. So transcribe one window at a time and shift
+            # each window's timestamps back onto the full recording.
+            chunks: list[dict[str, Any]] = []
+            for window_start, window_end in self._windows(audio):
+                window = audio[
+                    int(window_start * SAMPLE_RATE) : int(window_end * SAMPLE_RATE)
+                ]
+                output = asr_pipeline(
+                    {"raw": window, "sampling_rate": SAMPLE_RATE},
+                    return_timestamps=True,
+                    generate_kwargs=generate_kwargs,
+                )
+                for chunk in output.get("chunks", []):
+                    if not chunk.get("text", "").strip():
+                        continue
+                    start, end = chunk.get("timestamp") or (None, None)
+                    start = window_start + (start or 0.0)
+                    # No closing timestamp token (common for a window's last
+                    # chunk): it runs to the end of the window.
+                    end = window_start + end if end is not None else window_end
+                    chunks.append(
+                        {"timestamp": (start, min(end, window_end)), "text": chunk["text"]}
+                    )
+
+            output = {"chunks": chunks}
             segments = self._convert_segments(output, asr_pipeline, audio)
 
         text = " ".join(segment.text for segment in segments).strip()
@@ -102,6 +127,27 @@ class WhisperTranscriber:
             raise ValueError("Whisper did not detect any speech.")
 
         return TranscriptionResult(text=text, segments=segments)
+
+    @staticmethod
+    def _windows(audio) -> list[tuple[float, float]]:
+        """Split a recording into windows of at most 30s (Whisper's input
+        size). Each cut is moved to the quietest 100ms inside the last 4s of
+        the window, so words aren't sliced in half where speech pauses."""
+        total = len(audio) / SAMPLE_RATE
+        max_len, search, frame = 30.0, 4.0, int(0.1 * SAMPLE_RATE)
+        windows: list[tuple[float, float]] = []
+        start = 0.0
+        while total - start > max_len:
+            lo = int((start + max_len - search) * SAMPLE_RATE)
+            hi = int((start + max_len) * SAMPLE_RATE)
+            region = np.abs(audio[lo:hi])
+            usable = (len(region) // frame) * frame
+            energy = region[:usable].reshape(-1, frame).mean(axis=1)
+            cut = (lo + int(energy.argmin()) * frame + frame // 2) / SAMPLE_RATE
+            windows.append((start, cut))
+            start = cut
+        windows.append((start, total))
+        return windows
 
     def _convert_segments(
         self,
