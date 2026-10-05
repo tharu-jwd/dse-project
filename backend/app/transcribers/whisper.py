@@ -1,4 +1,5 @@
 import logging
+import subprocess
 import threading
 from pathlib import Path
 from typing import Any
@@ -11,7 +12,6 @@ from transformers import (
     pipeline,
 )
 from transformers.models.whisper.tokenization_whisper import _combine_tokens_into_words
-from transformers.pipelines.audio_utils import ffmpeg_read
 
 from app.transcribers.base import (
     TranscriptionResult,
@@ -89,7 +89,7 @@ class WhisperTranscriber:
             # AutomaticSpeechRecognitionPipeline._forward). Getting real
             # per-word confidence means re-decoding each chunk's own audio
             # ourselves with `output_scores=True` - see _score_segment.
-            audio = ffmpeg_read(media_path.read_bytes(), SAMPLE_RATE)
+            audio = self._decode_audio(media_path)
 
             # Whisper only sees 30s per forward pass, and the pipeline's own
             # `chunk_length_s` is unreliable with this checkpoint (it drops
@@ -127,6 +127,26 @@ class WhisperTranscriber:
             raise ValueError("Whisper did not detect any speech.")
 
         return TranscriptionResult(text=text, segments=segments)
+
+    @staticmethod
+    def _decode_audio(media_path: Path) -> np.ndarray:
+        """Decode any media file to 16kHz mono float32 with ffmpeg, reading it
+        by path. Piping the bytes through stdin (as transformers'
+        `ffmpeg_read` does) fails for .m4a/.mp4 files whose index sits at the
+        end of the file, because stdin can't be seeked."""
+        result = subprocess.run(
+            [
+                "ffmpeg", "-v", "error", "-i", str(media_path),
+                "-vn", "-f", "f32le", "-ac", "1", "-ar", str(SAMPLE_RATE), "-",
+            ],
+            capture_output=True,
+        )
+        if result.returncode != 0 or not result.stdout:
+            raise ValueError(
+                "ffmpeg could not decode the media file: "
+                + result.stderr.decode(errors="replace")[-300:]
+            )
+        return np.frombuffer(result.stdout, dtype=np.float32)
 
     @staticmethod
     def _windows(audio) -> list[tuple[float, float]]:
