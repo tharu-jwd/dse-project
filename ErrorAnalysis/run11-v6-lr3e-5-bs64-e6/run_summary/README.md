@@ -2,7 +2,7 @@
 
 - **W&B run:** [run11-v6-lr3e-5-bs64-e6](https://wandb.ai/yohanj-23-university-of-moratuwa/whisper/runs/1n2t4gpf) (id `1n2t4gpf`, state `finished`)
 - **Error-analysis folder:** `ErrorAnalysis/run11-v6-lr3e-5-bs64-e6/error_analysis/` (clusters, confusions, errors_by_severity), built from `run_summary/predictions.csv` with `final-scripts/error_analysis.py`.
-- **Data:** `stratified_v6` (Yohan2003/whisper-sl-data), test set 15,860 rows -- same dataset as `run10-v6-lr3e-5-bs64`.
+- **Data:** `stratified_v6` (SinhaSpeech/sinhala-asr-data), test set 15,860 rows -- same dataset as `run10-v6-lr3e-5-bs64`.
 - **Hardware:** AMD Instinct MI300X (ROCm 6.2 nightly torch, bf16), at 134.199.196.125.
 - **Purpose:** run10 trained 5 epochs on v6 and came out essentially tied with run6-v5 on the test set despite winning validation. This run repeats the exact same config for 6 epochs, to test whether the extra epoch (not the data cleanup itself) is what was missing.
 

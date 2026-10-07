@@ -2,7 +2,7 @@
 
 - **W&B run:** [run9-v6-lr3e-5-bs64](https://wandb.ai/yohanj-23-university-of-moratuwa/whisper/runs/905z0tif) (id `905z0tif`, state `finished`)
 - **Error-analysis folder:** `ErrorAnalysis/run9-v6-lr3e-5-bs64/error_analysis/` (clusters, confusions, errors_by_severity), built from `run_summary/predictions.csv` with `final-scripts/error_analysis.py`.
-- **Data:** `stratified_v6` (Yohan2003/whisper-sl-data), test set 15,860 rows -- the first run trained on v6, which canonicalises spelling/ZWJ/register/typo issues found and resolved during this session (see tracker Notes for `run10-v6-lr3e-5-bs64`).
+- **Data:** `stratified_v6` (SinhaSpeech/sinhala-asr-data), test set 15,860 rows -- the first run trained on v6, which canonicalises spelling/ZWJ/register/typo issues found and resolved during this session (see tracker Notes for `run10-v6-lr3e-5-bs64`).
 - **Hardware:** AMD Instinct MI300X (ROCm 6.2 nightly torch, bf16), at 134.199.196.125.
 - **Note on naming:** this folder and the pod's own output-dir/W&B run are named `run9-...`, predating a tracker-only rename to `run10-v6-lr3e-5-bs64` (done to avoid colliding with a pre-existing, differently-configured `run9` already logged in the tracker before this session). The pod itself was not renamed.
 

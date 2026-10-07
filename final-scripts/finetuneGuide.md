@@ -38,9 +38,9 @@ final-scripts/
 ```
 
 `stratified_v4/` is the current default (speaker-disjoint train/test/validation,
-plus spacing-normalized text — see the `Yohan2003/whisper-sl-data` dataset
-card). It lives on Hugging Face only, under `data/stratified_v4/` in both
-`Yohan2003/whisper-sl-data` and `Yohan2003/whisper-small-sinhala` — it is
+plus spacing-normalized text — see the `SinhaSpeech/sinhala-asr-data` dataset
+card). It lives on Hugging Face only, under `data/stratified_v4/` in
+`SinhaSpeech/sinhala-asr-data` — it is
 **not** in the `gs://singen/whisper/finalData/stratified/` bucket, which only
 has the older `stratified/` (v1) split. See "Method C" below to pull it.
 
@@ -76,7 +76,7 @@ python3 -c "
 from huggingface_hub import hf_hub_download
 import shutil
 for split in ['train', 'validation', 'test']:
-    p = hf_hub_download(repo_id='Yohan2003/whisper-sl-data', repo_type='dataset',
+    p = hf_hub_download(repo_id='SinhaSpeech/sinhala-asr-data', repo_type='dataset',
                          filename=f'data/stratified_v4/{split}.parquet')
     shutil.copy(p, f'final-scripts/data/stratified_v4/{split}.parquet')
 "

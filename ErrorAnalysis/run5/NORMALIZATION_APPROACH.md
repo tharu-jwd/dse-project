@@ -1,11 +1,11 @@
 # Register normalization of the training data — approach and findings
 
-This documents the work done on `Yohan2003/whisper-sl-data` (`stratified_v4`)
+This documents the work done on `SinhaSpeech/sinhala-asr-data` (`stratified_v4`)
 after run5's error analysis, targeting issues #1 and #2 from
 `IMPROVEMENT_PLAN.md`: colloquial/formal register inconsistency and
 word-boundary/ZWJ-conjunct inconsistency in the training transcripts. The end
 result of this work is a new dataset version, **`stratified_v5`**, published
-on Hugging Face (`Yohan2003/whisper-sl-data`, `data/stratified_v5/`), which is
+on Hugging Face (`SinhaSpeech/sinhala-asr-data`, `data/stratified_v5/`), which is
 `stratified_v4` with both corrections applied. `stratified_v4` itself was left
 untouched so it stays reproducible for anything that already references it
 (including run5's own training config).
@@ -222,7 +222,7 @@ out any corruption in transit. Both checks agree: zero genuine remaining
 errors from either correction set.
 
 The result was published as a new dataset path, **`stratified_v5`**
-(`Yohan2003/whisper-sl-data`, `data/stratified_v5/{train,validation,test}.parquet`),
+(`SinhaSpeech/sinhala-asr-data`, `data/stratified_v5/{train,validation,test}.parquet`),
 rather than overwriting `stratified_v4` in place, so that run5's own training
 config (which points at `stratified_v4`) and anything else already built
 against v4 stay reproducible.

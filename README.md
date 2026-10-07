@@ -56,7 +56,7 @@ set, speaker-disjoint splits):
 
 WER is only comparable within the same test split (v1 vs v4+ differ). Best recipe: LR 3e-5 linear,
 effective batch 64, 500 warmup steps, 6 epochs. The model is published as
-`Yohan2003/whisper-small-sinhala-run11-v6-e6`, and the data as `Yohan2003/whisper-sl-data`.
+`SinhaSpeech/whisper-small-sinhala-v6-e6-run11-best`, and the data as `SinhaSpeech/sinhala-asr-data`.
 Live captioning uses a CTranslate2 (faster-whisper) conversion of the model. Details are in
 [`ErrorAnalysis/Analysis.md`](ErrorAnalysis/Analysis.md) and `final-scripts/finetune_tracker.csv`.
 

@@ -2,7 +2,7 @@
 
 - **W&B run:** [run6-v5-lr3e-5-bs64](https://wandb.ai/yohanj-23-university-of-moratuwa/whisper/runs/of5yw35a) (id `of5yw35a`, state `finished`)
 - **Error-analysis folder:** `ErrorAnalysis/run6-v5-lr3e-5-bs64/error_analysis/` (clusters, confusions, errors_by_severity), built from `run_summary/predictions.csv` with `final-scripts/error_analysis.py`.
-- **Data:** `stratified_v5` (Yohan2003/whisper-sl-data), test set 15,860 rows.
+- **Data:** `stratified_v5` (SinhaSpeech/sinhala-asr-data), test set 15,860 rows.
 - **Hardware:** AMD Instinct MI300X (ROCm 7.14, bf16), PyTorch ROCm nightly.
 
 ## Hyperparameters (from W&B config)

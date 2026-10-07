@@ -479,7 +479,7 @@ Full method in [`run5/NORMALIZATION_APPROACH.md`](run5/NORMALIZATION_APPROACH.md
 # 6. Step 6 — what was built in response, and what is still open
 
 The §5c diagnosis drove a further normalization pass, now published as
-**`stratified_v5`** (`Yohan2003/whisper-sl-data`, `data/stratified_v5/`):
+**`stratified_v5`** (`SinhaSpeech/sinhala-asr-data`, `data/stratified_v5/`):
 
 - **407 register-spelling pairs** unified (`කියල`→`කියලා`, `සමග`→`සමඟ`,
   `තුල`→`තුළ`, …)
