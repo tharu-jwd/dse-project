@@ -521,11 +521,9 @@ async def _emit_final(
     # the utterance while the wake window is open.
     # English COMMAND mode also keeps them so the zimi embedding check
     # below still sees a wake word Whisper transcribed as nothing.
-    audio_path = _use_audio_classifier(state) or (
-        state["mode"] == "COMMAND"
-        and state["language"] == "en"
-        and settings.voice_command_audio_matching_enabled
-    )
+    # Commands are identified from embeddings only now, so a COMMAND-mode clip
+    # is kept even when Whisper returned no text for it.
+    audio_path = _use_audio_classifier(state) or state["mode"] == "COMMAND"
     segment = buffer.finalize(text) if (text or audio_path) else None
 
     if segment is None or (not segment.text.strip() and not audio_path):

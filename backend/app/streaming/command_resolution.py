@@ -20,7 +20,9 @@ from typing import Literal
 import numpy as np
 
 from app.core.config import settings
-from app.streaming.commands import COMMANDS_BY_LANGUAGE, match_command
+from app.streaming.commands import COMMANDS_BY_LANGUAGE
+# Fuzzy text matching is disabled - commands are identified from embeddings only.
+# from app.streaming.commands import match_command
 from app.streaming.embeddings import best_match
 
 
@@ -84,6 +86,14 @@ def resolve_command(
 ) -> CommandDecision:
     """Decide what to do about one finalized command-mode utterance.
 
+    CURRENT BEHAVIOUR - embeddings only (the fuzzy text path is commented out
+    below, not removed):
+      strong embedding match (destructive commands: higher bar) -> execute
+      only a borderline embedding candidate                     -> confirm
+      nothing, or no enrollment bank / embedding matching off    -> none
+
+    The notes below describe the previous fuzzy + embedding behaviour.
+
     Combination rule (every row is deliberate, not implicit):
       strong fuzzy + strong embedding, SAME command       -> execute (agreed)
       strong on either side, other weak/absent            -> execute (that one)
@@ -106,56 +116,136 @@ def resolve_command(
     enhancement, never a requirement.
     """
 
-    strong_fuzzy = match_command(transcript, avg_logprob=avg_logprob, language=language)
-    fuzzy_id = strong_fuzzy.command.id if strong_fuzzy else None
-    fuzzy_score = strong_fuzzy.score if strong_fuzzy else None
-
+    # --- Fuzzy-text matching (DISABLED: kept for reference, not removed) -------
+    # Commands used to be identified by fuzzy-matching the Whisper transcript,
+    # combined with the embedding match. They are now identified from
+    # embeddings only, so everything below is commented out.
+    #
+#     strong_fuzzy = match_command(transcript, avg_logprob=avg_logprob, language=language)
+#     fuzzy_id = strong_fuzzy.command.id if strong_fuzzy else None
+#     fuzzy_score = strong_fuzzy.score if strong_fuzzy else None
+#
+#     if not settings.voice_command_embedding_matching_enabled or not bank:
+#         decision = CommandDecision(
+#             outcome="execute" if fuzzy_id else "none",
+#             command_id=fuzzy_id,
+#             fuzzy_command_id=fuzzy_id,
+#             fuzzy_score=fuzzy_score,
+#             embedding_command_id=None,
+#             embedding_score=None,
+#             agreed=False,
+#         )
+#         _log(transcript, decision)
+#         return decision
+#
+#     embedding_id, embedding_score = _strong_embedding_match(embedding, bank)
+#
+#     if fuzzy_id and embedding_id:
+#         if fuzzy_id == embedding_id:
+#             decision = CommandDecision(
+#                 "execute", fuzzy_id, fuzzy_id, fuzzy_score, embedding_id, embedding_score, True
+#             )
+#         elif fuzzy_score is not None and fuzzy_score >= settings.voice_command_fuzzy_exact_override:
+#             # The words themselves matched almost exactly - trust that
+#             # over a disagreeing embedding rather than asking the
+#             # student to repeat a command they already said clearly.
+#             decision = CommandDecision(
+#                 "execute", fuzzy_id, fuzzy_id, fuzzy_score, embedding_id, embedding_score, False
+#             )
+#         else:
+#             decision = CommandDecision(
+#                 "confirm", None, fuzzy_id, fuzzy_score, embedding_id, embedding_score, False
+#             )
+#     elif fuzzy_id:
+#         decision = CommandDecision(
+#             "execute", fuzzy_id, fuzzy_id, fuzzy_score, embedding_id, embedding_score, False
+#         )
+#     elif embedding_id:
+#         decision = CommandDecision(
+#             "execute", embedding_id, fuzzy_id, fuzzy_score, embedding_id, embedding_score, False
+#         )
+#     else:
+#         decision = _resolve_borderline(
+#             transcript, avg_logprob, embedding, bank, fuzzy_score, embedding_score, language
+#         )
+    #
+    # --- Embedding-only identification -----------------------------------------
+    # No enrollment bank (or embedding matching switched off) means there is
+    # nothing to identify a command from: the result is "none". There is no
+    # text fallback any more.
     if not settings.voice_command_embedding_matching_enabled or not bank:
         decision = CommandDecision(
-            outcome="execute" if fuzzy_id else "none",
-            command_id=fuzzy_id,
-            fuzzy_command_id=fuzzy_id,
-            fuzzy_score=fuzzy_score,
+            outcome="none",
+            command_id=None,
+            fuzzy_command_id=None,
+            fuzzy_score=None,
             embedding_command_id=None,
             embedding_score=None,
             agreed=False,
         )
-        _log(transcript, decision)
-        return decision
+    else:
+        embedding_id, embedding_score = _strong_embedding_match(embedding, bank)
 
-    embedding_id, embedding_score = _strong_embedding_match(embedding, bank)
-
-    if fuzzy_id and embedding_id:
-        if fuzzy_id == embedding_id:
+        if embedding_id:
+            # Strong match (destructive commands already had to clear the
+            # higher destructive threshold inside _strong_embedding_match).
             decision = CommandDecision(
-                "execute", fuzzy_id, fuzzy_id, fuzzy_score, embedding_id, embedding_score, True
-            )
-        elif fuzzy_score is not None and fuzzy_score >= settings.voice_command_fuzzy_exact_override:
-            # The words themselves matched almost exactly - trust that
-            # over a disagreeing embedding rather than asking the
-            # student to repeat a command they already said clearly.
-            decision = CommandDecision(
-                "execute", fuzzy_id, fuzzy_id, fuzzy_score, embedding_id, embedding_score, False
+                "execute", embedding_id, None, None, embedding_id, embedding_score, False
             )
         else:
-            decision = CommandDecision(
-                "confirm", None, fuzzy_id, fuzzy_score, embedding_id, embedding_score, False
+            decision = _resolve_borderline(
+                transcript, avg_logprob, embedding, bank, None, embedding_score, language
             )
-    elif fuzzy_id:
-        decision = CommandDecision(
-            "execute", fuzzy_id, fuzzy_id, fuzzy_score, embedding_id, embedding_score, False
-        )
-    elif embedding_id:
-        decision = CommandDecision(
-            "execute", embedding_id, fuzzy_id, fuzzy_score, embedding_id, embedding_score, False
-        )
-    else:
-        decision = _resolve_borderline(
-            transcript, avg_logprob, embedding, bank, fuzzy_score, embedding_score, language
-        )
 
     _log(transcript, decision)
     return decision
+
+
+# --- Fuzzy + embedding borderline check (DISABLED: kept for reference) -------
+#
+# def _resolve_borderline(
+#     transcript: str,
+#     avg_logprob: float | None,
+#     embedding: np.ndarray | None,
+#     bank: dict[str, list[np.ndarray]],
+#     fuzzy_score: float | None,
+#     embedding_score: float | None,
+#     language: str,
+# ) -> CommandDecision:
+#     """Neither signal was strong enough to execute on its own. Distinguish
+#     "maybe said a command, unsure" (confirm) from "just ordinary
+#     dictation" (none) by checking for a borderline candidate on either
+#     side - without this, the low bar of ordinary fuzzy string matching
+#     would make almost every dictated sentence loosely resemble *some*
+#     command and trigger a confirmation prompt, which would make normal
+#     note-taking unusable.
+#     """
+#
+#     loose_fuzzy = match_command(
+#         transcript,
+#         avg_logprob=avg_logprob,
+#         threshold=settings.voice_command_fuzzy_borderline_floor,
+#         destructive_threshold=settings.voice_command_fuzzy_borderline_floor,
+#         language=language,
+#     )
+#     loose_embedding = (
+#         best_match(embedding, bank, threshold=settings.voice_embedding_borderline_floor)
+#         if embedding is not None and bank
+#         else None
+#     )
+#
+#     if loose_fuzzy is None and loose_embedding is None:
+#         return CommandDecision("none", None, None, fuzzy_score, None, embedding_score, False)
+#
+#     return CommandDecision(
+#         "confirm",
+#         None,
+#         loose_fuzzy.command.id if loose_fuzzy else None,
+#         loose_fuzzy.score if loose_fuzzy else fuzzy_score,
+#         loose_embedding.label if loose_embedding else None,
+#         loose_embedding.score if loose_embedding else embedding_score,
+#         False,
+#     )
 
 
 def _resolve_borderline(
@@ -167,38 +257,28 @@ def _resolve_borderline(
     embedding_score: float | None,
     language: str,
 ) -> CommandDecision:
-    """Neither signal was strong enough to execute on its own. Distinguish
-    "maybe said a command, unsure" (confirm) from "just ordinary
-    dictation" (none) by checking for a borderline candidate on either
-    side - without this, the low bar of ordinary fuzzy string matching
-    would make almost every dictated sentence loosely resemble *some*
-    command and trigger a confirmation prompt, which would make normal
-    note-taking unusable.
+    """The embedding was not strong enough to execute. Distinguish "maybe said
+    a command, unsure" (confirm) from "just ordinary speech" (none) by
+    checking for a borderline embedding candidate. Embeddings only - the
+    transcript is never consulted (the parameters stay for call-compatibility).
     """
 
-    loose_fuzzy = match_command(
-        transcript,
-        avg_logprob=avg_logprob,
-        threshold=settings.voice_command_fuzzy_borderline_floor,
-        destructive_threshold=settings.voice_command_fuzzy_borderline_floor,
-        language=language,
-    )
     loose_embedding = (
         best_match(embedding, bank, threshold=settings.voice_embedding_borderline_floor)
         if embedding is not None and bank
         else None
     )
 
-    if loose_fuzzy is None and loose_embedding is None:
-        return CommandDecision("none", None, None, fuzzy_score, None, embedding_score, False)
+    if loose_embedding is None:
+        return CommandDecision("none", None, None, None, None, embedding_score, False)
 
     return CommandDecision(
         "confirm",
         None,
-        loose_fuzzy.command.id if loose_fuzzy else None,
-        loose_fuzzy.score if loose_fuzzy else fuzzy_score,
-        loose_embedding.label if loose_embedding else None,
-        loose_embedding.score if loose_embedding else embedding_score,
+        None,
+        None,
+        loose_embedding.label,
+        loose_embedding.score,
         False,
     )
 
