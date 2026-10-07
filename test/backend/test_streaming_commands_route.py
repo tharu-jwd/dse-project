@@ -166,7 +166,11 @@ async def test_partial_dictation_never_invokes_embedding_matching(monkeypatch):
         websocket, buffer, state, uuid4(), FakeVad(), FakeTranscriber()
     )
 
-    assert websocket.sent == [{"type": "partial", "text": "අද", "segment": 0}]
+    assert websocket.sent == [
+        {"type": "transcribing", "active": True},
+        {"type": "transcribing", "active": False},
+        {"type": "partial", "text": "අද", "segment": 0},
+    ]
     assert embed_calls == []
 
 
@@ -577,6 +581,16 @@ async def _say(websocket, state, text, transcript_id=None):
     )
 
 
+async def _say_wake(monkeypatch, websocket, state, text="zimi", transcript_id=None):
+    """A clip whose voice fingerprint matches the enrolled wake word. The wake
+    word is detected by embedding only (never from the transcript), so these
+    tests force the embedding check to succeed for just this clip."""
+
+    with monkeypatch.context() as patch:
+        patch.setattr(streaming_route, "_sounds_like_wake", lambda *args, **kwargs: True)
+        await _say(websocket, state, text, transcript_id)
+
+
 def _vec(*values):
     import numpy as np
 
@@ -617,10 +631,10 @@ WINDOW = streaming_route.settings.voice_wake_window_seconds
 
 
 @pytest.mark.asyncio
-async def test_zimi_alone_arms_without_running_anything(clock, storage):
+async def test_zimi_alone_arms_without_running_anything(monkeypatch, clock, storage):
     websocket, state = FakeWebSocket(), _session()
 
-    await _say(websocket, state, "zimi")
+    await _say_wake(monkeypatch, websocket, state)
 
     assert websocket.sent == [{"type": "armed", "seconds": WINDOW}]
     assert state["armed_until"] == pytest.approx(100.0 + WINDOW)
@@ -647,13 +661,12 @@ async def test_command_without_wake_word_stays_dictation_in_note_mode(clock, sto
 
 
 @pytest.mark.asyncio
-async def test_wake_then_command_within_window_executes(clock, storage):
-    """The normal two-clip path, for a student with no recordings at all -
-    the text fallback alone detects "zimi"."""
+async def test_wake_then_command_within_window_executes(monkeypatch, clock, storage):
+    """The normal two-clip path: the wake word is heard by voice embedding."""
 
     websocket, state = FakeWebSocket(), _session()
 
-    await _say(websocket, state, "zimi")
+    await _say_wake(monkeypatch, websocket, state)
     clock["t"] += WINDOW - 0.5
     await _say(websocket, state, _phrase("next"))
 
@@ -662,10 +675,10 @@ async def test_wake_then_command_within_window_executes(clock, storage):
 
 
 @pytest.mark.asyncio
-async def test_wake_window_expires(clock, storage):
+async def test_wake_window_expires(monkeypatch, clock, storage):
     websocket, state = FakeWebSocket(), _session()
 
-    await _say(websocket, state, "zimi")
+    await _say_wake(monkeypatch, websocket, state)
     clock["t"] += WINDOW + 0.5
     await _say(websocket, state, _phrase("next"))
 
@@ -673,10 +686,10 @@ async def test_wake_window_expires(clock, storage):
 
 
 @pytest.mark.asyncio
-async def test_one_wake_word_unlocks_exactly_one_command(clock, storage):
+async def test_one_wake_word_unlocks_exactly_one_command(monkeypatch, clock, storage):
     websocket, state = FakeWebSocket(), _session()
 
-    await _say(websocket, state, "zimi")
+    await _say_wake(monkeypatch, websocket, state)
     await _say(websocket, state, _phrase("next"))
     await _say(websocket, state, _phrase("previous"))
 
@@ -686,12 +699,13 @@ async def test_one_wake_word_unlocks_exactly_one_command(clock, storage):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("wake_spelling", ["zimi", "zini", "සිමි"])
-async def test_wake_and_command_in_one_clip_execute_immediately(clock, storage, wake_spelling):
+async def test_wake_and_command_in_one_clip_execute_immediately(monkeypatch, clock, storage):
+    # Said without a pause, the clip's fingerprint matches the wake word and
+    # the command is read from its words alone.
     websocket, state = FakeWebSocket(), _session(mode="NOTE")
     transcript_id = uuid4()
 
-    await _say(websocket, state, f"{wake_spelling} {_phrase('delete')}", transcript_id)
+    await _say_wake(monkeypatch, websocket, state, _phrase("delete"), transcript_id)
 
     assert storage.deleted == [transcript_id]
     assert storage.persisted == []
@@ -699,21 +713,23 @@ async def test_wake_and_command_in_one_clip_execute_immediately(clock, storage, 
 
 
 @pytest.mark.asyncio
-async def test_wake_clip_is_never_saved_as_note_text(clock, storage):
+async def test_wake_clip_is_never_saved_as_note_text(monkeypatch, clock, storage):
     websocket, state = FakeWebSocket(), _session(mode="NOTE")
 
-    await _say(websocket, state, "zimi")
-    await _say(websocket, state, "zimi ඉදි")  # wake + unrecognisable remainder
+    await _say_wake(monkeypatch, websocket, state)
+    await _say_wake(monkeypatch, websocket, state, "ඉදි")  # wake + unrecognisable remainder
 
     assert storage.persisted == []
     assert [m["type"] for m in websocket.sent] == ["armed", "armed"]
 
 
 @pytest.mark.asyncio
-async def test_non_actionable_command_after_wake_is_not_saved_as_note_text(clock, storage):
+async def test_non_actionable_command_after_wake_is_not_saved_as_note_text(
+    monkeypatch, clock, storage
+):
     websocket, state = FakeWebSocket(), _session(mode="NOTE")
 
-    await _say(websocket, state, f"zimi {_phrase('next')}")
+    await _say_wake(monkeypatch, websocket, state, _phrase("next"))
 
     assert storage.persisted == []
 
@@ -789,3 +805,17 @@ async def test_session_keeps_wake_samples_out_of_the_command_bank(monkeypatch):
 
     assert captured["bank"] == {"next": ["n"]}
     assert captured["wake_bank"] == ["w"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("wake_spelling", ["zimi", "zini", "සිමි"])
+async def test_wake_word_in_the_transcript_alone_never_arms(clock, storage, wake_spelling):
+    """No text / fuzzy fallback: without a matching voice fingerprint, even a
+    perfectly transcribed "zimi" does nothing."""
+
+    websocket, state = FakeWebSocket(), _session()
+
+    await _say(websocket, state, wake_spelling)
+
+    assert websocket.sent == []
+    assert state["armed_until"] is None

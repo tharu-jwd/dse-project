@@ -19,7 +19,7 @@ from app.services.streaming_persistence import (
 from app.services.transcript_service import DuplicateTranscriptTitleError
 from app.streaming.buffer import StreamingBuffer
 from app.streaming.command_resolution import resolve_command, resolve_command_from_audio
-from app.streaming.commands import WAKE_WORD_ID, split_wake_prefix
+from app.streaming.commands import WAKE_WORD_ID
 from app.streaming.embeddings import ClipTooShortError, best_match
 from app.streaming.inference import get_streaming_transcriber
 from app.streaming.vad import get_vad
@@ -540,12 +540,13 @@ async def _resolve_and_dispatch(
         except ClipTooShortError:
             embedding = None
 
-    text_wake, remainder = split_wake_prefix(segment.text)
-    heard_wake = text_wake or _sounds_like_wake(embedding, bank, wake_bank)
+    # The wake word is detected by voice embedding only - no transcript /
+    # fuzzy text matching, since Whisper spells "zimi" inconsistently.
+    heard_wake = _sounds_like_wake(embedding, bank, wake_bank)
 
     if heard_wake:
         state["armed_until"] = time.monotonic() + settings.voice_wake_window_seconds
-        command_text = remainder if text_wake else segment.text
+        command_text = segment.text
         # This clip's fingerprint is the wake word's (or a blend of wake
         # word + command when said without a pause), so a command inside
         # the same clip is matched on its words alone.

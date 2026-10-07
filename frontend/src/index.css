@@ -718,6 +718,28 @@ textarea:focus-visible {
   gap: 12px;
   flex: 0 0 auto;
 }
+.armed-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
+  animation: armed-blink 0.9s ease-in-out infinite;
+}
+@keyframes armed-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .armed-dot {
+    animation: none;
+  }
+}
 .topbar__bell {
   color: var(--teal);
 }

@@ -62,6 +62,8 @@ export default function LiveTranscription({
   const [partial, setPartial] = useState('')
   const [seconds, setSeconds] = useState(0)
   const [voiceDetected, setVoiceDetected] = useState(false)
+  const [armed, setArmed] = useState(false) // wake word heard, waiting for a command
+  const armedTimerRef = useRef(null)
   const [commandFeedback, setCommandFeedback] = useState('')
   const [commandFeedbackTone, setCommandFeedbackTone] = useState('success')
   const [saveState, setSaveState] = useState('idle') // idle | saving | saved | error
@@ -238,7 +240,11 @@ export default function LiveTranscription({
 
     socket.onmessage = (event) => {
       const message = JSON.parse(event.data)
-      if (message.type === 'partial') {
+      if (message.type === 'armed') {
+        window.clearTimeout(armedTimerRef.current)
+        setArmed(true)
+        armedTimerRef.current = window.setTimeout(() => setArmed(false), (message.seconds || 0) * 1000)
+      } else if (message.type === 'partial') {
         setPartial(message.text)
       } else if (message.type === 'final') {
         transcriptIdRef.current = message.transcript_id
@@ -248,6 +254,8 @@ export default function LiveTranscription({
         ])
         setPartial('')
       } else if (message.type === 'command') {
+        window.clearTimeout(armedTimerRef.current)
+        setArmed(false)
         setPartial('')
         if (message.command === 'delete') {
           setFinals((prev) => {
@@ -443,6 +451,14 @@ export default function LiveTranscription({
           {status === 'recording' && (voiceDetected ? t('live.voiceDetected') : t('live.listening'))}
           {(status === 'idle' || status === 'error') && t('live.readyToRecord')}
         </span>
+        {armed && isRecording && (
+          <span
+            className="armed-dot"
+            role="status"
+            aria-label="Wake word heard - say a command"
+            title="Wake word heard - say a command"
+          />
+        )}
         {isRecording && <time className="note-toolbar__time">{time(seconds)}</time>}
       </div>
       {commandFeedback && (
