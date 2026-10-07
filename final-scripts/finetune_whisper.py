@@ -1,7 +1,7 @@
 """Full fine-tune of Whisper-small for Sinhala ASR (every weight unfrozen) on
 the `stratified_v4/` split of the final datasets (speaker-disjoint,
 spacing-normalized text -- see data/stratified_v4/README or the
-Yohan2003/whisper-sl-data dataset card for how it differs from `stratified/`).
+SinhaSpeech/sinhala-asr-data dataset card for how it differs from `stratified/`).
 Meant to run on a GPU pod
 (e.g. RunPod) -- tokenization (audio decode + log-mel feature extraction +
 text tokenization) happens on the fly via `WhisperASRDataset` from
@@ -41,8 +41,7 @@ file's own directory:
           test.parquet             <- used by evaluate_finetuned.py
 
 See README.md for how to get the data into that layout. `stratified_v4/`
-lives on Hugging Face (Yohan2003/whisper-sl-data and
-Yohan2003/whisper-small-sinhala, both under `data/stratified_v4/`), not in
+lives on Hugging Face (SinhaSpeech/sinhala-asr-data, under `data/stratified_v4/`), not in
 the gs://singen/whisper/finalData/stratified/ bucket -- that bucket only has
 the older `stratified/` (v1) split.
 

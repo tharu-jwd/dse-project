@@ -25,7 +25,7 @@ from datasets import load_dataset
 
 from build_soundkey import sound_key, tokenise
 
-DATASET = "Yohan2003/whisper-sl-data"
+DATASET = "SinhaSpeech/sinhala-asr-data"
 # Plain parquet under this path, not a registered builder config -- load it
 # directly via data_files instead of passing a config name.
 SPLITS = {

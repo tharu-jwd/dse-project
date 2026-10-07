@@ -13,7 +13,7 @@ import { useToast } from '../contexts/ToastContext'
 const LANGUAGE_LABELS = { si: 'Sinhala', en: 'English' }
 
 export function SettingsPage() {
-  const { confidenceThreshold, interactionMode, updatePreference } = useAccessibility()
+  const { interactionMode, updatePreference } = useAccessibility()
   const { user } = useAuth()
   const { showToast } = useToast()
   const { language, setLanguage, t } = useLanguage()
@@ -78,31 +78,6 @@ export function SettingsPage() {
       <section className="settings-card">
         <h2>{t('settings.readingPreferences')}</h2>
         <AccessibilityControls />
-      </section>
-      <section className="settings-card">
-        <h2>Transcription confidence</h2>
-        <div className="threshold-setting">
-          <label htmlFor="global-threshold">
-            <span>
-              <strong>Low-confidence threshold</strong>
-              <small>Words below this confidence score will be marked for review.</small>
-            </span>
-            <output>{Math.round(confidenceThreshold * 100)}%</output>
-          </label>
-          <input
-            id="global-threshold"
-            type="range"
-            min="0.5"
-            max="0.95"
-            step="0.05"
-            value={confidenceThreshold}
-            onChange={(e) => updatePreference('confidenceThreshold', Number(e.target.value))}
-          />
-          <div className="threshold-scale">
-            <span>Fewer flags</span>
-            <span>More flags</span>
-          </div>
-        </div>
       </section>
       {user.role === 'STUDENT' && (
         <section className="settings-card">

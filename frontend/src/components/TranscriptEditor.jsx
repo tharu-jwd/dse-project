@@ -27,6 +27,8 @@ function highlightMatches(text, term) {
   )
 }
 
+const CONFIDENCE_THRESHOLD = 0.95
+
 export function ConfidenceText({ segment, threshold, highlightTerm, showConfidence = true }) {
   if (!segment.words?.length) {
     // A confidence of exactly 0 with no per-word data means no score was
@@ -75,7 +77,8 @@ export default function TranscriptEditor({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [confirmFinalize, setConfirmFinalize] = useState(false)
-  const { confidenceThreshold, interactionMode, updatePreference } = useAccessibility()
+  const { interactionMode } = useAccessibility()
+  const confidenceThreshold = CONFIDENCE_THRESHOLD
   const { showToast } = useToast()
   const player = useRef(null)
   const [playbackUrl, setPlaybackURL] = useState('')
@@ -623,34 +626,6 @@ export default function TranscriptEditor({
               >
                 {t('editor.executeReplace')}
               </button>
-            </div>
-          )}
-          {!compact && showConfidence && (
-            <div className="confidence-control">
-              <h3>
-                <Icon name="alert" size={15} /> {t('editor.confidenceThreshold')}
-              </h3>
-              <label htmlFor={`threshold-${transcript.id}`}>
-                <span>
-                  <small>{t('editor.flagWordsBelow', Math.round(confidenceThreshold * 100))}</small>
-                </span>
-                <output>{Math.round(confidenceThreshold * 100)}%</output>
-              </label>
-              <input
-                id={`threshold-${transcript.id}`}
-                type="range"
-                min="0.5"
-                max="0.95"
-                step="0.05"
-                value={confidenceThreshold}
-                onChange={(e) => updatePreference('confidenceThreshold', Number(e.target.value))}
-              />
-              <p>
-                <span className="low-confidence low-confidence--sample">
-                  <span className="confidence-mark">?</span>word
-                </span>{' '}
-                {t('editor.needsReview')}
-              </p>
             </div>
           )}
         </aside>

@@ -20,7 +20,7 @@ import re
 
 from datasets import load_dataset
 
-DATASET = "Yohan2003/whisper-sl-data"
+DATASET = "SinhaSpeech/sinhala-asr-data"
 SPLITS = {
     "train": "data/stratified_v5/train.parquet",
     "validation": "data/stratified_v5/validation.parquet",
