@@ -37,3 +37,7 @@ joblib
 
 pytest
 pytest-asyncio
+
+python-docx
+fpdf2
+uharfbuzz

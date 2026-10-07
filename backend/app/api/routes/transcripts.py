@@ -1,7 +1,8 @@
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import Response
+from urllib.parse import quote
 
 from app.api.dependencies import (
     CurrentUserDependency,
@@ -11,6 +12,12 @@ from app.schemas.transcript import (
     TranscriptListItem,
     TranscriptResponse,
     TranscriptUpdate,
+)
+from app.services.transcript_export_service import (
+    EXPORT_MEDIA_TYPES,
+    render_transcript_docx,
+    render_transcript_pdf,
+    render_transcript_text,
 )
 from app.services.transcript_service import (
     DuplicateTranscriptTitleError,
@@ -25,12 +32,6 @@ from app.services.transcript_service import (
     serialize_transcript_list_item,
     update_owned_transcript,
 )
-
-
-def render_transcript_text(transcript: TranscriptResponse) -> str:
-    lines = [transcript.title, ""]
-    lines.extend(segment.text for segment in transcript.segments)
-    return "\n".join(lines)
 
 
 router = APIRouter(
@@ -125,18 +126,19 @@ def update_transcript(
 
 @router.get(
     "/{transcript_id}/export",
-    response_class=PlainTextResponse,
+    response_class=Response,
 )
 def export_transcript(
     transcript_id: UUID,
     db: SessionDependency,
     current_user: CurrentUserDependency,
     format: str = "txt",
-) -> PlainTextResponse:
-    if format != "txt":
+) -> Response:
+    format = format.lower()
+    if format not in EXPORT_MEDIA_TYPES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only the 'txt' export format is supported.",
+            detail="Supported export formats are 'txt', 'docx' and 'pdf'.",
         )
 
     transcript = get_accessible_transcript(
@@ -153,10 +155,21 @@ def export_transcript(
 
     response = serialize_transcript(transcript)
 
-    return PlainTextResponse(
-        content=render_transcript_text(response),
+    if format == "docx":
+        content: bytes | str = render_transcript_docx(response)
+    elif format == "pdf":
+        content = render_transcript_pdf(response)
+    else:
+        content = render_transcript_text(response)
+
+    return Response(
+        content=content,
+        media_type=EXPORT_MEDIA_TYPES[format],
         headers={
-            "Content-Disposition": f'attachment; filename="{response.title}.txt"',
+            "Content-Disposition": (
+                f"attachment; filename=\"transcript.{format}\"; "
+                f"filename*=UTF-8''{quote(response.title)}.{format}"
+            ),
         },
     )
 

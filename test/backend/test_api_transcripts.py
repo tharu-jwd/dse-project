@@ -190,8 +190,22 @@ def test_owner_can_export_as_txt(client, student, transcript):
     assert "attachment" in response.headers.get("content-disposition", "")
 
 
-def test_export_rejects_an_unsupported_format(client, student, transcript):
+def test_owner_can_export_as_docx(client, student, transcript):
+    response = client.get(f"/transcripts/{transcript}/export?format=docx", headers=student.auth)
+    assert response.status_code == 200
+    assert response.content[:2] == b"PK"
+    assert "wordprocessingml" in response.headers["content-type"]
+
+
+def test_owner_can_export_as_pdf(client, student, transcript):
     response = client.get(f"/transcripts/{transcript}/export?format=pdf", headers=student.auth)
+    assert response.status_code == 200
+    assert response.content.startswith(b"%PDF")
+    assert response.headers["content-type"] == "application/pdf"
+
+
+def test_export_rejects_an_unsupported_format(client, student, transcript):
+    response = client.get(f"/transcripts/{transcript}/export?format=xyz", headers=student.auth)
     assert response.status_code == 400
 
 
