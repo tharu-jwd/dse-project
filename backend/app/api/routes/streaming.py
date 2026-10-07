@@ -112,6 +112,7 @@ async def stream_transcription(websocket: WebSocket) -> None:
         segment_id/transcript_id are the real database ids, included so the
         client can PATCH /transcripts/{transcript_id} to edit this exact
         line without waiting for session_end.)
+      server -> {"type": "transcribing", "active": bool}   (NOTE/EXAM: inference started/ended)
       server -> {"type": "listening"}
         (COMMAND mode only - sent the instant VAD detects speech starting,
         before any transcription, so the client can show feedback with no
@@ -405,7 +406,20 @@ async def _process_window(
             buffer.force_cut()
         return
 
-    result = await transcriber.transcribe(audio)
+    # Tell the client when inference starts and ends so it can show a
+    # "transcribing" indicator - decoding a window takes a noticeable
+    # moment and the speaker otherwise can't tell the server is working.
+    notify_busy = state["mode"] != "COMMAND"
+    if notify_busy:
+        await websocket.send_json({"type": "transcribing", "active": True})
+    try:
+        result = await transcriber.transcribe(audio)
+    finally:
+        if notify_busy:
+            try:
+                await websocket.send_json({"type": "transcribing", "active": False})
+            except _CLIENT_GONE:
+                pass
     text = result.text
 
     is_pause = (

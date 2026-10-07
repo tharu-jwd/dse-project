@@ -62,6 +62,7 @@ export default function LiveTranscription({
   const [partial, setPartial] = useState('')
   const [seconds, setSeconds] = useState(0)
   const [voiceDetected, setVoiceDetected] = useState(false)
+  const [transcribing, setTranscribing] = useState(false)
   const [armed, setArmed] = useState(false) // wake word heard, waiting for a command
   const armedTimerRef = useRef(null)
   const [commandFeedback, setCommandFeedback] = useState('')
@@ -128,6 +129,7 @@ export default function LiveTranscription({
   }
 
   const cleanupAudio = () => {
+    setTranscribing(false)
     processorRef.current?.disconnect()
     processorRef.current = null
     streamRef.current?.getTracks().forEach((track) => track.stop())
@@ -245,6 +247,8 @@ export default function LiveTranscription({
         setArmed(true)
         window.dispatchEvent(new CustomEvent('voice-armed', { detail: { seconds: message.seconds } }))
         armedTimerRef.current = window.setTimeout(() => setArmed(false), (message.seconds || 0) * 1000)
+      } else if (message.type === 'transcribing') {
+        setTranscribing(Boolean(message.active))
       } else if (message.type === 'partial') {
         setPartial(message.text)
       } else if (message.type === 'final') {
@@ -460,6 +464,11 @@ export default function LiveTranscription({
             aria-label="Wake word heard - say a command"
             title="Wake word heard - say a command"
           />
+        )}
+        {transcribing && isRecording && (
+          <span className="note-toolbar__transcribing" role="status">
+            <span className="spinner spinner--small" /> {t('live.transcribing')}
+          </span>
         )}
         {isRecording && <time className="note-toolbar__time">{time(seconds)}</time>}
       </div>

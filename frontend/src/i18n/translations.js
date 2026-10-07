@@ -401,6 +401,7 @@ export const translations = {
   'live.startLive': { en: 'Start live transcription', si: 'සජීවී පිටපත් කිරීම අරඹන්න' },
   'live.connecting': { en: 'Connecting…', si: 'සම්බන්ධ වෙමින්…' },
   'live.finishing': { en: 'Finishing…', si: 'අවසන් කරමින්…' },
+  'live.transcribing': { en: 'Transcribing…', si: 'පිටපත් කරමින්…' },
   'live.voiceDetected': { en: 'Voice detected', si: 'හඬ අනාවරණය විය' },
   'live.pause': { en: 'Pause transcription', si: 'පිටපත් කිරීම විරාම කරන්න' },
   'live.resume': { en: 'Resume transcription', si: 'පිටපත් කිරීම නැවත අරඹන්න' },

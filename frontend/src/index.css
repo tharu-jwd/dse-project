@@ -3791,3 +3791,11 @@ textarea:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+.note-toolbar__transcribing {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--muted, #667085);
+}
