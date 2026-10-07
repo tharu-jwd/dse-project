@@ -31,6 +31,14 @@ async def lifespan(_app: FastAPI):
         get_vad()
         logger.info("Streaming models loaded.")
 
+    # Always preload the English command classifier, regardless of the
+    # streaming / audio-matching settings, so the first command is instant.
+    from app.streaming.audio_command_classifier import _load
+
+    logger.info("Loading English command audio classifier...")
+    _load()
+    logger.info("English command audio classifier loaded.")
+
     yield
 
 
