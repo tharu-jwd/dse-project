@@ -231,7 +231,11 @@ export default function useVoiceCommands({ onCommand, onCommandMaybe } = {}) {
 
     socket.onmessage = (event) => {
       const message = JSON.parse(event.data)
-      if (message.type === 'command') {
+      if (message.type === 'armed') {
+        // Wake word heard: the app shell blinks a green dot for this long.
+        window.dispatchEvent(new CustomEvent('voice-armed', { detail: { seconds: message.seconds } }))
+      } else if (message.type === 'command') {
+        window.dispatchEvent(new CustomEvent('voice-armed', { detail: { seconds: 0 } }))
         onCommandRef.current?.(message.command)
       } else if (message.type === 'command_maybe') {
         onCommandMaybeRef.current?.(message)

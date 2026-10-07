@@ -243,6 +243,7 @@ export default function LiveTranscription({
       if (message.type === 'armed') {
         window.clearTimeout(armedTimerRef.current)
         setArmed(true)
+        window.dispatchEvent(new CustomEvent('voice-armed', { detail: { seconds: message.seconds } }))
         armedTimerRef.current = window.setTimeout(() => setArmed(false), (message.seconds || 0) * 1000)
       } else if (message.type === 'partial') {
         setPartial(message.text)
@@ -256,6 +257,7 @@ export default function LiveTranscription({
       } else if (message.type === 'command') {
         window.clearTimeout(armedTimerRef.current)
         setArmed(false)
+        window.dispatchEvent(new CustomEvent('voice-armed', { detail: { seconds: 0 } }))
         setPartial('')
         if (message.command === 'delete') {
           setFinals((prev) => {

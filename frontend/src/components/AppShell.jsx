@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
@@ -27,6 +27,24 @@ export default function AppShell() {
   const location = useLocation()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [armed, setArmed] = useState(false)
+
+  // Voice sessions announce the wake word ("zimi") with a 'voice-armed'
+  // event carrying the wake window in seconds; 0 means a command used it up.
+  useEffect(() => {
+    let timer
+    const onArmed = (event) => {
+      window.clearTimeout(timer)
+      const seconds = event.detail?.seconds || 0
+      setArmed(seconds > 0)
+      if (seconds > 0) timer = window.setTimeout(() => setArmed(false), seconds * 1000)
+    }
+    window.addEventListener('voice-armed', onArmed)
+    return () => {
+      window.removeEventListener('voice-armed', onArmed)
+      window.clearTimeout(timer)
+    }
+  }, [])
   const nav = user.role === 'TEACHER' ? teacherNav : studentNav
   const signOut = async () => {
     await logout()
@@ -145,6 +163,14 @@ export default function AppShell() {
             />
           </form>
           <div className="topbar__actions">
+            {armed && (
+              <span
+                className="armed-dot"
+                role="status"
+                aria-label="Wake word heard - say a command"
+                title="Wake word heard - say a command"
+              />
+            )}
             <button
               className="icon-button topbar__bell"
               aria-label={t('nav.notifications')}
