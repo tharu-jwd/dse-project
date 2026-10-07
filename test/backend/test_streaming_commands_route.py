@@ -17,7 +17,8 @@ import pytest
 
 from app.api.routes import streaming as streaming_route
 from app.streaming.buffer import StreamingBuffer
-from app.streaming.commands import COMMANDS
+from app.streaming.command_resolution import CommandDecision
+from app.streaming.commands import COMMANDS, match_command
 from app.streaming.inference import TranscriptionResult
 from app.streaming.vad import VadResult
 
@@ -37,6 +38,34 @@ class FakeWebSocket:
 
     async def send_json(self, payload):
         self.sent.append(payload)
+
+
+# Production identifies commands from voice embeddings only (the fuzzy text
+# path in command_resolution.py is commented out). These tests exercise the
+# route's dispatch logic - wake gate, debounce, persistence, note vs command
+# mode - not the identification itself, so by default resolve_command is
+# replaced by a stand-in that "identifies" a command from its phrase, as if
+# the embedding had matched it. Tests that need the real resolve_command opt out.
+_USES_REAL_RESOLVE_COMMAND = {
+    "test_unenrolled_student_gets_no_commands_without_embeddings",
+    "test_voice_closer_to_a_command_than_to_wake_does_not_arm",
+    "test_partial_dictation_never_invokes_embedding_matching",
+}
+
+
+@pytest.fixture(autouse=True)
+def _stand_in_for_embedding_identification(request, monkeypatch):
+    if request.node.name in _USES_REAL_RESOLVE_COMMAND:
+        return
+
+    def identify(transcript, *, avg_logprob=None, embedding=None, bank=None, language="si"):
+        match = match_command(transcript, avg_logprob=avg_logprob, language=language)
+        command_id = match.command.id if match else None
+        return CommandDecision(
+            "execute" if command_id else "none", command_id, None, None, command_id, None, False
+        )
+
+    monkeypatch.setattr(streaming_route, "resolve_command", identify)
 
 
 @pytest.mark.asyncio
@@ -175,19 +204,20 @@ async def test_partial_dictation_never_invokes_embedding_matching(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_unenrolled_student_still_gets_working_fuzzy_commands(monkeypatch):
-    """Embedding matching enabled globally, but this student has no
-    enrollment bank - resolve_command's fallback must still let the
-    fuzzy-only "delete" command execute, and the embedding path (which
-    has nothing to match against) must never even be consulted."""
+async def test_unenrolled_student_gets_no_commands_without_embeddings(monkeypatch):
+    """Commands are identified from embeddings only - a student with no
+    enrollment bank gets no commands, even if the transcript is exactly a
+    command phrase. The utterance stays ordinary dictation."""
 
     monkeypatch.setattr(streaming_route.settings, "voice_command_embedding_matching_enabled", True)
 
-    deleted_for = []
+    persisted = []
     monkeypatch.setattr(
-        streaming_route, "delete_last_segment", lambda transcript_id: deleted_for.append(transcript_id)
+        streaming_route, "delete_last_segment", lambda transcript_id: (_ for _ in ()).throw(
+            AssertionError("an unenrolled student must not be able to delete by voice")
+        )
     )
-    monkeypatch.setattr(streaming_route, "add_final_segment", lambda *args, **kwargs: None)
+    monkeypatch.setattr(streaming_route, "add_final_segment", lambda *args, **kwargs: persisted.append(args))
 
     embed_calls = []
 
@@ -202,15 +232,14 @@ async def test_unenrolled_student_still_gets_working_fuzzy_commands(monkeypatch)
     websocket = FakeWebSocket()
     buffer = StreamingBuffer(max_buffer_seconds=15.0, overlap_seconds=1.0)
     buffer.append(b"\x00\x00" * 1600)
-    transcript_id = uuid4()
     state = {"segment_order": 0, "bank": {}, "mode": "NOTE", "language": "si", "armed_until": ARMED}  # unenrolled
 
     await streaming_route._emit_final(
-        websocket, buffer, state, transcript_id, _phrase("delete"), -0.1, None
+        websocket, buffer, state, uuid4(), _phrase("delete"), -0.1, None
     )
 
-    assert deleted_for == [transcript_id]
-    assert websocket.sent == [{"type": "command", "command": "delete"}]
+    assert len(persisted) == 1
+    assert [m["type"] for m in websocket.sent] == ["final"]
     assert embed_calls == []  # empty bank short-circuits before embed() is ever called
 
 
