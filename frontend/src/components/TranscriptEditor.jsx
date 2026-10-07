@@ -7,6 +7,7 @@ import useVoiceCommands from '../hooks/useVoiceCommands'
 import Icon from './Icon'
 import { Alert, ConfirmDialog, StatusBadge } from './UI'
 import VoiceMeter from './VoiceMeter'
+import ArmedDot from './ArmedDot'
 
 const formatTime = (seconds) =>
   `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`
@@ -341,6 +342,7 @@ export default function TranscriptEditor({
 
   return (
     <div className={`transcript-editor ${compact ? 'transcript-editor--compact' : ''}`}>
+      {compact && <ArmedDot className="armed-dot--tile" />}
       {!compact && (
         <div className="editor-toolbar">
           <div>
@@ -380,6 +382,7 @@ export default function TranscriptEditor({
                 {voice.isListening && (
                   <VoiceMeter registerBar={voice.registerBar} active={voice.voiceDetected} compact />
                 )}
+                <ArmedDot />
               </div>
             )}
             {!compact && (

@@ -2704,7 +2704,14 @@ textarea:focus-visible {
   background: transparent;
   opacity: 0.85;
 }
+.armed-dot--tile {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 2;
+}
 .transcript-editor--compact {
+  position: relative;
   box-shadow: none;
 }
 .transcript-editor--compact .editor-layout {

@@ -10,6 +10,7 @@ import TranscriptionStatus from '../components/TranscriptionStatus'
 import useTranscriptionJob from '../components/useTranscriptionJob'
 import useVoiceCommands from '../hooks/useVoiceCommands'
 import VoiceMeter from '../components/VoiceMeter'
+import ArmedDot from '../components/ArmedDot'
 import { useAccessibility } from '../contexts/AccessibilityContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import {
@@ -425,9 +426,12 @@ export function QuizAnswerPage() {
           </button>
         }
         actions={
-          <span className="question-count">
-            <strong>{completeCount}</strong> / {quiz.questions.length} {t('quiz.answeredCount')}
-          </span>
+          <>
+            <ArmedDot />
+            <span className="question-count">
+              <strong>{completeCount}</strong> / {quiz.questions.length} {t('quiz.answeredCount')}
+            </span>
+          </>
         }
       />
       <ProgressSteps steps={quiz.questions.map((_, index) => `Q${index + 1}`)} current={current} />
@@ -551,6 +555,7 @@ export function QuizAnswerPage() {
                 {voice.isListening && (
                   <VoiceMeter registerBar={voice.registerBar} active={voice.voiceDetected} compact />
                 )}
+                <ArmedDot />
               </div>
             )}
             <button
