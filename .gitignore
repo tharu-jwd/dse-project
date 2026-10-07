@@ -73,3 +73,6 @@ reports/
 /openWake/features/train.npz
 /openWake/features/val.npz
 /openWake/features/test.npz
+
+# Generated demo videos (scripts/demo-videos/record_demos.py)
+demo-videos/
