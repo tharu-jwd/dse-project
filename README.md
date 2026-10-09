@@ -454,7 +454,7 @@ container. See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md),
 | [`docs/COMMAND_MODE.md`](docs/COMMAND_MODE.md) | Voice command mode design |
 | [`docs/voice-enrollment.md`](docs/voice-enrollment.md) | Voice sample enrollment |
 | [`docs/FEATURES.md`](docs/FEATURES.md) | Full feature matrix |
-| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) · [`DEVOPS.md`](DEVOPS.md) | Deployment & ops |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Deployment and ops |
 | [`docs/TESTING_REPORT.md`](docs/TESTING_REPORT.md) | Test plan & results |
 
 ---
