@@ -185,33 +185,36 @@ path with a smaller int8 model.
 
 ```mermaid
 flowchart TB
-    subgraph Presentation
-      FE[React 19 + Vite<br/>student & teacher workflows]
-    end
-    subgraph Application
-      API[FastAPI REST + WebSocket<br/>auth · uploads · transcripts · quizzes]
-      Q[(Job queue<br/>Postgres SKIP LOCKED)]
-      WK[Transcription worker]
-    end
-    subgraph AI
-      HF[Fine-tuned Whisper-small<br/>recorded uploads]
-      CT2[CTranslate2 int8<br/>live + commands]
-      EMB[Whisper-encoder embeddings<br/>voice-command resolution]
-    end
-    subgraph Data
-      DB[(PostgreSQL 17)]
-      FS[/File storage<br/>audio & video/]
+    subgraph L1["Presentation Layer"]
+        direction LR
+        FE["React 19 plus Vite &nbsp;&middot;&nbsp; student and teacher workflows"]
     end
 
-    FE -->|HTTPS REST| API
-    FE -->|WebSocket mic stream| API
-    API --> Q --> WK --> HF
-    API -->|live path| CT2
-    API --> EMB
-    WK --> DB
-    API --> DB
-    API --> FS
-    HF --> DB
+    subgraph L2["Application Layer &mdash; FastAPI"]
+        direction LR
+        REST["REST API &nbsp;&middot;&nbsp; auth, uploads, transcripts, quizzes"]
+        WS["WebSocket &nbsp;&middot;&nbsp; live captions and voice commands"]
+        Q["Job queue &nbsp;&middot;&nbsp; Postgres SKIP LOCKED"]
+        WK["Transcription worker"]
+    end
+
+    subgraph L3["AI Layer &mdash; Whisper"]
+        direction LR
+        HF["Fine-tuned Whisper-small &nbsp;&middot;&nbsp; recorded uploads"]
+        CT2["CTranslate2 int8 &nbsp;&middot;&nbsp; live streaming"]
+        EMB["Whisper-encoder embeddings &nbsp;&middot;&nbsp; voice-command resolution"]
+    end
+
+    subgraph L4["Data Layer"]
+        direction LR
+        DB["PostgreSQL 17"]
+        FS["File storage &nbsp;&middot;&nbsp; audio and video"]
+    end
+
+    L1 --> L2
+    L2 --> L3
+    L3 --> L4
+    L2 --> L4
 ```
 
 Recorded-upload sequence: the browser uploads media + title → API stores the file, creates a media
