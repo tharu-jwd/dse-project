@@ -15,6 +15,7 @@ openai-whisper
 transformers
 torch
 peft
+huggingface_hub[cli]
 
 faster-whisper
 ctranslate2
